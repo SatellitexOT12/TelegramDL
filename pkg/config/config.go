@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -259,31 +260,66 @@ func InitPaths() {
 		// Todo lo que vive en esta carpeta —la sesión de Telegram, las
 		// credenciales, el historial— es privado del usuario. Se creaba en 0755,
 		// es decir legible por cualquier otro usuario de la máquina.
-		secureDataDir()
+		SecureDataDir()
 	})
 }
 
-// secureDataDir cierra los permisos de la carpeta de datos y de los archivos
+// SecureDataDir cierra los permisos de la carpeta de datos y de los archivos
 // sensibles que haya dentro. Se aplica también a instalaciones que ya existían,
 // porque MkdirAll no toca el modo de un directorio ya creado.
+//
+// Además de la lista fija acepta rutas adicionales (extraPaths): la base de
+// datos y sus ficheros -wal/-shm se crean DESPUÉS del arranque, dentro de
+// storage.NewStorage, con los permisos por defecto del sistema (0644 en POSIX),
+// así que quien la acaba de abrir vuelve a llamar aquí pasándoselos (SEC-30).
+// La función es idempotente: solo toca lo que ya existe y siempre con los
+// mismos bits, por eso se puede llamar tantas veces como haga falta, dentro y
+// fuera del sync.Once de InitPaths.
 //
 // En Windows el modo de Go no significa nada —mandan las ACL, y la carpeta del
 // usuario ya está restringida por defecto—, así que allí esto no hace daño ni
 // falta.
-func secureDataDir() {
-	_ = os.Chmod(DataDir, 0o700)
+func SecureDataDir(extraPaths ...string) {
+	if err := os.Chmod(DataDir, 0o700); err != nil {
+		// No es fatal (en Windows el modo no se aplica), pero cerrar la
+		// carpeta de secretos es un objetivo de seguridad: si el chmod falla,
+		// la falla tiene que quedarse registrada y no en silencio.
+		log.Printf("[CONFIG] could not secure data dir mode: %v", err)
+	}
 
-	for _, name := range []string{
+	sensitiveNames := []string{
 		"tg_session.json",
 		"tgdown.sqlite3",
 		"tgdown.sqlite3-wal",
 		"tgdown.sqlite3-shm",
 		"tgdown.db",
 		".env",
-	} {
-		path := filepath.Join(DataDir, name)
-		if _, err := os.Stat(path); err == nil {
-			_ = os.Chmod(path, 0o600)
+		// Los secretos migrados por ArchiveLegacyEnv: al renombrarse, el
+		// archivo conserva el modo que tuviera, así que hay que cerrarlo
+		// explícitamente aunque ya nadie lo llame ".env".
+		".env.migrado",
+	}
+
+	paths := make([]string, 0, len(sensitiveNames)+len(extraPaths))
+	for _, name := range sensitiveNames {
+		paths = append(paths, filepath.Join(DataDir, name))
+	}
+	paths = append(paths, extraPaths...)
+
+	for _, path := range paths {
+		if _, err := os.Stat(path); err != nil {
+			// Lo normal es que aún no exista (p. ej. el -wal se crea con la
+			// primera escritura) y entonces no hay nada que cerrar; cualquier
+			// otro fallo sí se deja constancia.
+			if !os.IsNotExist(err) {
+				log.Printf("[CONFIG] could not inspect %s: %v", filepath.Base(path), err)
+			}
+			continue
+		}
+		if err := os.Chmod(path, 0o600); err != nil {
+			// Ídem: no interrumpe el arranque, pero un permiso que no se pudo
+			// cerrar tiene que poder diagnosticarse después.
+			log.Printf("[CONFIG] could not secure %s mode: %v", filepath.Base(path), err)
 		}
 	}
 }

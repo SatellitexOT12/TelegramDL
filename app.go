@@ -83,6 +83,12 @@ func NewApp(assets fs.FS) *App {
 		}
 	}
 
+	// SEC-30: la base de datos (y sus ficheros -wal/-shm) se acaban de crear
+	// aquí con los permisos por defecto del sistema; se cierran a 0600 justo
+	// después de un NewStorage exitoso. dbPath ya apunta a la BD realmente
+	// usada, incluido el caso de respaldo (tgdown.db).
+	config.SecureDataDir(dbPath, dbPath+"-wal", dbPath+"-shm")
+
 	// 1.b Volcar a la base de datos lo que quedara en el .env de una versión
 	// anterior y fijar desde ahí la dirección de escucha. Tiene que ir antes de
 	// cualquier config.GetServerPort/GetServerHost, porque es de donde esas

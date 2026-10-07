@@ -120,11 +120,14 @@ func (b *Bus) OpenFile(dir string) error {
 		return fmt.Errorf("%s", i18n.T("logbus.emptyLogDir"))
 	}
 	logDir := filepath.Join(dir, logDirName)
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	// SEC-30: el registro lleva nombres de chats y mensajes de error que el
+	// usuario puede exportar, así que ni el directorio (0700) ni el archivo
+	// (0600) deben ser legibles por otros usuarios de la máquina.
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
 		return err
 	}
 	path := filepath.Join(logDir, logFileName)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}
@@ -185,14 +188,17 @@ func (b *Bus) writeFile(line string) {
 	backup := b.filePath + ".1"
 	_ = os.Remove(backup)
 	if err := os.Rename(b.filePath, backup); err != nil {
-		// Si no se pudo rotar, reabrimos en modo truncado para no crecer sin fin.
-		if f, oerr := os.OpenFile(b.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644); oerr == nil {
+		// Si no se pudo rotar, reabrimos en modo truncado para no crecer sin
+		// fin. El modo es 0600 por lo mismo que en OpenFile (SEC-30): el
+		// archivo recién creado no debe quedar legible por otros usuarios.
+		if f, oerr := os.OpenFile(b.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); oerr == nil {
 			b.file = f
 			b.fileSize = 0
 		}
 		return
 	}
-	if f, oerr := os.OpenFile(b.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); oerr == nil {
+	// Mismo 0600 que arriba: el archivo rotado se vuelve a crear desde cero.
+	if f, oerr := os.OpenFile(b.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); oerr == nil {
 		b.file = f
 		b.fileSize = 0
 	}
