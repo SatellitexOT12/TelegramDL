@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -294,7 +295,17 @@ func (e *Engine) notifyState(item storage.DownloadItem) {
 
 	for _, l := range listeners {
 		func(listener DownloadStateListener) {
-			defer func() { _ = recover() }()
+			// SEC-38: el pánico se registra ANTES de suprimirlo. Sin esto, un
+			// listener roto dejaba de recibir estados sin dejar rastro alguno
+			// (regla 5: los errores nunca en silencio). log.Printf está
+			// enganchado al bus con logbus.Attach, así que la traza llega a la
+			// vista de logs; Emit sanea los saltos de línea del stack, así que
+			// no puede falsificar nivel ni categoría.
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[ENGINE] panic in state listener: %v\n%s", r, debug.Stack())
+				}
+			}()
 			listener(item)
 		}(l)
 	}

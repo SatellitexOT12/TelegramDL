@@ -3,6 +3,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -61,8 +62,27 @@ func notifyAlreadyRunning() {
 // doble clic, la aplicación no tiene dónde escribir.
 func showNotice(msg string) {
 	user32 := syscall.NewLazyDLL("user32.dll")
-	text, _ := syscall.UTF16PtrFromString(msg)
-	title, _ := syscall.UTF16PtrFromString("TelegramDL")
+	// SEC-38: UTF16PtrFromString solo falla si la cadena lleva un NUL embebido,
+	// algo que ni el literal del título ni las cadenas i18n pueden contener,
+	// pero el error ya no se descarta en silencio (regla 5). Si el texto
+	// fallara, se registra y se aborta el aviso antes que pasar NULL a
+	// MessageBoxW. La firma sigue sin devolver error a propósito: quien llama
+	// está en mitad de un fallo de arranque y no tiene dónde ir. log.Printf es
+	// seguro aquí: como mucho cae en stderr (posiblemente inexistente en una
+	// app de doble clic) y jamás depende de la ventana que no se ha llegado a
+	// abrir.
+	text, err := syscall.UTF16PtrFromString(msg)
+	if err != nil {
+		log.Printf("[SYS] cannot show startup alert, invalid message text: %v", err)
+		return
+	}
+	// Literal fijo sin NUL: el fallo es imposible, pero se registra igualmente
+	// por la misma regla 5 en lugar de un `_ =` mudo.
+	title, err := syscall.UTF16PtrFromString("TelegramDL")
+	if err != nil {
+		log.Printf("[SYS] cannot convert message box title: %v", err)
+		return
+	}
 	user32.NewProc("MessageBoxW").Call(0,
 		uintptr(unsafe.Pointer(text)),
 		uintptr(unsafe.Pointer(title)),
@@ -76,7 +96,16 @@ func registerConsoleCtrlHandler(sigCh chan os.Signal) {
 		sigCh <- os.Interrupt
 		return 1
 	})
-	_, _, _ = setHandler.Call(cb, 1)
+	// SEC-38: el retorno se comprueba en vez de descartarlo. El manejador es
+	// lo que hace que Ctrl+C cierre la app ordenadamente: si el registro
+	// falla, la única pista es esta línea. r1 == 0 significa fallo. El segundo
+	// dword del retorno (r2) no significa nada en esta API y se ignora a
+	// propósito; el tercer valor solo se muestra dentro del fallo, porque
+	// syscall.Proc.Call construye el error con GetLastError y lo devuelve
+	// también en éxito (como Errno(0)).
+	if r1, _, callErr := setHandler.Call(cb, 1); r1 == 0 {
+		log.Printf("[SYS] SetConsoleCtrlHandler failed: %v", callErr)
+	}
 
 	// Vigilar Stdin solo si de verdad hay una consola detrás.
 	//

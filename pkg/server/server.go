@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -1803,12 +1804,28 @@ func (s *Server) handleStartDownload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// decodeOptionalBody decodifica el cuerpo JSON en los handlers que hasta ahora
+// descartaban el error con `_ =`. SEC-38: el fallo deja de ser silencioso,
+// pero un cuerpo vacío (io.EOF / io.ErrUnexpectedEOF) sigue sin registrarse:
+// en todos estos endpoints el body es opcional o sus campos se validan después
+// y se responde 422/404, así que llenar el log de EOFs por llamadas que van
+// sin cuerpo no aportaría nada. Solo se loguea la clase de error, nunca el
+// cuerpo, porque puede contener datos sensibles. Las respuestas no cambian:
+// quien hace decode ciego ya valida o falla igual que antes.
+func decodeOptionalBody(r *http.Request, dst any, handler string) {
+	err := json.NewDecoder(r.Body).Decode(dst)
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return
+	}
+	log.Printf("[SERVER] %s: invalid request body: %v", handler, err)
+}
+
 func (s *Server) handleCancelDownload(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handleCancelDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -1827,7 +1844,7 @@ func (s *Server) handlePauseDownload(w http.ResponseWriter, r *http.Request) {
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handlePauseDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -1849,7 +1866,7 @@ func (s *Server) handleResumeDownload(w http.ResponseWriter, r *http.Request) {
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handleResumeDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -1886,7 +1903,7 @@ func (s *Server) handleRetryDownload(w http.ResponseWriter, r *http.Request) {
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handleRetryDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -1960,7 +1977,7 @@ func (s *Server) handleDeleteDownload(w http.ResponseWriter, r *http.Request) {
 		ItemID     string `json:"item_id"`
 		DeleteFile *bool  `json:"delete_file"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handleDeleteDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -1998,7 +2015,9 @@ func (s *Server) handleOpenDownload(w http.ResponseWriter, r *http.Request) {
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	// Con el body vacío o ilegible id queda en "", GetItem("") falla y el
+	// handler responde 404: no hay ninguna salida silenciosa.
+	decodeOptionalBody(r, &body, "handleOpenDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -2496,7 +2515,7 @@ func (s *Server) handleListenerDownload(w http.ResponseWriter, r *http.Request) 
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	decodeOptionalBody(r, &body, "handleListenerDownload")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)
@@ -2542,7 +2561,11 @@ func (s *Server) handleListenerDeleteItem(w http.ResponseWriter, r *http.Request
 		ID     string `json:"id"`
 		ItemID string `json:"item_id"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	// SEC-38: único handler de los ocho que NO falla con el body vacío: si id
+	// queda en "" (ni body ni query), se responde 200 sin borrar nada. Se deja
+	// constancia porque es un silencio heredado, pero no se cambia la
+	// respuesta: el cliente de la bandeja del listener depende de ese 200.
+	decodeOptionalBody(r, &body, "handleListenerDeleteItem")
 	id := strings.TrimSpace(body.ID)
 	if id == "" {
 		id = strings.TrimSpace(body.ItemID)

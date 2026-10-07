@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -103,8 +104,19 @@ func (s *Storage) initSchema() error {
 	// journal_mode queda grabado en el propio archivo, así que basta con
 	// fijarlo una vez. foreign_keys y busy_timeout se aplican por conexión y
 	// ya vienen en el DSN de NewStorage.
-	_, _ = s.db.Exec("PRAGMA journal_mode=WAL;")
-	_, _ = s.db.Exec("PRAGMA synchronous=NORMAL;")
+	//
+	// SEC-38: estos dos PRAGMA ya no se descartan en silencio. Si journal_mode
+	// no llega a WAL, cada escritura queda sincronizada con el diario completo
+	// (rendimiento) y una caída puede dejar el archivo incoherente; si falla
+	// synchronous, el riesgo es de corrupción ante cortes de alimentación.
+	// Ninguno de los dos es una operación por arranque esperada que falle, así
+	// que cualquier error se registra con el patrón [STORAGE] del paquete.
+	if _, err := s.db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		log.Printf("[STORAGE] failed to enable WAL journal mode: %v", err)
+	}
+	if _, err := s.db.Exec("PRAGMA synchronous=NORMAL;"); err != nil {
+		log.Printf("[STORAGE] failed to set synchronous mode: %v", err)
+	}
 
 	schema := `
 	CREATE TABLE IF NOT EXISTS app_config (
@@ -153,23 +165,23 @@ func (s *Storage) initSchema() error {
 	}
 
 	// Migraciones defensivas (idénticas a Python)
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN total_bytes INTEGER NOT NULL DEFAULT 0")
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN current_bytes INTEGER NOT NULL DEFAULT 0")
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN error TEXT")
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN sub_folder TEXT")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN total_bytes INTEGER NOT NULL DEFAULT 0")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN current_bytes INTEGER NOT NULL DEFAULT 0")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN error TEXT")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN sub_folder TEXT")
 	// Nombres alternativos para selección manual
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN caption_file_name TEXT")
-	_, _ = s.db.Exec("ALTER TABLE downloads ADD COLUMN original_file_name TEXT")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN caption_file_name TEXT")
+	s.execMigration("ALTER TABLE downloads ADD COLUMN original_file_name TEXT")
 	for _, col := range []string{"f_photos", "f_videos", "f_audios", "f_docs", "f_stickers"} {
-		_, _ = s.db.Exec(fmt.Sprintf("ALTER TABLE listener_chats ADD COLUMN %s INTEGER NOT NULL DEFAULT 1", col))
+		s.execMigration(fmt.Sprintf("ALTER TABLE listener_chats ADD COLUMN %s INTEGER NOT NULL DEFAULT 1", col))
 	}
 	// Carpeta asignada a cada chat vigilado. Las bases de datos que vienen de
 	// una versión anterior no tienen estas columnas.
 	for _, col := range []string{"folder", "topic_folder"} {
-		_, _ = s.db.Exec(fmt.Sprintf("ALTER TABLE listener_chats ADD COLUMN %s TEXT NOT NULL DEFAULT ''", col))
+		s.execMigration(fmt.Sprintf("ALTER TABLE listener_chats ADD COLUMN %s TEXT NOT NULL DEFAULT ''", col))
 	}
 	// Selección de nombres para archivos de la escucha: "manual", "original" o "caption"
-	_, _ = s.db.Exec("ALTER TABLE listener_chats ADD COLUMN name_mode TEXT NOT NULL DEFAULT 'manual'")
+	s.execMigration("ALTER TABLE listener_chats ADD COLUMN name_mode TEXT NOT NULL DEFAULT 'manual'")
 	// Migración: si existe la columna antigua manual_name_selection, convertirla a name_mode
 	cols, err := s.tableColumns("listener_chats")
 	if err == nil {
@@ -183,6 +195,25 @@ func (s *Storage) initSchema() error {
 	}
 
 	return nil
+}
+
+// execMigration aplica una migración defensiva ALTER TABLE. Estas consultas se
+// ejecutan en cada arranque, así que "duplicate column name" es el resultado
+// normal cuando la columna ya existe (BD recién creada o migración ya hecha):
+// ese error se ignora sin registrar para no inundar el log con una línea por
+// columna en cada arranque. Cualquier otro fallo (tabla inexistente, BD
+// bloqueada, corrupción...) sí es inesperado y se deja constancia con el
+// patrón [STORAGE] del paquete. El fichero no tenía ningún patrón previo de
+// "columna ya existe", así que se establece aquí, en un único punto.
+func (s *Storage) execMigration(query string) {
+	_, err := s.db.Exec(query)
+	if err == nil {
+		return
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return
+	}
+	log.Printf("[STORAGE] migration failed (%s): %v", query, err)
 }
 
 // listenerChatsSchema es la definición actual de la tabla de chats vigilados.
@@ -285,8 +316,17 @@ func (s *Storage) GetCredentials() (string, string, error) {
 	defer s.mu.RUnlock()
 
 	var apiID, apiHash string
-	_ = s.db.QueryRow("SELECT value FROM app_config WHERE key = 'api_id' OR key = 'tgdl_api_id' ORDER BY key ASC LIMIT 1").Scan(&apiID)
-	_ = s.db.QueryRow("SELECT value FROM app_config WHERE key = 'api_hash' OR key = 'tgdl_api_hash' ORDER BY key ASC LIMIT 1").Scan(&apiHash)
+	// SEC-38: el error ya no se descarta a ciegas. sql.ErrNoRows es el caso
+	// esperado: el usuario nunca guardó credenciales y la app debe arrancar
+	// igual, así que no se registra (inundaría el log en cada arranque limpio).
+	// El patrón ya existía en el fichero con GetAPIToken. Cualquier otro error
+	// (BD bloqueada, corrupta...) sí es inesperado y se registra.
+	if err := s.db.QueryRow("SELECT value FROM app_config WHERE key = 'api_id' OR key = 'tgdl_api_id' ORDER BY key ASC LIMIT 1").Scan(&apiID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("[STORAGE] failed to read api_id credential: %v", err)
+	}
+	if err := s.db.QueryRow("SELECT value FROM app_config WHERE key = 'api_hash' OR key = 'tgdl_api_hash' ORDER BY key ASC LIMIT 1").Scan(&apiHash); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("[STORAGE] failed to read api_hash credential: %v", err)
+	}
 
 	if apiID == "" || apiHash == "" {
 		// Ya no hay respaldo en ningún .env: lo que hubiera en el archivo se

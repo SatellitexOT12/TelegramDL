@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -279,7 +280,32 @@ func (b *Bus) notify(entry Entry) {
 
 	for _, s := range subs {
 		func(fn Subscriber) {
-			defer func() { _ = recover() }()
+			// SEC-38: el pánico se registra ANTES de suprimirlo (regla 5).
+			//
+			// Canal elegido: NO log.Printf ni Emit/logbus.Error. Los
+			// suscriptores se invocan en la misma goroutine de Emit, sin
+			// candado tomado, y log está enganchado al propio bus
+			// (logbus.Attach → Write → Emit → notify): loguear aquí re-entraría
+			// en notify y volvería a invocar al mismo suscriptor, que si panica
+			// de forma determinista provocaría recursión infinita hasta
+			// desbordar la pila. Tampoco se toma ningún candado nuevo, así que
+			// sobran los caminos que pudieran re-entrar en b.mu/subsMu/fileMu.
+			// fmt.Fprint a os.Stderr es un descriptor directo (sin pasar por
+			// Emit, aunque el bus use stderr como espejo) y writeFile está
+			// documentado como "nunca usa log.Printf": ninguno de los dos puede
+			// volver a entrar en esta tubería. stderr da visibilidad en
+			// terminal y el fichero persiste la traza en tgdown.log aunque la
+			// app vaya sin consola.
+			defer func() {
+				r := recover()
+				if r == nil {
+					return
+				}
+				line := fmt.Sprintf("panic in logbus subscriber: %v\n%s",
+					r, strings.TrimRight(string(debug.Stack()), "\n"))
+				fmt.Fprintln(os.Stderr, line)
+				b.writeFile(line)
+			}()
 			fn(entry)
 		}(s)
 	}
