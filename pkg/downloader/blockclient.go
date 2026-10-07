@@ -222,14 +222,34 @@ func detectFileMigrate(err error) int {
 	return 0
 }
 
+// maxFileMigratesPerRequest es el techo duro de migraciones de DC que se
+// aceptan dentro de una misma petición de bloque. Sin techo, un DC que siga
+// respondiendo FILE_MIGRATE mantiene el bucle en `attempt--` sin avanzar
+// nunca: un ciclo de RPCs a velocidad de red que acaba en FLOOD_WAIT continuo
+// o en el baneo de la cuenta del usuario.
+const maxFileMigratesPerRequest = 2
+
+// Backoff aplicado entre migraciones de DC: base de 500 ms, se duplica en cada
+// migración y se topa en 5 s para no castigar la descarga si Telegram insiste.
+const (
+	migrateBackoffBase = 500 * time.Millisecond
+	migrateBackoffMax  = 5 * time.Second
+)
+
 // UploadGetFile pide un bloque respetando la pausa global y la ranura, y
 // aguanta el FLOOD_WAIT en vez de dejarlo subir. Además, detecta si el archivo
 // reside en otro centro de datos (FILE_MIGRATE) y conmuta la conexión
-// transparentemente al DC adecuado.
+// transparentemente al DC adecuado, acotado por techo de migraciones, anti-ciclo
+// de DCs y backoff creciente.
 func (c blockClient) UploadGetFile(ctx context.Context, request *tg.UploadGetFileRequest) (tg.UploadFileClass, error) {
 	var (
 		resp tg.UploadFileClass
 		err  error
+		// migrations cuenta las migraciones ya hechas en ESTA petición y
+		// visitedDCs recuerda a qué DCs se ha conmutado, para cortar si la
+		// siguiente migración apunta a uno ya visitado (p. ej. DC2→DC3→DC2).
+		migrations  int
+		visitedDCs = make(map[int]bool)
 	)
 
 	for attempt := 0; attempt < maxFloodAttempts; attempt++ {
@@ -249,12 +269,50 @@ func (c blockClient) UploadGetFile(ctx context.Context, request *tg.UploadGetFil
 		}
 
 		if targetDC := detectFileMigrate(err); targetDC > 0 && c.state != nil && c.state.clientMgr != nil {
+			// Techo duro de migraciones por petición: a partir de aquí ya no se
+			// conmuta más y se devuelve el error envuelto para que arriba se vea
+			// el motivo exacto del corte.
+			if migrations >= maxFileMigratesPerRequest {
+				logbus.Warn(logbus.CatDownloads,
+					fmt.Sprintf("FILE_MIGRATE limit reached (%d migrations) while targeting DC %d", migrations, targetDC), "")
+				return nil, fmt.Errorf("FILE_MIGRATE limit reached (%d migrations) targeting DC %d: %w",
+					migrations, targetDC, err)
+			}
+			// Anti-ciclo: si el DC de destino ya se visitó en esta petición,
+			// migrar a él solo alternaría entre dos centros de datos.
+			if visitedDCs[targetDC] {
+				logbus.Warn(logbus.CatDownloads,
+					fmt.Sprintf("FILE_MIGRATE loop detected: DC %d already visited", targetDC), "")
+				return nil, fmt.Errorf("FILE_MIGRATE loop detected: DC %d already visited: %w", targetDC, err)
+			}
 			logbus.Info(logbus.CatDownloads,
 				i18n.T("downloads.migratingDC", targetDC), "")
 			newClient, dcErr := c.state.clientMgr.DownloadClientForDC(ctx, targetDC)
 			if dcErr == nil && newClient != nil {
+				visitedDCs[targetDC] = true
+				migrations++
 				c.setClient(newClient)
-				attempt-- // No penalizar el contador de intentos ante migración de DC
+
+				// Backoff creciente y con techo: 500 ms en la primera migración,
+				// el doble en cada una siguiente, sin pasar nunca de 5 s.
+				backoff := migrateBackoffBase << (migrations - 1)
+				if backoff > migrateBackoffMax {
+					backoff = migrateBackoffMax
+				}
+				// Si el error traería además un FLOOD_WAIT explícito más largo,
+				// se respeta el mayor de los dos. floodWaitDuration ya descarta
+				// lo que supere maxFloodWait, así que ese tope se respeta solo.
+				if wait, isFlood := floodWaitDuration(err); isFlood && wait > backoff {
+					backoff = wait
+				}
+				// La vuelta siguiente espera ctx-aware en waitFloodGate, de
+				// forma que todos los workers se pausan juntos y sin quemar CPU.
+				closeFloodGate(backoff)
+				// Con el techo de migraciones el bucle ya no puede ser infinito
+				// (como mucho maxFloodAttempts + maxFileMigratesPerRequest
+				// vueltas); se resta para que una migración de DC no consuma un
+				// intento de FLOOD_WAIT, que son cosas distintas.
+				attempt--
 				continue
 			}
 			logbus.Warn(logbus.CatDownloads,
