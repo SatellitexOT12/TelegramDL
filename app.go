@@ -204,19 +204,33 @@ func (a *App) startup(ctx context.Context) {
 	})
 }
 
+// shutdown detiene la aplicación en el orden que evita perder estado (SEC-36):
+// primero el motor de descargas, que todavía necesita el cliente de Telegram
+// vivo para persistir su situación y devolver los bloques en vuelo; después el
+// cliente de Telegram; después el servidor HTTP, para que ninguna petición
+// entrante siga tocando la base de datos cuando se cierre; y por último SQLite.
+// Cerrar antes el cliente o la base de datos mientras hay descargas vivas era
+// lo que dejaba estados sin guardar y volcados contra una BD ya cerrada.
 func (a *App) shutdown(ctx context.Context) {
 	logbus.Info(logbus.CatSystem, i18n.T("system.closing"), "")
+	if a.downloader != nil {
+		// Un error aquí (p. ej. context.DeadlineExceeded) significa que
+		// quedaron trabajos o escrituras sin terminar: se registra para que el
+		// cierre incompleto se vea en los registros, nunca en silencio.
+		if err := a.downloader.Shutdown(ctx); err != nil {
+			logbus.Warn(logbus.CatSystem, "engine shutdown incomplete", err.Error())
+		}
+	}
 	if a.clientMgr != nil {
 		a.clientMgr.Stop()
-	}
-	if a.downloader != nil {
-		_ = a.downloader.Shutdown(ctx)
 	}
 	if a.server != nil {
 		a.server.Stop()
 	}
 	if a.storage != nil {
-		_ = a.storage.Close()
+		if err := a.storage.Close(); err != nil {
+			logbus.Error(logbus.CatSystem, "database close failed", err.Error())
+		}
 	}
 	logbus.CloseFile()
 }

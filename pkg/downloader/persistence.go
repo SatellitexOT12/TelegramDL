@@ -25,11 +25,26 @@ func (e *Engine) enqueuePersist(item storage.DownloadItem) {
 	if e.storage == nil {
 		return
 	}
+	// El candado cubre a la vez el flag, el Add y el envío: Shutdown marca
+	// persistClosed y cierra persistCh con ese mismo candado tomado, así que o
+	// este envío entra antes (y el ítem se drena al cerrar) o se encuentra el
+	// flag y se desecha. Un Add hecho bajo candado también garantiza que no
+	// haya Add concurrente con el Wait que hace Shutdown. El envío es no
+	// bloqueante, así que el candado no se retiene esperando sitio.
+	e.mu.Lock()
+	if e.persistClosed {
+		e.mu.Unlock()
+		// Motor apagando: el estado sigue en memoria y ya no interesa
+		// persistirlo. Nunca se envía a un canal cerrado.
+		return
+	}
 	e.persistWG.Add(1)
 	select {
 	case e.persistCh <- item:
+		e.mu.Unlock()
 	default:
 		e.persistWG.Done()
+		e.mu.Unlock()
 		// El estado actual permanece en memoria y el siguiente tick lo
 		// volverá a persistir; nunca frenamos una escritura de Telegram.
 	}
@@ -51,10 +66,21 @@ func (e *Engine) requestChunkFlush(itemID string) {
 	if e.storage == nil {
 		return
 	}
+	// Mismo candado y misma regla que enqueuePersist: el envío y el cierre de
+	// Shutdown son mutuamente excluyentes, así que jamás se envía a un canal
+	// cerrado. El select es no bloqueante, así que el candado no se retiene.
+	e.mu.Lock()
+	if e.persistClosed {
+		e.mu.Unlock()
+		// Motor apagando: los chunks siguen en memoria y ya no se les va a
+		// pedir volcado por esta vía; el proceso va a terminar.
+		return
+	}
 	select {
 	case e.chunkFlushCh <- itemID:
 	default:
 	}
+	e.mu.Unlock()
 }
 
 // persistSeenChunks es la versión síncrona. Se sigue llamando tal cual al

@@ -71,10 +71,12 @@ type Engine struct {
 	lastProgressTimes  map[string]time.Time
 	persistCh          chan storage.DownloadItem
 	chunkFlushCh       chan string
+	persistClosed      bool
 	pendingChunks      map[string][]int64
 	forceDuplicate     map[string]bool
 	jobsWG             sync.WaitGroup
 	persistWG          sync.WaitGroup
+	loopsWG            sync.WaitGroup
 	stopping           bool
 	cancelledForLimit  map[string]bool
 	jobsInFlight       map[string]bool
@@ -129,8 +131,20 @@ func NewEngine(cm *telegram.ClientManager, st *storage.Storage, cfg config.Confi
 	}
 	eng.activeCond = sync.NewCond(&eng.mu)
 	if st != nil {
-		go eng.persistenceLoop()
-		go eng.chunkFlushLoop()
+		// loopsWG lleva la cuenta de los dos bucles de persistencia para que
+		// Shutdown pueda esperar a que terminen tras cerrar sus canales
+		// (SEC-36): sin esta espera, las dos goroutines quedaban en `range`
+		// para siempre y sus escrituras podían solaparse con el cierre de
+		// SQLite que hace el llamador.
+		eng.loopsWG.Add(2)
+		go func() {
+			defer eng.loopsWG.Done()
+			eng.persistenceLoop()
+		}()
+		go func() {
+			defer eng.loopsWG.Done()
+			eng.chunkFlushLoop()
+		}()
 	}
 
 	RegisterFloodNotifier(func() {
@@ -171,6 +185,12 @@ func NewEngine(cm *telegram.ClientManager, st *storage.Storage, cfg config.Confi
 
 // Shutdown conserva las tareas activas como queued y espera a que terminen
 // los trabajos y las escrituras pendientes antes de cerrar SQLite.
+//
+// Además (SEC-36) cierra persistCh y chunkFlushCh y espera a que sus dos
+// bucles terminen antes de devolver: si no se cierran, persistenceLoop y
+// chunkFlushLoop se quedan en `range` para siempre (dos goroutines que jamás
+// salen) y un volcado tardío podría ejecutarse contra SQLite ya cerrado por el
+// llamador.
 func (e *Engine) Shutdown(ctx context.Context) error {
 	e.mu.Lock()
 	e.stopping = true
@@ -186,15 +206,60 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 	}
 	e.mu.Unlock()
 
-	done := make(chan struct{})
+	// Esperar a los trabajos: son los que encolan progreso, y con ellos vivos
+	// no se puede cerrar nada (harían send a un canal cerrado).
+	jobsDone := make(chan struct{})
 	go func() {
 		e.jobsWG.Wait()
-		e.persistWG.Wait()
-		close(done)
+		close(jobsDone)
 	}()
 	select {
-	case <-done:
+	case <-jobsDone:
 	case <-ctx.Done():
+		// Camino de timeout: quedan trabajos vivos que pueden seguir
+		// llamando a enqueuePersist/requestChunkFlush, así que NO se cierran
+		// los canales (sería un "send on closed channel" que tumbaría el
+		// proceso). Los bucles se quedan abiertos hasta que el proceso termine
+		// y aquí queda constancia de que el cierre no llegó a completarse.
+		log.Printf("[ENGINE] shutdown timed out waiting for jobs: %v", ctx.Err())
+		return ctx.Err()
+	}
+
+	// El cierre va bajo el MISMO candado que protegen los envíos de
+	// enqueuePersist/requestChunkFlush: quien llegue primero, o envía con el
+	// canal aún abierto, o se encuentra persistClosed y no envía. Así ningún
+	// send puede llegar a un canal ya cerrado, ni siquiera desde el servidor
+	// HTTP, que sigue atendiendo peticiones hasta server.Stop (posterior a
+	// este Shutdown). Con el flag levantado en esta misma adquisición del
+	// candado, además, todos los persistWG.Add posibles han ocurrido ANTES de
+	// la espera siguiente: no puede haber un Add concurrente con el Wait. El
+	// flag también hace que un segundo Shutdown no vuelva a cerrar los mismos
+	// canales.
+	e.mu.Lock()
+	if !e.persistClosed {
+		e.persistClosed = true
+		close(e.persistCh)
+		close(e.chunkFlushCh)
+	}
+	e.mu.Unlock()
+
+	// Al cerrar, los ítems ya encolados se drenan antes de que el `range`
+	// termine: esperar a que los dos bucles salgan (y con ellos persistWG,
+	// cuyo contador solo puede bajar ya que no entran Adds nuevos) garantiza
+	// que ninguna escritura siga en vuelo cuando el llamador cierre SQLite.
+	loopsDone := make(chan struct{})
+	go func() {
+		e.loopsWG.Wait()
+		e.persistWG.Wait()
+		close(loopsDone)
+	}()
+	select {
+	case <-loopsDone:
+	case <-ctx.Done():
+		// Los canales ya están cerrados y los bucles siguen drenando: no hay
+		// nada más que hacer sin tirar escrituras a medias, así que se avisa
+		// y se devuelve el error para que el llamador lo registre.
+		log.Printf("[ENGINE] shutdown timed out draining persistence loops: %v", ctx.Err())
 		return ctx.Err()
 	}
 
