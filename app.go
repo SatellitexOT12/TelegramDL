@@ -36,6 +36,9 @@ type App struct {
 	listener     *listener.ListenerEngine
 	updater      *updater.AppUpdater
 	server       *server.Server
+	// config es la copia que consume la bandeja del sistema (MinimizeToTray).
+	// El diálogo de carpetas NO la usa: pregunta al servidor con GetConfig()
+	// para no quedarse congelado en el valor de arranque (SEC-40).
 	config       config.Config
 	assets       fs.FS
 	mu           sync.Mutex
@@ -114,7 +117,6 @@ func NewApp(assets fs.FS) *App {
 		downloader: eng,
 		listener:   le,
 		updater:    up,
-		config:     cfg,
 		assets:     assets,
 	}
 
@@ -244,13 +246,27 @@ func (a *App) Handler() http.Handler {
 
 // SelectDirectory abre el diálogo nativo del sistema para seleccionar carpetas
 func (a *App) SelectDirectory() (string, error) {
+	// El caso «ventana no lista» ya queda cubierto aquí: sin contexto de Wails
+	// no hay forma de abrir el diálogo nativo (el folderPicker del servidor
+	// comprueba lo mismo antes de llamarnos).
 	ctx := a.context()
 	if ctx == nil {
 		return "", fmt.Errorf("%s", i18n.T("app.windowNotReady"))
 	}
+	// La fuente de verdad de la configuración es Server.config, que los
+	// handlers de guardado actualizan al vuelo: leerla aquí hace que el
+	// diálogo arranque en la carpeta que el usuario tenga AHORA, no en la de
+	// al abrir la sesión (SEC-40). Sin servidor (o si vino vacía) se cae a la
+	// carpeta por defecto del sistema.
+	defaultDir := config.GetDefaultDownloadFolder()
+	if a.server != nil {
+		if folder := a.server.GetConfig().DownloadFolder; folder != "" {
+			defaultDir = folder
+		}
+	}
 	selected, err := wailsRuntime.OpenDirectoryDialog(ctx, wailsRuntime.OpenDialogOptions{
 		Title:            i18n.T("settings.selectFolderTitle"),
-		DefaultDirectory: a.config.DownloadFolder,
+		DefaultDirectory: defaultDir,
 	})
 	if err != nil {
 		return "", err

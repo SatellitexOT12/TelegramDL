@@ -2727,6 +2727,7 @@ func (s *Server) SetFolderPicker(fn func() (string, error)) {
 	s.folderPicker = fn
 }
 
+
 // SetLanguageChangeHandler registra la función que se ejecuta cuando el idioma cambia en ajustes.
 func (s *Server) SetLanguageChangeHandler(fn func()) {
 	s.mu.Lock()
@@ -2739,6 +2740,18 @@ func (s *Server) SetConfigChangeHandler(fn func(config.Config)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onConfigChange = fn
+}
+
+// GetConfig devuelve una copia por valor de la configuración viva del
+// servidor. Server.config es la única fuente de verdad: la actualizan los
+// handlers de guardado (handleSettings, handleSpeedLimit, handleListenerSettings)
+// bajo candado, así que quien necesite leerla de fuera —por ejemplo el diálogo
+// nativo de carpetas de la app— debe preguntar aquí en lugar de conservar su
+// propia copia, que quedaría congelada en el valor inicial de la sesión.
+func (s *Server) GetConfig() config.Config {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.config
 }
 
 // isLocalRequest indica si la petición viene del propio equipo. Exige las dos
