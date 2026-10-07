@@ -345,7 +345,12 @@ const logoutTelegram = async () => {
     type: 'danger',
     action: async () => {
       try {
-        await api('/api/auth/logout', { method: 'POST' })
+        // Content-Type JSON: si no hay token y no hay sesión, la puerta de
+        // setup exige JSON en las mutaciones (respondaría 415).
+        await api('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
         localStorage.removeItem('tgdl_auth')
         localStorage.removeItem('tgdl_user')
         await fetchAuthStatus()

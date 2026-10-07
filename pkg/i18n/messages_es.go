@@ -67,6 +67,19 @@ var messagesES = map[string]string{
 	"server.chatIdRequiredInPath":   "chat_id requerido en la ruta",
 	"app.windowNotReady":            "La ventana de la aplicación todavía no está lista",
 
+	// Superficie pública y puerta de setup (SEC-01/03/04/09/24)
+	"server.requestMethodNotAllowed": "Método no permitido",
+	"server.requestUnsupportedType":  "Se esperaba Content-Type: application/json",
+	"server.requestForbidden":        "Petición no válida",
+	"server.requestOriginDetail":     "Origen: %s",
+	"server.rateLimitedDetail":       "Espera %d segundos antes de volver a intentarlo.",
+	"server.setupRateLimited":        "Puerta de configuración de Telegram limitada por exceso de intentos sin token",
+	"server.setupWithoutToken":       "Acceso sin token a la puerta de configuración de Telegram",
+	"server.ipcLocalOnly":            "Esta descarga solo se admite desde el propio equipo",
+	"server.ipcRemoteRejected":       "Descarga IPC rechazada: el origen no es este equipo",
+	"server.logoutFailed":            "No se pudo cerrar la sesión de Telegram",
+	"server.logoutFailedDetail":      "No se pudo cerrar la sesión de Telegram: %s",
+
 	// Cliente de Telegram (pkg/telegram y parte de pkg/server)
 	"downloads.migratingDC":             "Migración detectada a DC %d, reconectando al centro de datos adecuado...",
 	"downloads.interruptedUnexpectedly": "Descarga interrumpida inesperadamente",
@@ -223,7 +236,7 @@ var messagesES = map[string]string{
 	"downloader.entryKeptFile":       "Entrada %s eliminada sin borrar %s: el archivo pertenece a otra descarga",
 
 	// Notificaciones por bot de Telegram (pkg/notifier)
-	"notifier.sendError":         "error enviando notificación: %v",
+	"notifier.sendError":          "error enviando notificación: %v",
 	"notifier.testMessage":        "🚀 <b>TelegramDL</b>\n\n✅ <i>¡Notificación de prueba enviada con éxito!</i>\nEl bot está configurado y listo para recibir alertas.",
 	"notifier.queueComplete":      "📊 <b>Resumen de Descargas — TelegramDL</b>\n\n✅ <b>Completados:</b> %d\n❌ <b>Fallidos:</b> %d",
 	"notifier.queueCompleteError": "\n\n⚠️ <b>Elementos / Enlaces fallidos:</b>\n%s",

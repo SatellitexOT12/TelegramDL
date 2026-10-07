@@ -91,9 +91,16 @@ const apiCall = async (url, body) => {
   loading.value = true
   errorMessage.value = ''
   try {
+    // La cabecera propia no es un secreto: obliga al navegador a hacer el
+    // preflight de CORS, que es lo que impide que otra página web dispare este
+    // endpoint (responde sin token) desde el navegador del usuario.
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        'X-TGDL-Request': '1'
+      },
       body: JSON.stringify(body)
     })
 
@@ -207,9 +214,16 @@ const goBack = async () => {
     code.value = ''
     password.value = ''
     try {
+      // La puerta de setup del servidor exige Content-Type JSON en las
+      // mutaciones que van sin token: sin él respondería 415 y el intento de
+      // login quedaría pendiente en el servidor.
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { ...authHeaders() }
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+          'X-TGDL-Request': '1'
+        }
       })
     } catch (e) {
       console.error(e)

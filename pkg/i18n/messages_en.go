@@ -66,6 +66,19 @@ var messagesEN = map[string]string{
 	"server.chatIdRequiredInPath":   "chat_id required in path",
 	"app.windowNotReady":            "Application window is not ready",
 
+	// Public surface and setup gate (SEC-01/03/04/09/24)
+	"server.requestMethodNotAllowed": "Method not allowed",
+	"server.requestUnsupportedType":  "Expected Content-Type: application/json",
+	"server.requestForbidden":        "Invalid request",
+	"server.requestOriginDetail":     "Origin: %s",
+	"server.rateLimitedDetail":       "Wait %d seconds before trying again.",
+	"server.setupRateLimited":        "Telegram setup gate rate-limited: too many attempts without a token",
+	"server.setupWithoutToken":       "Tokenless access to the Telegram setup gate",
+	"server.ipcLocalOnly":            "This download is only accepted from this machine",
+	"server.ipcRemoteRejected":       "IPC download rejected: the origin is not this machine",
+	"server.logoutFailed":            "Could not close the Telegram session",
+	"server.logoutFailedDetail":      "Could not close the Telegram session: %s",
+
 	// Telegram client (pkg/telegram and part of pkg/server)
 	"downloads.migratingDC":             "Detected migration to DC %d, reconnecting to proper data center...",
 	"downloads.interruptedUnexpectedly": "Download interrupted unexpectedly",
@@ -222,7 +235,7 @@ var messagesEN = map[string]string{
 	"downloader.entryKeptFile":       "Entry %s removed without deleting %s: the file belongs to another download",
 
 	// Telegram bot notifications (pkg/notifier)
-	"notifier.sendError":         "error sending notification: %v",
+	"notifier.sendError":          "error sending notification: %v",
 	"notifier.testMessage":        "🚀 <b>TelegramDL</b>\n\n✅ <i>Test notification sent successfully!</i>\nBot is configured and ready to receive alerts.",
 	"notifier.queueComplete":      "📊 <b>Download Summary — TelegramDL</b>\n\n✅ <b>Completed:</b> %d\n❌ <b>Failed:</b> %d",
 	"notifier.queueCompleteError": "\n\n⚠️ <b>Failed items / links:</b>\n%s",

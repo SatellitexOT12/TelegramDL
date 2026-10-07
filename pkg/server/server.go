@@ -69,6 +69,24 @@ type Server struct {
 	// usuario a razón de uno por minuto, día y noche.
 	tokenSendByIP map[string]time.Time
 
+	// haySesion informa si hay una sesión de Telegram guardada en disco. Es
+	// una costura para las pruebas: NewServer lo conecta a
+	// ClientManager.HaySesionGuardada, y un servidor de test puede sustituirlo
+	// para probar la puerta de setup sin una sesión real de Telegram.
+	haySesion func() bool
+
+	// Límites de frecuencia de la puerta de setup (SEC-09): 5 intentos por
+	// minuto y origen y 30 por minuto en total, contados solo en las
+	// mutaciones de /api/auth/ que responden sin token. Los mapas se purgan al
+	// registrar cada intento para no crecer sin límite (mismo criterio que
+	// tokenSendByIP).
+	setupRateByOrigin map[string]rateWindow
+	setupRateGlobal   rateWindow
+
+	// ipcRateByOrigin limita /api/ipc/download sin token a 30 intentos por
+	// minuto y origen (SEC-03). Quien trae token válido no consume cuota.
+	ipcRateByOrigin map[string]rateWindow
+
 	// Apagado del equipo al terminar la cola (interruptor shutdown_when_done).
 	// hadActiveDownloads recuerda que hubo descargas activas o en cola: solo
 	// así una cola vacía significa «terminó» y no «todavía no ha empezado
@@ -135,6 +153,11 @@ func NewServer(
 		stopCh:         make(chan struct{}),
 		broadcastCh:    make(chan struct{}, 1),
 		tokenSendByIP:  make(map[string]time.Time),
+
+		setupRateByOrigin: make(map[string]rateWindow),
+		ipcRateByOrigin:   make(map[string]rateWindow),
+		// Costura para tests: aquí se conecta con la sesión real de Telegram.
+		haySesion: func() bool { return cm != nil && cm.HaySesionGuardada() },
 	}
 
 	s.apiToken = s.loadOrCreateToken()
@@ -174,12 +197,16 @@ const (
 	// token. Solo devuelve un booleano sin revelar información sensible.
 	hasCredentialsAPIPath = "/api/auth/has-credentials"
 
-	// authAPIPrefix agrupa los endpoints de configuración de Telegram que
-	// necesitan ser públicos para permitir la configuración inicial sin token.
-	// Estos endpoints no revelan información sensible, solo permiten configurar
-	// la cuenta de Telegram. El abuso se limita por las protecciones de Telegram
-	// (rate limiting, código de verificación, 2FA).
-	authAPIPrefix = "/api/auth/"
+	// rateWindowDuration es la ventana de las limitaciones de frecuencia de la
+	// puerta de setup y del endpoint IPC: un minuto redondo.
+	rateWindowDuration = time.Minute
+
+	// Intentos admitidos por ventana de frecuencia: la puerta de setup admite
+	// 5 por origen y 30 en total; el IPC de descargas, 30 por origen (SEC-03
+	// y SEC-09).
+	setupMaxPorOrigen = 5
+	setupMaxGlobal    = 30
+	ipcMaxPorOrigen   = 30
 
 	// tokenSendCooldown es lo que hay que esperar entre dos envíos del token.
 	// Al ser un endpoint abierto, es lo que evita que alguien que alcance el
@@ -216,34 +243,242 @@ var publicAPIPaths = map[string]bool{
 	"/api/ipc/download":   true,
 }
 
-// isPublicAPIPath determina si un endpoint puede responder sin token.
-// Los endpoints de configuración de Telegram (/api/auth/credentials, /api/auth/send-code,
-// /api/auth/verify-code, /api/auth/verify-2fa, /api/auth/status, /api/auth/logout)
-// son públicos para permitir la configuración inicial sin token.
-// Los endpoints de token (/api/auth/token, /api/auth/token/regenerate) requieren autenticación.
+// rutasSetup son los endpoints de configuración de Telegram que pueden
+// responder sin token SOLO mientras no haya sesión guardada y cumpliendo
+// las condiciones de setupSinToken.
+var rutasSetup = map[string]bool{
+	"/api/auth/status":      true,
+	"/api/auth/credentials": true,
+	"/api/auth/send-code":   true,
+	"/api/auth/verify-code": true,
+	"/api/auth/verify-2fa":  true,
+	"/api/auth/logout":      true,
+}
+
+// isPublicAPIPath determina si un endpoint puede responder sin token: solo
+// lookup exacto en publicAPIPaths.
+//
+// Antes todo el prefijo /api/auth/ entero era público por strings.HasPrefix
+// (hallazgo SEC-01): logout destructivo en bucle, fuga de PII (teléfono y
+// nombre) y sobrescritura de credenciales sin ningún token. Ahora la única vía
+// sin token para configurar la cuenta es la puerta de setup de handlerDeAPI
+// (ver rutasSetup y setupSinToken), que exige, entre otras cosas, no tener
+// sesión de Telegram guardada.
 func isPublicAPIPath(path string) bool {
-	if publicAPIPaths[path] {
-		return true
+	return publicAPIPaths[path]
+}
+
+// handlerDeAPI decide con qué cadena de middleware se sirve una petición de
+// /api/. El orden de las ramas es el contrato:
+//
+//  1. públicos exactos (publicAPIPaths): responden sin token, igual que antes;
+//  2. quien trae token válido: exactamente el mismo camino de siempre, para
+//     que quien se autentica no vea ninguna regresión;
+//  3. la puerta de setup: los endpoints de rutasSetup sin token, solo cuando
+//     setupSinToken lo permite (sin sesión guardada y con la forma exigida);
+//  4. cualquier otro caso: el 401 estándar de authMiddleware.
+func (s *Server) handlerDeAPI(r *http.Request) http.Handler {
+	if isPublicAPIPath(r.URL.Path) {
+		return s.corsMiddleware(s.mux)
 	}
-	// Permitir endpoints de configuración de autenticación (pero no los de token)
-	if strings.HasPrefix(path, authAPIPrefix) {
-		// Proteger endpoints de token
-		if path == "/api/auth/token" || path == "/api/auth/token/regenerate" {
-			return false
+	if s.checkAuth(r) {
+		return s.corsMiddleware(s.authMiddleware(s.mux))
+	}
+	if rutasSetup[r.URL.Path] {
+		return s.corsMiddleware(s.setupHandler(s.mux))
+	}
+	return s.corsMiddleware(s.authMiddleware(s.mux))
+}
+
+// setupHandler aplica la puerta de setup a una ruta de rutasSetup. Si
+// setupSinToken devuelve codigo 0 es porque hay sesión guardada: sin responder
+// aquí, el paso siguiente resuelve el 401 estándar con authMiddleware.
+func (s *Server) setupHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok, codigo, detalle, retryAfter := s.setupSinToken(r)
+		if ok {
+			next.ServeHTTP(w, r)
+			return
 		}
-		return true
+		if codigo == 0 {
+			s.authMiddleware(next).ServeHTTP(w, r)
+			return
+		}
+		// Se responde exactamente el código y el detalle que indicó la puerta.
+		// El 429 replica el patrón de handleSendTokenToTelegram: cabecera
+		// Retry-After y cuerpo con estado rate_limited.
+		if codigo == http.StatusTooManyRequests {
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+			s.jsonResponse(w, codigo, map[string]any{
+				"status":      "rate_limited",
+				"detail":      detalle,
+				"retry_after": retryAfter,
+			})
+			return
+		}
+		s.errorResponse(w, codigo, detalle)
+	})
+}
+
+// rateWindow cuenta los intentos de una ventana de un minuto. Al cumplirse
+// rateWindowDuration la ventana se reabre desde cero.
+type rateWindow struct {
+	start    time.Time
+	attempts int
+}
+
+// add anota un intento en la ventana. Devuelve false cuando la ventana ya agotó
+// maxAttempts, con los segundos que quedan para que caduque (>= 1).
+func (w *rateWindow) add(now time.Time, maxAttempts int) (bool, int) {
+	if w.start.IsZero() || now.Sub(w.start) >= rateWindowDuration {
+		w.start = now
+		w.attempts = 0
 	}
-	return false
+	if w.attempts >= maxAttempts {
+		falta := rateWindowDuration - now.Sub(w.start)
+		return false, int(falta.Seconds()) + 1
+	}
+	w.attempts++
+	return true, 0
+}
+
+// consumeSetupQuota gasta un intento de la cuota de la puerta de setup para
+// este origen (5/min por origen y 30/min en total). El intento solo llega al
+// contador global si el del origen todavía tenía sitio: así un origen ya
+// limitado no consume la cuota global de los demás.
+//
+// Debe llamarse sin s.mu tomado.
+func (s *Server) consumeSetupQuota(origin string) (bool, int) {
+	ahora := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.setupRateByOrigin == nil {
+		s.setupRateByOrigin = make(map[string]rateWindow)
+	}
+	// Se purgan las ventanas caducadas para que el mapa no crezca sin límite
+	// si alguien insiste desde muchas direcciones.
+	for k, w := range s.setupRateByOrigin {
+		if w.start.IsZero() || ahora.Sub(w.start) >= rateWindowDuration {
+			delete(s.setupRateByOrigin, k)
+		}
+	}
+
+	local := s.setupRateByOrigin[origin]
+	okLocal, retryLocal := local.add(ahora, setupMaxPorOrigen)
+	s.setupRateByOrigin[origin] = local
+	if !okLocal {
+		return false, retryLocal
+	}
+
+	okGlobal, retryGlobal := s.setupRateGlobal.add(ahora, setupMaxGlobal)
+	if !okGlobal {
+		return false, retryGlobal
+	}
+	return true, 0
+}
+
+// consumeIPCQuota gasta un intento de la cuota de /api/ipc/download sin token
+// (30 por minuto y origen). Igual que consumeSetupQuota, purga las ventanas
+// caducadas antes de contar para que el mapa no crezca sin límite.
+//
+// Debe llamarse sin s.mu tomado.
+func (s *Server) consumeIPCQuota(origin string) (bool, int) {
+	ahora := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.ipcRateByOrigin == nil {
+		s.ipcRateByOrigin = make(map[string]rateWindow)
+	}
+	for k, w := range s.ipcRateByOrigin {
+		if w.start.IsZero() || ahora.Sub(w.start) >= rateWindowDuration {
+			delete(s.ipcRateByOrigin, k)
+		}
+	}
+
+	w := s.ipcRateByOrigin[origin]
+	ok, retry := w.add(ahora, ipcMaxPorOrigen)
+	s.ipcRateByOrigin[origin] = w
+	return ok, retry
+}
+
+// haySesionGuardada informa si hay una sesión de Telegram guardada en disco.
+// Es la costura que permite probar la puerta de setup en tests sin una sesión
+// real: NewServer conecta el campo con ClientManager.HaySesionGuardada, y si
+// nadie lo asignó (construcción directa de &Server{}) se responde «sin
+// sesión».
+func (s *Server) haySesionGuardada() bool {
+	if s.haySesion == nil {
+		return false
+	}
+	return s.haySesion()
+}
+
+// setupSinToken decide si una petición sin token puede pasar por la puerta de
+// configuración de /api/auth/. Solo se admite mientras NO exista sesión de
+// Telegram guardada: es el único momento en que configurar la cuenta no
+// expone ni destruye nada ajeno (cierre de SEC-01: logout destructivo, fuga de
+// PII y sobrescritura de credenciales sin token).
+//
+// Con sesión guardada devuelve codigo 0 sin responder, para que el enrutado
+// deje que authMiddleware emita el 401 estándar. Si no se permite el paso,
+// codigo y detalle indican la respuesta exacta (429/405/403/415) y retryAfter
+// los segundos de la cabecera Retry-After (0 fuera del 429).
+func (s *Server) setupSinToken(r *http.Request) (ok bool, codigo int, detalle string, retryAfter int) {
+	esMutacion := r.URL.Path != "/api/auth/status"
+	origin := requestOrigin(r)
+
+	// 1) Con sesión guardada, configuración solo con token: aquí ni se mira
+	// el resto de condiciones, el 401 lo resuelve authMiddleware.
+	if s.haySesionGuardada() {
+		return false, 0, "", 0
+	}
+
+	if esMutacion {
+		// 2) Frecuencia, solo en las mutaciones. /api/auth/status no consume
+		// cuota sin token: sin sesión responde de inmediato el estado
+		// «UNCONFIGURED» sin tocar la red (GetAuthStatus en pkg/telegram), así
+		// que no hay amplificación que limitar.
+		permitido, retry := s.consumeSetupQuota(origin)
+		if !permitido {
+			logbus.Warn(logbus.CatServer,
+				i18n.T("server.setupRateLimited"),
+				i18n.T("server.requestOriginDetail", origin))
+			return false, http.StatusTooManyRequests,
+				i18n.T("server.rateLimitedDetail", retry), retry
+		}
+
+		// 3) Forma de la petición: un método que no sea POST no puede venir
+		// del panel (logout por <img>, SEC-01); sin la cabecera propia el
+		// navegador no hace el preflight de CORS (SEC-04); y un Content-Type
+		// que no sea JSON permite enviar el cuerpo en modo no-cors con
+		// text/plain desde otra página web (SEC-04).
+		if r.Method != http.MethodPost {
+			return false, http.StatusMethodNotAllowed, i18n.T("server.requestMethodNotAllowed"), 0
+		}
+		if r.Header.Get(ownRequestHeader) == "" {
+			return false, http.StatusForbidden, i18n.T("server.requestForbidden"), 0
+		}
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			return false, http.StatusUnsupportedMediaType, i18n.T("server.requestUnsupportedType"), 0
+		}
+	}
+
+	// 4) Todo cuadra: se permite el paso y queda constancia en el registro,
+	// para que cada acceso sin token sea visible en el panel de Logs.
+	logbus.Warn(logbus.CatServer,
+		i18n.T("server.setupWithoutToken"),
+		i18n.T("server.requestOriginDetail", origin))
+	return true, 0, "", 0
 }
 
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			if isPublicAPIPath(r.URL.Path) {
-				s.corsMiddleware(s.mux).ServeHTTP(w, r)
-				return
-			}
-			s.corsMiddleware(s.authMiddleware(s.mux)).ServeHTTP(w, r)
+			s.handlerDeAPI(r).ServeHTTP(w, r)
 			return
 		}
 		// Para cualquier ruta de frontend, devolver 404 para que Wails AssetServer
@@ -255,11 +490,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) WebHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			if isPublicAPIPath(r.URL.Path) {
-				s.corsMiddleware(s.mux).ServeHTTP(w, r)
-				return
-			}
-			s.corsMiddleware(s.authMiddleware(s.mux)).ServeHTTP(w, r)
+			s.handlerDeAPI(r).ServeHTTP(w, r)
 			return
 		}
 		// El panel estático (HTML/JS/CSS) se sirve siempre sin autenticación:
@@ -1237,7 +1468,17 @@ func (s *Server) handleRegenerateToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
-	_ = s.clientMgr.Logout(r.Context())
+	// SEC-24: el error ya no se descarta en silencio. Si Logout falla y aquí
+	// se respondiera 200, el usuario vería «sesión cerrada» con la sesión de
+	// Telegram todavía viva.
+	if err := s.clientMgr.Logout(r.Context()); err != nil {
+		logbus.Error(logbus.CatTelegram, i18n.T("server.logoutFailed"), err.Error())
+		s.jsonResponse(w, http.StatusBadGateway, map[string]string{
+			"status": "error",
+			"detail": i18n.T("server.logoutFailedDetail", err.Error()),
+		})
+		return
+	}
 	logbus.Warn(logbus.CatTelegram, i18n.T("telegram.loggedOut"), "")
 	s.jsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -1726,9 +1967,9 @@ func (s *Server) handleNotificationTest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var body struct {
-		Token   string  `json:"token"`
-		ChatID  int64   `json:"chat_id"`
-		TopicID *int64  `json:"topic_id,omitempty"`
+		Token   string `json:"token"`
+		ChatID  int64  `json:"chat_id"`
+		TopicID *int64 `json:"topic_id,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
@@ -2574,13 +2815,49 @@ func (s *Server) handleExit(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// handleIPCDownload receives download URLs from a secondary instance.
-// This endpoint is public (no auth) because it's called from the command line
-// when the user tries to open a second instance with a URL argument.
+// handleIPCDownload recibe URLs de descarga desde una segunda instancia del
+// programa (línea de comandos). No exige token porque el CLI no lo tiene, pero
+// sí que la petición sea loopback con la cabecera propia (X-TGDL-Request) o
+// que traiga un token válido: así se cierra el encolado ilimitado desde la
+// LAN, un túnel o una página web (SEC-03).
 func (s *Server) handleIPCDownload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
+	}
+
+	// Sin token válido solo pasa el CLI del propio equipo, con la misma forma
+	// que manda main.go. Con token, todo el resto del handler funciona como
+	// siempre.
+	if !s.checkAuth(r) {
+		if !isLocalRequest(r) {
+			logbus.Warn(logbus.CatServer,
+				i18n.T("server.ipcRemoteRejected"),
+				i18n.T("server.requestOriginDetail", requestOrigin(r)))
+			s.errorResponse(w, http.StatusUnauthorized, i18n.T("server.ipcLocalOnly"))
+			return
+		}
+		if r.Header.Get(ownRequestHeader) == "" {
+			s.errorResponse(w, http.StatusForbidden, i18n.T("server.requestForbidden"))
+			return
+		}
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			s.errorResponse(w, http.StatusUnsupportedMediaType, i18n.T("server.requestUnsupportedType"))
+			return
+		}
+		// 30 intentos por minuto y origen: sin esto, repetir la petición
+		// bastaría para llenar la cola sin límite (SEC-03).
+		origin := requestOrigin(r)
+		permitido, retry := s.consumeIPCQuota(origin)
+		if !permitido {
+			w.Header().Set("Retry-After", strconv.Itoa(retry))
+			s.jsonResponse(w, http.StatusTooManyRequests, map[string]any{
+				"status":      "rate_limited",
+				"detail":      i18n.T("server.rateLimitedDetail", retry),
+				"retry_after": retry,
+			})
+			return
+		}
 	}
 
 	var body struct {
