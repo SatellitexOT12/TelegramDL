@@ -52,8 +52,8 @@ func (n *Notifier) sendSync(ctx context.Context, text string) error {
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", n.token)
 
 	payload := map[string]any{
-		"chat_id": n.chatID,
-		"text":    text,
+		"chat_id":    n.chatID,
+		"text":       text,
 		"parse_mode": "HTML",
 	}
 
@@ -69,13 +69,19 @@ func (n *Notifier) sendSync(ctx context.Context, text string) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		// SEC-10: el error de url.Parse arrastra la URL completa (con el
+		// token); el texto final es el que acaba en los logs.
+		return RedactError(fmt.Errorf("failed to create request: %w", err), n.token)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("HTTP request failed: %w", err)
+		// SEC-10: *url.Error incluye la URL con el token y este error se
+		// registra en logbus vía SendMessage; el token solo puede entrar en
+		// un mensaje por la URL (apiURL), así que este y el return anterior
+		// son los dos únicos puntos donde hace falta redactar.
+		return RedactError(fmt.Errorf("HTTP request failed: %w", err), n.token)
 	}
 	defer resp.Body.Close()
 
@@ -84,8 +90,8 @@ func (n *Notifier) sendSync(ctx context.Context, text string) error {
 	}
 
 	var result struct {
-		OK     bool   `json:"ok"`
-		Error  string `json:"description"`
+		OK    bool   `json:"ok"`
+		Error string `json:"description"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
@@ -109,12 +115,15 @@ func (n *Notifier) DetectChat(ctx context.Context) (int64, string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to create request: %w", err)
+		// SEC-10: url.Parse incluye la URL completa (con el token) en el error.
+		return 0, "", RedactError(fmt.Errorf("failed to create request: %w", err), n.token)
 	}
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return 0, "", fmt.Errorf("HTTP request failed: %w", err)
+		// SEC-10: *url.Error arrastra la URL con el token y este error se
+		// devuelve entero al cliente en handleNotificationDetect.
+		return 0, "", RedactError(fmt.Errorf("HTTP request failed: %w", err), n.token)
 	}
 	defer resp.Body.Close()
 
@@ -128,10 +137,10 @@ func (n *Notifier) DetectChat(ctx context.Context) (int64, string, error) {
 			UpdateID int `json:"update_id"`
 			Message  *struct {
 				Chat struct {
-					ID       int64  `json:"id"`
-					Type     string `json:"type"`
-					Username string `json:"username,omitempty"`
-					Title    string `json:"title,omitempty"`
+					ID        int64  `json:"id"`
+					Type      string `json:"type"`
+					Username  string `json:"username,omitempty"`
+					Title     string `json:"title,omitempty"`
 					FirstName string `json:"first_name,omitempty"`
 				} `json:"chat"`
 				Text string `json:"text,omitempty"`
@@ -173,6 +182,37 @@ func (n *Notifier) DetectChat(ctx context.Context) (int64, string, error) {
 	}
 
 	return chat.ID, chatName, nil
+}
+
+// redactedError (SEC-10) conserva el error original en la cadena de Unwrap
+// para que errors.Is/As sigan funcionando, pero expone un mensaje ya
+// redactado. El *url.Error de net/http incluye la URL completa con el token
+// y ese texto renderizado es el que se filtra a logbus, al fichero de logs y
+// a las respuestas HTTP, así que no puede viajar tal cual.
+type redactedError struct {
+	err     error
+	message string
+}
+
+func (e *redactedError) Error() string { return e.message }
+func (e *redactedError) Unwrap() error { return e.err }
+
+// RedactError sustituye el token por «***» en el mensaje que se renderiza del
+// error. No se reutiliza MaskToken porque este conserva fragmentos del token
+// (primeros caracteres del id y últimas cifras del hash) pensando en mostrarlo
+// en pantalla; aquí hace falta suprimirlo entero. Si el token no aparece en
+// el texto se devuelve el error original sin envolver, para no añadir ruido a
+// la cadena de unwrapping.
+func RedactError(err error, token string) error {
+	if err == nil || token == "" {
+		return err
+	}
+	message := err.Error()
+	redacted := strings.ReplaceAll(message, token, "***")
+	if redacted == message {
+		return err
+	}
+	return &redactedError{err: err, message: redacted}
 }
 
 // MaskToken devuelve una versión enmascarada del token para visualización segura.

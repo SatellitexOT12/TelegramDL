@@ -2286,7 +2286,12 @@ func (s *Server) handleNotificationDetect(w http.ResponseWriter, r *http.Request
 	n := notifier.NewNotifier(token, 0, nil)
 	chatID, chatName, err := n.DetectChat(context.Background())
 	if err != nil {
-		s.errorResponse(w, http.StatusBadRequest, err.Error())
+		// SEC-10: DetectChat ya entrega el error con el token redactado
+		// (notifier.RedactError); se vuelve a aplicar aquí con el token en
+		// mano como defensa en profundidad por si el error llega por otro
+		// camino. Si el texto ya está limpio, RedactError devuelve el error
+		// original sin tocarlo.
+		s.errorResponse(w, http.StatusBadRequest, notifier.RedactError(err, token).Error())
 		return
 	}
 
