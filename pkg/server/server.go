@@ -567,8 +567,82 @@ func (s *Server) limiteDeCuerpo(h http.Handler) http.Handler {
 	return http.MaxBytesHandler(h, maxCuerpoAPI)
 }
 
-func (s *Server) Handler() http.Handler {
+// contentSecurityPolicy es la política de seguridad del panel servido por
+// este servidor (SEC-07), directiva a directiva con la razón de cada
+// ampliación. La lista sale del grep sobre dashboard/src e index.html:
+//
+//   - default-src 'self': red de seguridad para todo recurso sin directiva
+//     propia: solo puede salir del propio origen.
+//   - script-src 'self': JavaScript solo del propio origen. Ni
+//     'unsafe-inline' ni 'unsafe-eval' jamás: el grep no encontró eval() ni
+//     new Function en el panel, y el único script inline que había (el IIFE
+//     del tema de index.html) se extrajo a /theme-init.js para que 'self' lo
+//     cubra.
+//   - style-src 'self' 'unsafe-inline' https://fonts.googleapis.com:
+//     'unsafe-inline' lo piden los atributos style que Vue inyecta (bindings
+//     :style y style="..." en App.vue, DownloadsView, ListenerView y
+//     SettingsView) y las llamadas a style.setProperty de theme-init.js sobre
+//     <html>; sin él el panel perdería progresos y colores en pantalla.
+//     fonts.googleapis.com lo pide el @import de src/style.css (línea 1).
+//   - img-src 'self' data: el logo y el favicon son del propio origen y los
+//     fondos decorativos de themes-dl.css y LogsView.vue son SVG en data:;
+//     el panel no pide ninguna imagen externa (no consulta miniaturas de
+//     Telegram por URL).
+//   - font-src 'self' https://fonts.gstatic.com: /fonts/loader.otf (fuentes
+//     propias declaradas en el @font-face de App.vue) y los woff2 que sirve
+//     la hoja de Google Fonts.
+//   - connect-src 'self': todos los fetch() del panel son /api/... del mismo
+//     origen y el WebSocket en modo web es ws(s)://mismo-origen/api/ws. El
+//     fallback ws://127.0.0.1:8000 solo se dispara en la ventana Wails (host
+//     con «wails»), donde esta CSP no llega a aplicarse.
+//   - frame-ancestors 'none': nadie puede enmarcar la pantalla de login
+//     (cierra el clickjacking sobre los botones públicos).
+//   - base-uri 'none': impide reescribir <base> para secuestrar las rutas
+//     relativas de los src.
+//   - object-src 'none': sin plugins, <object> ni <embed>.
+//
+// El panel no usa workers, ni <video>/<audio> por URL externa, ni iframes,
+// así que no hace falta ampliar worker-src, media-src ni frame-src: caen en
+// default-src 'self' (notification.wav es un asset del propio origen).
+const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+
+// securityHeadersMiddleware añade las cabeceras de protección (SEC-07) a
+// todas las respuestas de este servidor. Sin ellas, la pantalla de login era
+// enmarcable (clickjacking), cualquier XSS futuro robaba el token de
+// localStorage y las respuestas de /api/auth/* (PII) se guardaban en la
+// caché del navegador.
+//
+// Alcance: solo el servidor HTTP propio (modo web y acceso remoto). En modo
+// escritorio los assets (index.html, JS y CSS) los sirve el asset server de
+// Wails y estas cabeceras NO se aplican allí: la ventana nativa queda fuera
+// de este middleware; solo pasan por él las rutas /api/ que Wails deriva a
+// nuestro Handler.
+//
+// El middleware solo toca w.Header() y delega sin envolver el
+// ResponseWriter: así el http.Hijacker que necesita el upgrade de /api/ws
+// sigue siendo el mismo objeto de siempre, y gorilla escribe el 101 del
+// handshake a mano después de secuestrar la conexión (las cabeceras del
+// mapa se descartan al secuestrar), con lo que el WebSocket no se rompe ni
+// se duplican cabeceras en la respuesta de cambio de protocolo.
+//
+// Cache-Control: no-store se limita a /api/: ahí viajan PII y token; los
+// assets estáticos siguen cacheándose con normalidad.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) Handler() http.Handler {
+	return securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
@@ -576,11 +650,11 @@ func (s *Server) Handler() http.Handler {
 		// Para cualquier ruta de frontend, devolver 404 para que Wails AssetServer
 		// sirva index.html e inyecte los bindings e IPC nativos.
 		http.NotFound(w, r)
-	})
+	}))
 }
 
 func (s *Server) WebHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
@@ -588,7 +662,7 @@ func (s *Server) WebHandler() http.Handler {
 		// El panel estático (HTML/JS/CSS) se sirve siempre sin autenticación:
 		// la pantalla de login remoto necesita poder cargar antes de tener token.
 		s.mux.ServeHTTP(w, r)
-	})
+	}))
 }
 
 // nuevoHTTPServer monta el http.Server con los límites de red (SEC-02). Se
