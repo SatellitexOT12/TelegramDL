@@ -2028,10 +2028,58 @@ func (s *Server) handleRegenerateToken(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(w, http.StatusOK, map[string]string{"token": newToken})
 }
 
+// handleAuthLogout cierra la sesión de Telegram y, solo si se pide de forma
+// explícita y autenticada, gira el token de acceso (SEC-27): tras «cerrar
+// sesión» en Ajustes, cualquier cliente que aún conservara el token (otro
+// dispositivo, una pestaña olvidada, un atacante que lo hubiera capturado)
+// seguía con acceso completo al panel.
+//
+// El giro SOLO ocurre cuando se cumplen las tres condiciones siguientes:
+//
+// (a) el método es POST y el resto de guardias actuales dejan pasar la
+// petición: la puerta de setup ya exige POST (responde 405 antes, ver
+// setupSinToken) y el camino autenticado ya pasó por authMiddleware. No se
+// añade ningún 405 nuevo: los códigos de respuesta actuales quedan intactos;
+//
+// (b) clientMgr.Logout ha tenido éxito: si la sesión de Telegram no se
+// destruyó, no se gira el token, porque el cierre no se completó y el
+// usuario legítimo se quedaría sin acceso con la sesión todavía viva;
+//
+// (c) el cuerpo trae revoke_token == true Y checkAuth(r) es verdadero: quien
+// pide la revocación debe traer un token válido. Sin token (la puerta de
+// setup también alcanza este handler) el flag se ignora: si no, un atacante
+// sin token podría invalidar el token legítimo (DoS de rotación no
+// autenticada).
+//
+// Por qué un flag opt-in y no girar en todo logout: /api/auth/logout también
+// lo llama AuthWizard para cancelar o retroceder el flujo de login (p. ej.
+// «Atrás» desde 2FA); si se rotase en todo logout, esas cancelaciones
+// matarían el token del cliente web y lo expulsarían a mitad de la
+// configuración.
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
+	// SEC-27: flag revoke_token leído con tolerancia y SOLO en POST (condición
+	// (a)): cuerpo ausente, vacío o malformado → false, sin error, porque las
+	// llamadas antiguas —AuthWizard y demás— van sin cuerpo y deben seguir
+	// comportándose igual que siempre. El techo del cuerpo ya lo pone
+	// limiteDeCuerpo (maxCuerpoAPI) en la cadena de /api/, así que aquí no se
+	// duplica el límite.
+	revokeToken := false
+	if r.Method == http.MethodPost && r.Body != nil {
+		var body struct {
+			RevokeToken bool `json:"revoke_token"`
+		}
+		// Si Decode falla (vacío → io.EOF o JSON malformado) el flag se queda
+		// a false a propósito: el error se conoce y se ignora aquí mismo para
+		// no romper el logout de los llamantes antiguos.
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			revokeToken = body.RevokeToken
+		}
+	}
+
 	// SEC-24: el error ya no se descarta en silencio. Si Logout falla y aquí
 	// se respondiera 200, el usuario vería «sesión cerrada» con la sesión de
-	// Telegram todavía viva.
+	// Telegram todavía viva. Es también la condición (b) del giro: sin sesión
+	// destruida no se rota el token.
 	if err := s.clientMgr.Logout(r.Context()); err != nil {
 		logbus.Error(logbus.CatTelegram, i18n.T("server.logoutFailed"), err.Error())
 		s.jsonResponse(w, http.StatusBadGateway, map[string]string{
@@ -2041,6 +2089,15 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logbus.Warn(logbus.CatTelegram, i18n.T("telegram.loggedOut"), "")
+
+	// Condiciones (b) cumplida (se llegó hasta aquí) y (c): giro solo con flag
+	// explícito y petición autenticada. RegenerateToken (SEC-35) desconecta de
+	// paso todos los WebSocket con 4401 y loguea server.tokenRotated; el token
+	// nuevo NUNCA se incluye en la respuesta (SEC-25).
+	if revokeToken && s.checkAuth(r) {
+		s.RegenerateToken()
+	}
+
 	s.jsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

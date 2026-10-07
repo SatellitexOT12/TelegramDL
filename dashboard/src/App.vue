@@ -347,12 +347,35 @@ const logoutTelegram = async () => {
       try {
         // Content-Type JSON: si no hay token y no hay sesión, la puerta de
         // setup exige JSON en las mutaciones (respondaría 415).
+        // SEC-27: revoke_token pide al servidor girar el token de acceso al
+        // cerrar la sesión, para que nadie que aún lo conserve siga con
+        // acceso al panel. Solo se manda AQUÍ: AuthWizard usa el mismo
+        // endpoint para cancelar o retroceder el flujo de login y ahí el
+        // token no debe girar (y sin token válido el servidor ignora el flag).
         await api('/api/auth/logout', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ revoke_token: true })
         })
         localStorage.removeItem('tgdl_auth')
         localStorage.removeItem('tgdl_user')
+        if (isWailsRuntime()) {
+          // SEC-27: el servidor acaba de girar el token y el binding devuelve
+          // el nuevo; sin refrescarlo, la memoria quedaría con el viejo y la
+          // siguiente petición daría 401.
+          await initToken()
+        } else {
+          // SEC-27: en web el token girado ya no está guardado, así que la
+          // sesión de panel queda cerrada. Réplica mínima del handler del 401
+          // de api(): se limpia el token y se decide la pantalla con las
+          // credenciales/sesión reales de Telegram (tras el logout ya no hay
+          // sesión → AuthWizard, la misma pantalla que vería un token
+          // inválido).
+          clearToken()
+          const hasCreds = await checkTelegramCredentials()
+          needsRemoteLogin.value = hasCreds
+          loadPublicTheme()
+        }
         await fetchAuthStatus()
         showMessage(t('settings.logoutOk'))
       } catch (err) {
