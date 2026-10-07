@@ -590,6 +590,18 @@ func (s *Server) Start(port int) error {
 		}
 	}
 
+	// Aviso de exposición (SEC-05): se comprueba DESPUÉS del fallback para
+	// reflejar la dirección que realmente quedó escuchando. Si no es de
+	// loopback, el panel es alcanzable desde fuera de este equipo y el
+	// tráfico (token, credenciales, contraseña 2FA) viaja en claro.
+	hostEfectivo := host
+	if tcp, ok := listener.Addr().(*net.TCPAddr); ok && tcp.IP != nil {
+		hostEfectivo = tcp.IP.String()
+	}
+	if !config.EsLoopback(hostEfectivo) {
+		logbus.Warn(logbus.CatServer, i18n.T("server.exposedWithoutTLS", hostEfectivo, port), "")
+	}
+
 	// Techo de conexiones simultáneas (SEC-02): por encima de
 	// maxConexionesSimultaneas, Accept espera a que se libere una entrada en
 	// vez de seguir creando goroutines y búferes sin límite.
@@ -655,7 +667,7 @@ func (s *Server) Stop() {
 //     de Vite, que usa otro puerto.
 //
 // Antes esto era una lista fija de nombres (localhost, 127.0.0.1 y el host
-// configurado). Como la dirección de escucha por defecto es 0.0.0.0, desde
+// configurado). Como la dirección de escucha puede ser 0.0.0.0, desde
 // cualquier IP real quedaban fuera los dos: el navegador manda
 // «Origin: http://192.168.1.40:8000», no coincidía con nada, y el WebSocket se
 // rechazaba con un 403. El panel cargaba pero no recibía estado nunca y se

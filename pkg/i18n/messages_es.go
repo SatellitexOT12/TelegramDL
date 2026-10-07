@@ -25,6 +25,7 @@ var messagesES = map[string]string{
 	// Servidor HTTP (pkg/server)
 	"server.listening":              "Servidor escuchando en %s:%d",
 	"server.startError":             "No se pudo iniciar el servidor en el puerto %d",
+	"server.exposedWithoutTLS":      "Panel escuchando en %s (puerto %d) sin cifrar: accesible desde la red. El token protege la API, pero el tráfico viaja en claro. Ver REMOTE_ACCESS.md para restringirlo o usar Tailscale.",
 	"server.saveTokenError":         "error guardando token de API en BD: %v",
 	"server.jsonError":              "error codificando respuesta JSON: %v",
 	"server.saveCredsError":         "error guardando credenciales en BD: %v",

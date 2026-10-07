@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,12 +23,42 @@ const (
 	GithubRepo = "infinityxgame/tgdown"
 
 	// DefaultBindHost es la dirección en la que escucha el panel cuando el
-	// usuario no ha elegido ninguna. 0.0.0.0 atiende todas las interfaces, de
-	// forma que el panel se puede abrir desde el móvil u otro equipo de la red
-	// local. Para limitarlo a este ordenador basta con poner
-	// TGDL_BIND_HOST=127.0.0.1 en el .env.
-	DefaultBindHost = "0.0.0.0"
+	// usuario no ha elegido ninguna. Las instalaciones nuevas escuchan solo
+	// en loopback (127.0.0.1): el panel no queda alcanzable desde otros
+	// equipos salvo que el usuario lo pida explícitamente (por ejemplo con
+	// TGDL_BIND_HOST=0.0.0.0 en el entorno o cambiando bind_host en Ajustes).
+	// Este valor NO se migra a las instalaciones existentes: storage.guardar
+	// no sobrescribe una clave ya escrita y en ellas bind_host ya vale
+	// 0.0.0.0, así que seguirán escuchando en todas las interfaces; por eso,
+	// al arrancar, server.Start avisa con logbus.Warn cuando la dirección
+	// realmente usada no es de loopback (clave server.exposedWithoutTLS).
+	DefaultBindHost = "127.0.0.1"
 )
+
+// EsLoopback indica si una dirección es de loopback y, por tanto, si el panel
+// queda únicamente accesible desde este mismo equipo. Sirve para decidir si el
+// panel es alcanzable desde fuera del equipo: si no es de loopback (0.0.0.0,
+// «::», una IP de red o un nombre no reconocido) el tráfico sale hacia la red
+// sin cifrar y conviene avisarlo. La cadena vacía cuenta como no loopback
+// porque en server.Start significa escuchar en todas las interfaces.
+func EsLoopback(host string) bool {
+	h := strings.TrimSpace(host)
+	if h == "" {
+		return false
+	}
+	// Si trae puerto, nos quedamos solo con la parte del host; si no lo trae
+	// (o el valor es una IPv6 literal como «::1») SplitHostPort falla y se
+	// conserva el valor tal cual.
+	if hSinPuerto, _, err := net.SplitHostPort(h); err == nil {
+		h = strings.TrimSpace(hSinPuerto)
+	}
+	// «localhost» no es una IP, así que ParseIP no lo resolvería nunca.
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
+}
 
 var SpeedMultipliers = map[string]float64{
 	"B":  1.0,

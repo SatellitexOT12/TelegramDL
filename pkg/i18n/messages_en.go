@@ -24,6 +24,7 @@ var messagesEN = map[string]string{
 	// HTTP server (pkg/server)
 	"server.listening":              "Server listening on %s:%d",
 	"server.startError":             "Could not start the server on port %d",
+	"server.exposedWithoutTLS":      "Panel listening on %s (port %d) without encryption: reachable from the network. The token protects the API, but traffic travels in cleartext. See REMOTE_ACCESS.md to restrict it or use Tailscale.",
 	"server.saveTokenError":         "error saving API token to the DB: %v",
 	"server.jsonError":              "error encoding JSON response: %v",
 	"server.saveCredsError":         "error saving credentials to the DB: %v",
