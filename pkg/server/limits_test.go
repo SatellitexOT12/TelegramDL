@@ -106,7 +106,7 @@ func TestLimiteDeCuerpoDeAPI(t *testing.T) {
 	reqG := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8000/api/ipc/download",
 		strings.NewReader(gigante))
 	reqG.Header.Set("Content-Type", "application/json")
-	reqG.Header.Set(cabeceraPeticionPropia, "1")
+	reqG.Header.Set(ownRequestHeader, "1")
 	reqG.RemoteAddr = "127.0.0.1:51010"
 	wG := httptest.NewRecorder()
 	s.Handler().ServeHTTP(wG, reqG)
@@ -126,7 +126,7 @@ func TestLimiteDeCuerpoDeAPI(t *testing.T) {
 	reqP := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8000/api/ipc/download",
 		strings.NewReader(pequeno))
 	reqP.Header.Set("Content-Type", "application/json")
-	reqP.Header.Set(cabeceraPeticionPropia, "1")
+	reqP.Header.Set(ownRequestHeader, "1")
 	reqP.RemoteAddr = "127.0.0.1:51011"
 	wP := httptest.NewRecorder()
 	s.Handler().ServeHTTP(wP, reqP)
