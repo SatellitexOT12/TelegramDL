@@ -13,6 +13,15 @@ export default {
     unauthorized: 'Unauthorized: missing or invalid access token'
   },
 
+  // Techo de cola alcanzado (SEC-21): el backend responde 429 y redacta su
+  // propio `detail` traducido; estas claves dejan el aviso disponible para el
+  // panel cuando quiera titularlo con los segundos de retry_after.
+  server: {
+    queueFull: 'Download queue full',
+    queueFullDetail:
+      'Too many downloads are queued at once. Wait {n} seconds and try again.'
+  },
+
   nav: {
     downloads: 'Downloads',
     listener: 'Listener',

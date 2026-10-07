@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -101,4 +102,175 @@ func TestConcurrencyLimitRequeuesCancelledJob(t *testing.T) {
 		}
 		return true
 	})
+}
+
+// SEC-21: el techo de cola solo cuenta los estados NO terminales. La lógica
+// está extraída a funciones puras (activeQueueSize/queueIsFull) para poder
+// probarla sin crear 1000 descargas reales, que en la práctica serían 1000
+// jobs con sus goroutines dentro del test.
+func TestQueueCeilingCountsOnlyNonTerminalItems(t *testing.T) {
+	downloads := map[string]*storage.DownloadItem{
+		"done":   {ID: "done", Status: "completed"},
+		"failed": {ID: "failed", Status: "failed"},
+		"cancel": {ID: "cancel", Status: "cancelled"},
+		"skip":   {ID: "skip", Status: "skipped"},
+		"dup":    {ID: "dup", Status: "duplicate"},
+		"queue":  {ID: "queue", Status: "queued"},
+		"active": {ID: "active", Status: "downloading"},
+		"pause":  {ID: "pause", Status: "paused"},
+		"pend":   {ID: "pend", Status: "pending"},
+	}
+
+	// Cuatro no terminales: queued, downloading, paused y pending.
+	if got := activeQueueSize(downloads); got != 4 {
+		t.Fatalf("activeQueueSize = %d, want 4 (solo estados no terminales)", got)
+	}
+	if queueIsFull(activeQueueSize(downloads)) {
+		t.Error("4 tareas activas no deben dar la cola por llena")
+	}
+}
+
+// SEC-21: el techo se decide con >= exactamente en maxQueuedDownloads.
+func TestQueueIsFullAtCeiling(t *testing.T) {
+	if queueIsFull(maxQueuedDownloads - 1) {
+		t.Errorf("con %d tareas la cola no debe estar llena", maxQueuedDownloads-1)
+	}
+	if !queueIsFull(maxQueuedDownloads) {
+		t.Errorf("con %d tareas la cola debe estar llena", maxQueuedDownloads)
+	}
+}
+
+// SEC-21: con la cola llena, QueueItem rechaza sin insertar nada, sin dejar
+// basura en los mapas de control y sin lanzar job. La cola se rellena pintando
+// e.downloads directamente: encolar 1000 tareas de verdad crearía 1000 jobs y
+// 1000 goroutines reales, que es justo lo que el techo pretende evitar.
+func TestQueueItemRejectedWhenQueueFull(t *testing.T) {
+	cm := telegram.NewClientManager()
+	// Cliente con forma válida que nunca conecta: si el techo fallara y se
+	// encolara, el job se quedaría bloqueado en WaitReady hasta el cleanup.
+	if err := cm.InitClient("1234567", "0123456789abcdef0123456789abcdef"); err != nil {
+		t.Fatalf("InitClient: %v", err)
+	}
+	t.Cleanup(cm.Stop)
+
+	cfg := config.DefaultConfig()
+	cfg.DownloadFolder = t.TempDir()
+	eng := NewEngine(cm, nil, cfg)
+
+	eng.mu.Lock()
+	for i := 0; i < maxQueuedDownloads; i++ {
+		id := fmt.Sprintf("fill-%d", i)
+		eng.downloads[id] = &storage.DownloadItem{
+			ID:        id,
+			ChatID:    1,
+			MessageID: int64(i),
+			Status:    "queued",
+		}
+	}
+	eng.mu.Unlock()
+
+	got := eng.QueueItem(storage.DownloadItem{
+		ID:        "rejected",
+		ChatID:    2,
+		MessageID: 1,
+		FileName:  "rechazado.bin",
+	})
+	if got != "" {
+		t.Fatalf("con la cola llena QueueItem debe devolver \"\", got %q", got)
+	}
+	if _, ok := eng.GetItem("rejected"); ok {
+		t.Error("el ítem rechazado no debe insertarse en el historial")
+	}
+
+	eng.mu.RLock()
+	defer eng.mu.RUnlock()
+	if len(eng.downloads) != maxQueuedDownloads {
+		t.Errorf("e.downloads = %d, want %d (el rechazo no cambia el tamaño)",
+			len(eng.downloads), maxQueuedDownloads)
+	}
+	if len(eng.chatMsgMap) != 0 {
+		t.Errorf("chatMsgMap = %d entradas, want 0 (sin basura tras el rechazo)", len(eng.chatMsgMap))
+	}
+	if len(eng.queuedIDs) != 0 {
+		t.Errorf("queuedIDs = %d entradas, want 0 (sin basura tras el rechazo)", len(eng.queuedIDs))
+	}
+	if eng.jobsInFlight["rejected"] {
+		t.Error("no debe lanzarse job para un ítem rechazado")
+	}
+}
+
+// SEC-21: el techo de historial purga el ítem terminal MÁS ANTIGUO al encolar
+// con el historial lleno, sin tocar los activos ni los demás terminales, y
+// dejando el mapa de índice limpio.
+func TestHistoryCeilingPurgesOldestTerminalItems(t *testing.T) {
+	cm := telegram.NewClientManager()
+	if err := cm.InitClient("1234567", "0123456789abcdef0123456789abcdef"); err != nil {
+		t.Fatalf("InitClient: %v", err)
+	}
+	t.Cleanup(cm.Stop)
+
+	cfg := config.DefaultConfig()
+	cfg.DownloadFolder = t.TempDir()
+	eng := NewEngine(cm, nil, cfg)
+	t.Cleanup(func() { eng.CancelAll() })
+
+	// Historial lleno: los terminales más antiguos con CreatedAt creciente y
+	// dos activos que la purga jamás debe tocar.
+	const active = 2
+	eng.mu.Lock()
+	for i := 0; i < maxHistoryItems-active; i++ {
+		id := fmt.Sprintf("term-%d", i)
+		eng.downloads[id] = &storage.DownloadItem{
+			ID:        id,
+			ChatID:    1,
+			MessageID: int64(i),
+			Status:    "completed",
+			CreatedAt: float64(i),
+		}
+		eng.chatMsgMap[fmt.Sprintf("1:%d", i)] = id
+	}
+	for i := 0; i < active; i++ {
+		id := fmt.Sprintf("active-%d", i)
+		eng.downloads[id] = &storage.DownloadItem{
+			ID:        id,
+			ChatID:    1,
+			MessageID: int64(10000 + i),
+			Status:    "paused",
+			CreatedAt: float64(10000 + i),
+		}
+		eng.chatMsgMap[fmt.Sprintf("1:%d", 10000+i)] = id
+	}
+	eng.mu.Unlock()
+
+	if got := len(eng.GetDownloads()); got != maxHistoryItems {
+		t.Fatalf("preparación: historial = %d, want %d", got, maxHistoryItems)
+	}
+
+	// Al encolar, makeHistoryRoom debe purgar el más antiguo para dejar sitio.
+	eng.QueueItem(storage.DownloadItem{ID: "new-item", ChatID: 9, MessageID: 1, FileName: "nueva.bin"})
+
+	if _, ok := eng.GetItem("term-0"); ok {
+		t.Error("el ítem terminal más antiguo (term-0) debe purgarse")
+	}
+	if _, ok := eng.GetItem("term-1"); !ok {
+		t.Error("solo debe purgarse el más antiguo: term-1 debe seguir en el historial")
+	}
+	for i := 0; i < active; i++ {
+		if _, ok := eng.GetItem(fmt.Sprintf("active-%d", i)); !ok {
+			t.Errorf("active-%d está activo y no debe purgarse", i)
+		}
+	}
+	if _, ok := eng.GetItem("new-item"); !ok {
+		t.Error("la tarea recién encolada debe estar en el historial")
+	}
+
+	eng.mu.RLock()
+	defer eng.mu.RUnlock()
+	if len(eng.downloads) != maxHistoryItems {
+		t.Errorf("e.downloads = %d, want %d (techo de historial respetado)",
+			len(eng.downloads), maxHistoryItems)
+	}
+	if _, ok := eng.chatMsgMap["1:0"]; ok {
+		t.Error("chatMsgMap debe quedar sin la entrada del ítem purgado")
+	}
 }

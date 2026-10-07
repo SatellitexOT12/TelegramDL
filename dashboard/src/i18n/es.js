@@ -14,6 +14,15 @@ export default {
     unauthorized: 'No autorizado: token de acceso inválido o ausente'
   },
 
+  // Techo de cola alcanzado (SEC-21): el backend responde 429 y redacta su
+  // propio `detail` traducido; estas claves dejan el aviso disponible para el
+  // panel cuando quiera titularlo con el número de segundos de retry_after.
+  server: {
+    queueFull: 'Cola de descargas llena',
+    queueFullDetail:
+      'Hay demasiadas descargas en cola a la vez. Espera {n} segundos y vuelve a intentarlo.'
+  },
+
   nav: {
     downloads: 'Descargas',
     listener: 'Escucha',

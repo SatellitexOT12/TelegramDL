@@ -1696,7 +1696,31 @@ func (s *Server) handleGetDownloads(w http.ResponseWriter, _ *http.Request) {
 	s.jsonResponse(w, http.StatusOK, s.downloader.GetDownloads())
 }
 
+// ErrQueueFull marca el rechazo de EnqueueURL cuando la cola de descargas ya
+// está en su techo (SEC-21). Los handlers HTTP lo detectan con errors.Is para
+// responder 429 con Retry-After en vez del 400 genérico.
+var ErrQueueFull = errors.New("download queue is full")
+
+// retryAfterQueueFull son los segundos de la cabecera Retry-After cuando la
+// cola está llena. Un minuto da tiempo a que la cola avance de verdad; un valor
+// mucho menor invitaría a reintentos casi inmediatos que la volverían a llenar
+// al instante.
+const retryAfterQueueFull = 60
+
+// respondQueueFull responde 429 a una cola llena con el mismo cuerpo que el
+// 429 de cuota IPC: status "rate_limited", detalle traducido y retry_after.
+func (s *Server) respondQueueFull(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", strconv.Itoa(retryAfterQueueFull))
+	s.jsonResponse(w, http.StatusTooManyRequests, map[string]any{
+		"status":      "rate_limited",
+		"detail":      i18n.T("server.rateLimitedDetail", retryAfterQueueFull),
+		"retry_after": retryAfterQueueFull,
+	})
+}
+
 // EnqueueURL procesa una URL de Telegram y añade los elementos correspondientes a la cola.
+// Si la cola está en su techo, corta el rango y devuelve un error que envuelve
+// ErrQueueFull: las tareas ya encoladas se quedan encoladas (SEC-21).
 func (s *Server) EnqueueURL(ctx context.Context, rawURL string) error {
 	clean := strings.TrimSpace(rawURL)
 	if clean == "" {
@@ -1731,7 +1755,14 @@ func (s *Server) EnqueueURL(ctx context.Context, rawURL string) error {
 			Source:    "manual",
 			FileName:  fmt.Sprintf("mensaje_%d", msgID),
 		}
-		s.downloader.QueueItem(item)
+		// "" = rechazado por techo de cola (SEC-21). Se corta el rango aquí:
+		// el caller decide la respuesta HTTP. El broadcast va antes de salir
+		// para que las tareas que sí entraron se vean en el panel sin esperar
+		// al siguiente polling.
+		if s.downloader.QueueItem(item) == "" {
+			s.broadcastState()
+			return fmt.Errorf("queue is full while enqueueing %s: %w", clean, ErrQueueFull)
+		}
 	}
 	s.broadcastState()
 
@@ -1749,6 +1780,12 @@ func (s *Server) handleStartDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.EnqueueURL(r.Context(), body.URL); err != nil {
+		// SEC-21: cola llena → 429 con Retry-After; cualquier otro error sigue
+		// respondiendo 400 como hasta ahora.
+		if errors.Is(err, ErrQueueFull) {
+			s.respondQueueFull(w)
+			return
+		}
 		s.errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -3077,6 +3114,12 @@ func (s *Server) handleIPCDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.EnqueueURL(r.Context(), body.URL); err != nil {
+		// SEC-21: la cola llena también se responde aquí con 429 + Retry-After;
+		// el resto de errores sigue con el 400 de siempre.
+		if errors.Is(err, ErrQueueFull) {
+			s.respondQueueFull(w)
+			return
+		}
 		s.errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -18,6 +18,42 @@ import (
 	"tgdown/pkg/storage"
 )
 
+// maxQueuedDownloads es el techo de cola: cuántas tareas pueden estar a la vez
+// en un estado NO terminal (queued, downloading, paused, pending...). Sin
+// techo, una ráfaga de encolados (un rango muy largo, un cliente reintentando)
+// crecía e.downloads y dejaba una goroutine de turno esperando por ítem en
+// launchDownloadJob, sin límite de memoria ni de goroutines (SEC-21).
+const maxQueuedDownloads = 1000
+
+// isTerminalStatus indica que la tarea ya no ocupa hueco en la cola: solo los
+// estados no terminales cuentan contra maxQueuedDownloads.
+func isTerminalStatus(status string) bool {
+	switch status {
+	case "completed", "failed", "cancelled", "skipped", "duplicate":
+		return true
+	default:
+		return false
+	}
+}
+
+// activeQueueSize cuenta los ítems NO terminales del mapa de descargas.
+func activeQueueSize(downloads map[string]*storage.DownloadItem) int {
+	active := 0
+	for _, item := range downloads {
+		if !isTerminalStatus(item.Status) {
+			active++
+		}
+	}
+	return active
+}
+
+// queueIsFull decide si ya no cabe ninguna tarea más en la cola. Se extrae como
+// función pura para poder probar el techo sin crear 1000 descargas reales,
+// que en la práctica serían 1000 jobs con sus goroutines dentro del test.
+func queueIsFull(active int) bool {
+	return active >= maxQueuedDownloads
+}
+
 func (e *Engine) enforceConcurrencyLimit() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -53,7 +89,17 @@ func (e *Engine) enforceConcurrencyLimit() {
 	}
 }
 
+// QueueItem encola una descarga y arranca su job. Devuelve el ID de la tarea:
+// el de la existente cuando se trata de un duplicado, o "" cuando la cola está
+// en su techo (maxQueuedDownloads) y la nueva se rechaza sin insertar nada ni
+// lanzar job (SEC-21). Los llamadores que necesiten distinguir el rechazo
+// deben comprobar el "".
 func (e *Engine) QueueItem(item storage.DownloadItem) string {
+	// SEC-21: hacer sitio en el historial por si está en su techo. Va ANTES de
+	// tomar el candado porque la purga internamente delega en DeleteDownload,
+	// que también lo toma: llamarlo con e.mu tomado secuestraría el motor.
+	e.makeHistoryRoom()
+
 	e.mu.Lock()
 	if item.ID == "" {
 		item.ID = config.NewID()
@@ -75,6 +121,19 @@ func (e *Engine) QueueItem(item storage.DownloadItem) string {
 				return existing.ID
 			}
 		}
+	}
+
+	// SEC-21: techo de cola. Si ya hay maxQueuedDownloads ítems no terminales,
+	// el nuevo se rechaza ANTES de tocar ningún mapa: e.downloads, e.chatMsgMap,
+	// e.queuedIDs y e.forceDuplicate quedan intactos y no se lanza job, así que
+	// el rechazo no deja basura detrás.
+	if active := activeQueueSize(e.downloads); queueIsFull(active) {
+		e.mu.Unlock()
+		logbus.Warn(logbus.CatDownloads,
+			"download queue is full",
+			fmt.Sprintf("rejected item %s (chat %d, message %d): %d non-terminal downloads already queued (limit %d)",
+				item.ID, item.ChatID, item.MessageID, active, maxQueuedDownloads))
+		return ""
 	}
 
 	item.Status = "queued"

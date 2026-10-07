@@ -398,6 +398,88 @@ func (e *Engine) forgetStateOf(id string) {
 	delete(e.queuedIDs, id)
 }
 
+// maxHistoryItems es el techo del historial: cuántas descargas pueden convivir
+// en e.downloads sin importar su estado. Al encolar por encima del techo se
+// purgan los ítems terminales más antiguos; los activos (queued, downloading,
+// paused y cualquier otro no terminal) jamás se tocan (SEC-21).
+const maxHistoryItems = 1000
+
+// makeHistoryRoom garantiza sitio para un ítem más en e.downloads sin superar
+// maxHistoryItems, purgando los terminales más antiguos si el historial ya está
+// lleno. Se llama SIN e.mu tomado: la purga delega en (*Engine).DeleteDownload,
+// que adquiere ese mismo candado, y con él tomado se produciría un deadlock.
+//
+// La purga es solo de metadatos (mapas en memoria y fila en SQLite): pasa
+// deleteFile=false para no borrar el archivo del usuario en disco.
+func (e *Engine) makeHistoryRoom() {
+	e.mu.RLock()
+	// +1 porque tras purgar se va a insertar un ítem más.
+	excess := len(e.downloads) + 1 - maxHistoryItems
+	if excess <= 0 {
+		e.mu.RUnlock()
+		return
+	}
+	ids := e.collectOldestTerminalLocked(excess)
+	e.mu.RUnlock()
+
+	for _, id := range ids {
+		// Entre soltar el candado y aquí la tarea podría haberse reanudado
+		// (ResumeDownload): solo se purga lo que siga en estado terminal, para
+		// no borrar nunca nada con un job activo.
+		e.mu.RLock()
+		item, ok := e.downloads[id]
+		stillTerminal := ok && isTerminalStatus(item.Status)
+		e.mu.RUnlock()
+		if !stillTerminal {
+			continue
+		}
+		// DeleteDownload hace todo el trabajo pesado ya probado: mapas,
+		// chatMsgMap, olvidarEstadoDe y la fila de SQLite, sin tocar ficheros.
+		// Hoy devuelve siempre nil (sus errores internos ya se registran), pero
+		// se comprueba el retorno por si deja de hacerlo: nada en silencio.
+		if err := e.DeleteDownload(id, false); err != nil {
+			log.Printf("[DOWNLOADER] %s", i18n.T("downloader.deleteDownloadError", err))
+		}
+	}
+}
+
+// collectOldestTerminalLocked elige los IDs de hasta `need` ítems terminales
+// más antiguos (CreatedAt ascendente) sin borrar nada. Debe llamarse con e.mu
+// tomado (basta lectura): el borrado real se hace fuera del candado.
+func (e *Engine) collectOldestTerminalLocked(need int) []string {
+	if need <= 0 {
+		return nil
+	}
+
+	type candidate struct {
+		id        string
+		createdAt float64
+	}
+	terminal := make([]candidate, 0, len(e.downloads))
+	for id, item := range e.downloads {
+		if isTerminalStatus(item.Status) {
+			terminal = append(terminal, candidate{id: id, createdAt: item.CreatedAt})
+		}
+	}
+	sort.Slice(terminal, func(i, j int) bool {
+		if terminal[i].createdAt != terminal[j].createdAt {
+			return terminal[i].createdAt < terminal[j].createdAt
+		}
+		// Desempate por ID: dos ítems con el mismo timestamp tendrían, si no,
+		// un orden indeterminado entre una llamada y la siguiente.
+		return terminal[i].id < terminal[j].id
+	})
+
+	if need > len(terminal) {
+		need = len(terminal)
+	}
+	ids := make([]string, 0, need)
+	for i := 0; i < need; i++ {
+		ids = append(ids, terminal[i].id)
+	}
+	return ids
+}
+
 func (e *Engine) ClearHistory() (int64, error) {
 	e.mu.Lock()
 	tempPaths := make([]string, 0, len(e.downloads))
