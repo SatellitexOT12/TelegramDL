@@ -1289,11 +1289,18 @@ func (s *Server) buildStateSnapshot() map[string]any {
 	// descargas de sesiones anteriores tras un reinicio.
 	sessionStats := s.downloader.GetSessionStats()
 
+	// Este snapshot viaja por el WebSocket y por el binding de Wails a todos
+	// los clientes conectados, así que el token del bot no puede salir en
+	// claro (SEC-25): se enmascara en una copia local. s.config conserva el
+	// token real, que es el que sigue usando el notificador para enviar.
+	maskedCfg := cfg
+	maskedCfg.NotificationBotToken = notifier.MaskToken(cfg.NotificationBotToken)
+
 	snap := map[string]any{
 		"type":         "state",
 		"downloads":    downloads,
 		"listener":     listenerItems,
-		"settings":     cfg,
+		"settings":     maskedCfg,
 		"active_count": activeCount,
 		"queued_count": queuedCount,
 		"speed_total":  config.FormatBytes(float64(speedBytes)) + "/s",
@@ -2198,9 +2205,15 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		s.onConfigChange(cfg)
 	}
 
+	// Solo se enmascara la copia que se serializa en la respuesta: ni s.config
+	// ni el cfg que se acaba de guardar en SQLite se tocan (SEC-25). Si el
+	// panel recibe el token enmascarado y lo reenvía al guardar, el fallback
+	// de notification_bot_token (strings.Contains(sVal, "*")) conserva el real.
+	maskedCfg := cfg
+	maskedCfg.NotificationBotToken = notifier.MaskToken(cfg.NotificationBotToken)
 	s.jsonResponse(w, http.StatusOK, map[string]any{
 		"status":   "ok",
-		"settings": cfg,
+		"settings": maskedCfg,
 	})
 }
 
@@ -2343,9 +2356,13 @@ func (s *Server) handleSpeedLimit(w http.ResponseWriter, r *http.Request) {
 	s.downloader.UpdateConfig(cfg)
 	s.broadcastState()
 
+	// Igual que en handleSettings: el token real ya está en s.config y en
+	// SQLite; solo se enmascara la copia que sale en la respuesta (SEC-25).
+	maskedCfg := cfg
+	maskedCfg.NotificationBotToken = notifier.MaskToken(cfg.NotificationBotToken)
 	s.jsonResponse(w, http.StatusOK, map[string]any{
 		"status":   "ok",
-		"settings": cfg,
+		"settings": maskedCfg,
 	})
 }
 
