@@ -35,6 +35,7 @@ var messagesES = map[string]string{
 	"server.tokenSendError":         "No se pudo enviar el token a Telegram",
 	"server.tokenSent":              "Token de acceso enviado a los Mensajes guardados de Telegram",
 	"server.tokenSentDetail":        "Pedido desde %s",
+	"server.tokenRotated":           "Token de acceso rotado (clientes WebSocket desconectados: %d)",
 	"server.folderRejected":         "Carpeta de descargas rechazada",
 	"server.shellOpenError":         "ShellExecuteW no pudo abrir %s: %v",
 	"server.ipcDownloadReceived":    "URL recibida desde línea de comandos: %s",

@@ -1140,6 +1140,18 @@ func (s *Server) registrarRechazoAuth(r *http.Request) {
 // cliente ofrece dos: este y, como segundo, el token.
 const wsSubprotocol = "tgdl-v1"
 
+// wsCloseTokenRotated es el código de cierre de aplicación (rango 4000-4999,
+// reservado a la aplicación por RFC 6455) con el que se desconecta a los
+// paneles conectados cuando rota el token de acceso (SEC-35): el navegador
+// lo entrega como error de la aplicación, y eso distingue «vuelve a
+// autenticarte» de una caída de red genérica.
+const wsCloseTokenRotated = 4401
+
+// wsCloseTokenRotatedMsg es el motivo corto en ASCII del frame de cierre
+// anterior (máximo 123 bytes por RFC 6455). Solo describe el motivo: el valor
+// del token jamás viaja en un frame de cierre (SEC-25).
+const wsCloseTokenRotatedMsg = "token rotated"
+
 // subprotocolToken saca el token de la cabecera Sec-WebSocket-Protocol.
 func subprotocolToken(r *http.Request) string {
 	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
@@ -1213,7 +1225,8 @@ func (s *Server) APIToken() string {
 
 // RegenerateToken invalida el token anterior y genera uno nuevo. Cualquier
 // dispositivo remoto que estuviera usando el token viejo deberá
-// reconfigurarse con el nuevo valor.
+// reconfigurarse con el nuevo valor, y los paneles ya conectados por
+// WebSocket se desconectan para volver a autenticarse (SEC-35).
 func (s *Server) RegenerateToken() string {
 	tok, err := config.GenerateToken()
 	if err != nil {
@@ -1221,12 +1234,46 @@ func (s *Server) RegenerateToken() string {
 	}
 	s.mu.Lock()
 	s.apiToken = tok
+	// SEC-35: el snapshot de los clientes WS conectados se toma DENTRO de la
+	// misma adquisición que rota el token: es el único instante en que el
+	// mapa y s.apiToken son coherentes entre sí.
+	clients := make([]*wsClient, 0, len(s.wsClients))
+	for c := range s.wsClients {
+		clients = append(clients, c)
+	}
 	s.mu.Unlock()
 	if s.storage != nil {
 		if err := s.storage.SaveAPIToken(tok); err != nil {
 			log.Printf("[SERVER] %s", i18n.T("server.saveTokenError", err))
 		}
 	}
+
+	// SEC-35: el cierre de cada WebSocket se hace FUERA de s.mu. Nada de
+	// syscalls de red (WriteControl ni Close) con el candado global tomado:
+	// una escritura retenida en un socket dejaría parada toda la API (misma
+	// razón por la que este método ya libera el candado antes de SaveAPIToken).
+	// Tampoco hace falta c.mu: gorilla documenta que WriteControl y Close son
+	// seguros concurrentes con las escrituras normales, así que no hay
+	// inversión de candados con writeJSON.
+	for _, c := range clients {
+		// Cierre con código de aplicación 4401 (rango 4000-4999): el panel
+		// distingue «vuelve a autenticarte con el token nuevo» de una caída
+		// de red genérica. El error se descarta a propósito (best-effort): si
+		// el cliente ya se cayó por su cuenta no queda nada que avisar, y su
+		// bucle de lectura morirá igualmente.
+		_ = c.conn.WriteControl(websocket.CloseMessage,
+			websocket.FormatCloseMessage(wsCloseTokenRotated, wsCloseTokenRotatedMsg),
+			time.Now().Add(time.Second))
+		c.close()
+	}
+	// El mapa NO se borra aquí: lo hace el defer de handleWebSocket cuando su
+	// bucle de lectura muera por el cierre de arriba. Borrarlo también desde
+	// esta goruta solo añadiría un segundo escritor sobre s.wsClients sin
+	// aportar nada (y hay que dejar que ese defer siga siendo el único
+	// dueño del retiro, para que nadie lo "optimice" y termine con un
+	// cliente vivo sin registro).
+	logbus.Info(logbus.CatServer,
+		i18n.T("server.tokenRotated", len(clients)), "")
 	return tok
 }
 
