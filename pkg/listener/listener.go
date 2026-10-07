@@ -16,8 +16,8 @@ import (
 	"github.com/gotd/td/tg"
 
 	"tgdown/pkg/config"
-	"tgdown/pkg/i18n"
 	"tgdown/pkg/downloader"
+	"tgdown/pkg/i18n"
 	"tgdown/pkg/logbus"
 	"tgdown/pkg/storage"
 	"tgdown/pkg/telegram"
@@ -34,20 +34,20 @@ type ListenerItem struct {
 	// SubFolder es la carpeta de destino de este archivo, relativa a la carpeta
 	// de descargas. Viaja con el elemento para que descargarlo desde la bandeja
 	// acabe en el mismo sitio que si se hubiera bajado solo.
-	SubFolder        string  `json:"sub_folder,omitempty"`
-	FileName         string  `json:"file_name"`
-	CaptionFileName  string  `json:"caption_file_name,omitempty"`
-	OriginalFileName string  `json:"original_file_name,omitempty"`
-	Kind             string  `json:"kind"`
-	TotalStr         string  `json:"total_str"`
+	SubFolder        string `json:"sub_folder,omitempty"`
+	FileName         string `json:"file_name"`
+	CaptionFileName  string `json:"caption_file_name,omitempty"`
+	OriginalFileName string `json:"original_file_name,omitempty"`
+	Kind             string `json:"kind"`
+	TotalStr         string `json:"total_str"`
 	// TotalBytes viaja con el elemento para que, al descargarlo desde la
 	// bandeja, la tarea entre en cola con el tamaño ya conocido, igual que las
 	// descargas automáticas. Sin él, el motor creía que faltaban los metadatos
 	// y los volvía a pedir a Telegram, pisando el nombre elegido por el usuario.
-	TotalBytes       int64   `json:"total_bytes,omitempty"`
-	Status           string  `json:"status"` // "available"
-	UpdatedAt        float64 `json:"updated_at"`
-	CreatedAt        float64 `json:"created_at"`
+	TotalBytes int64   `json:"total_bytes,omitempty"`
+	Status     string  `json:"status"` // "available"
+	UpdatedAt  float64 `json:"updated_at"`
+	CreatedAt  float64 `json:"created_at"`
 }
 
 type ListenerStateListener func(item ListenerItem)
@@ -783,8 +783,12 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 
 		le.mu.Lock()
 		le.items[itemID] = item
+		// Copia dentro del candado: una vez el puntero está en el mapa, otro
+		// goroutine (p. ej. UpdateItemFileName) puede escribir FileName mientras
+		// notifyState lee el struct fuera del candado.
+		cp := *item
 		le.mu.Unlock()
-		le.notifyState(*item)
+		le.notifyState(cp)
 	}
 
 	return nil
@@ -798,36 +802,41 @@ func (le *ListenerEngine) DownloadItem(itemID string) error {
 		// bandeja. El progreso continúa visible en el monitor de descargas.
 		delete(le.items, itemID)
 
+		// Copia dentro del candado: fuera, UpdateItemFileName puede escribir
+		// FileName mientras aquí se leen los campos del mismo struct.
+		cp := *item
 		le.mu.Unlock()
 
-		log.Printf("[LISTENER] %s", i18n.T("listener.downloadFromTray", item.FileName))
+		log.Printf("[LISTENER] %s", i18n.T("listener.downloadFromTray", cp.FileName))
 
-		go le.prepareFolder(item.SubFolder, config.ListenerChat{
-			ID:        item.ChatID,
-			Name:      item.GroupName,
-			TopicID:   config.TopicPointer(item.TopicID),
-			TopicName: item.TopicName,
+		go le.prepareFolder(cp.SubFolder, config.ListenerChat{
+			ID:        cp.ChatID,
+			Name:      cp.GroupName,
+			TopicID:   config.TopicPointer(cp.TopicID),
+			TopicName: cp.TopicName,
 		})
 
 		now := float64(time.Now().UnixNano()) / 1e9
-		created := item.CreatedAt
+		// cp, no item: ya se soltó el candado y UpdateItemFileName puede estar
+		// escribiendo sobre el struct original (SEC-17).
+		created := cp.CreatedAt
 		if created <= 0 {
 			created = now
 		}
 
 		dlItem := storage.DownloadItem{
-			ID:               item.ID,
-			JobID:            fmt.Sprintf("listener:%d", item.ChatID),
-			MessageID:        item.MessageID,
-			ChatID:           item.ChatID,
-			FileName:         item.FileName,
-			CaptionFileName:  item.CaptionFileName,
-			OriginalFileName: item.OriginalFileName,
+			ID:               cp.ID,
+			JobID:            fmt.Sprintf("listener:%d", cp.ChatID),
+			MessageID:        cp.MessageID,
+			ChatID:           cp.ChatID,
+			FileName:         cp.FileName,
+			CaptionFileName:  cp.CaptionFileName,
+			OriginalFileName: cp.OriginalFileName,
 			Status:           "queued",
-			Kind:             item.Kind,
-			TotalStr:         item.TotalStr,
-			TotalBytes:       item.TotalBytes,
-			SubFolder:        item.SubFolder,
+			Kind:             cp.Kind,
+			TotalStr:         cp.TotalStr,
+			TotalBytes:       cp.TotalBytes,
+			SubFolder:        cp.SubFolder,
 			Source:           "listener",
 			CreatedAt:        created,
 			UpdatedAt:        now,
@@ -873,6 +882,12 @@ func (le *ListenerEngine) RemoveItem(itemID string) {
 	if ok {
 		delete(le.items, itemID)
 	}
+	// Copia dentro del candado: fuera, UpdateItemFileName puede escribir
+	// FileName mientras notifyState lee el struct.
+	var cp ListenerItem
+	if ok && item != nil {
+		cp = *item
+	}
 	le.mu.Unlock()
 
 	if le.storage != nil {
@@ -888,7 +903,7 @@ func (le *ListenerEngine) RemoveItem(itemID string) {
 	}
 
 	if ok && item != nil {
-		le.notifyState(*item)
+		le.notifyState(cp)
 	}
 }
 
