@@ -2603,11 +2603,27 @@ func (s *Server) handleListenerUpdateFilename(w http.ResponseWriter, r *http.Req
 	}
 
 	id := strings.TrimSpace(body.ID)
-	newFileName := strings.TrimSpace(body.FileName)
-	if id == "" || newFileName == "" {
+	// La vacíez se comprueba sobre el valor crudo y ANTES de sanitizar:
+	// downloader.SanitizeFileName devuelve "archivo" tanto para cadenas vacías
+	// como para cadenas de solo caracteres inválidos, así que si se sanitizara
+	// primero, rawFileName ya no sería nunca "" y se perdería el 400 actual
+	// para un body sin nombre de archivo. Se conserva, por tanto, el orden
+	// TrimSpace → comprobación de vacío → SanitizeFileName.
+	rawFileName := strings.TrimSpace(body.FileName)
+	if id == "" || rawFileName == "" {
 		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.idAndFileNameRequired"))
 		return
 	}
+
+	// Defensa en profundidad (SEC-29): el nombre viene del cliente y se persiste
+	// tal cual en SQLite, donde después se registra en log, de modo que unos
+	// CR/LF en el valor abrirían una línea nueva falsa (inyección de log). El
+	// sink de ruta ya aplica downloader.SanitizeFileName en
+	// pkg/downloader/reserve.go al reservar el destino; aquí se aplica la misma
+	// limpieza en la entrada para que el valor guardado tampoco lo contenga.
+	// SanitizeFileName nunca devuelve cadena vacía (usa "archivo"), así que no
+	// hace falta revalidar.
+	newFileName := downloader.SanitizeFileName(rawFileName)
 
 	// Actualizar el nombre del archivo en el listener
 	if err := s.listener.UpdateItemFileName(id, newFileName); err != nil {
