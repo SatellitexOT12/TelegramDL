@@ -18,8 +18,8 @@ import (
 	tdDownloader "github.com/gotd/td/telegram/downloader"
 	"github.com/gotd/td/tg"
 
-	"tgdown/pkg/i18n"
 	"tgdown/pkg/config"
+	"tgdown/pkg/i18n"
 	"tgdown/pkg/logbus"
 	"tgdown/pkg/storage"
 	"tgdown/pkg/telegram"
@@ -471,14 +471,20 @@ func (e *Engine) fetchMessage(ctx context.Context, chatID int64, msgID int) (*tg
 								accessHash = ch.AccessHash
 								found = true
 								e.clientMgr.SetChannelAccessHash(channelID, accessHash)
-								log.Printf("[DOWNLOAD FETCH] %s", i18n.T("fetch.resolved", channelID, accessHash))
+								// SEC-31: el access_hash es un secreto por-peer y estos logs se
+								// exportan vía /api/logs/export, así que solo se registra el
+								// resultado de la resolución, nunca el valor del hash.
+								log.Printf("[DOWNLOAD FETCH] channel=%d resolved=true", channelID)
 								break
 							}
 						}
 					}
 				}
 			}
-			log.Printf("[DOWNLOAD FETCH] %s", i18n.T("fetch.getChannelMessages", channelID, accessHash, msgID, found))
+			// SEC-31: no se loguea el access_hash (secreto por-peer) porque los logs
+			// son exportables vía /api/logs/export; se emite únicamente la señal
+			// found=true/false junto a los identificadores, que no son secretos.
+			log.Printf("[DOWNLOAD FETCH] channel=%d msgID=%d found=%v", channelID, msgID, found)
 
 			req := &tg.ChannelsGetMessagesRequest{
 				Channel: &tg.InputChannel{
