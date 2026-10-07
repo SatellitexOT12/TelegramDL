@@ -29,6 +29,11 @@ func nuevoServidorDePrueba() *Server {
 // POST con cuerpo JSON y la cabecera propia, sin token.
 func peticionSetup(s *Server, metodo, destino, cuerpo string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(metodo, destino, strings.NewReader(cuerpo))
+	// Host permitido: httptest.NewRequest deja r.Host = "example.com" en las
+	// rutas relativas y hostValidationMiddleware (SEC-08) responde 421 a
+	// cualquier dominio punteado que no sea este servidor. Sin esta línea,
+	// ninguna petición de este helper llegaría a la puerta de setup.
+	req.Host = "localhost:8000"
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(ownRequestHeader, "1")
 	w := httptest.NewRecorder()
@@ -83,6 +88,8 @@ func TestSetupSinTokenExigeCabeceraPropia(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/credentials",
 		strings.NewReader(`{"api_id":"1","api_hash":"x"}`))
 	req.Header.Set("Content-Type", "application/json")
+	// Host permitido: sin él, el 421 de SEC-08 llegaría antes que el 403.
+	req.Host = "localhost:8000"
 	// Sin req.Header.Set(ownRequestHeader, ...): es lo que se comprueba.
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
@@ -97,8 +104,12 @@ func TestSetupSinTokenExigeCabeceraPropia(t *testing.T) {
 func TestSetupSinTokenExigePOST(t *testing.T) {
 	s := nuevoServidorDePrueba()
 
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/logout", nil)
+	// Host permitido: con el example.com por defecto mandaría el 421 de SEC-08
+	// en lugar del 405 que se comprueba aquí.
+	req.Host = "localhost:8000"
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/auth/logout", nil))
+	s.Handler().ServeHTTP(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("un GET sin token se esperaba 405, got %d", w.Code)
@@ -114,6 +125,8 @@ func TestSetupSinTokenExigeContentTypeJSON(t *testing.T) {
 		strings.NewReader(`{"api_id":"1","api_hash":"x"}`))
 	req.Header.Set("Content-Type", "text/plain")
 	req.Header.Set(ownRequestHeader, "1")
+	// Host permitido: el 421 de SEC-08 entraría antes que el 415.
+	req.Host = "localhost:8000"
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 
@@ -171,6 +184,8 @@ func TestSetupLimitaLaFrecuencia(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/send-code", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(ownRequestHeader, "1")
+	// Host permitido: el 421 de SEC-08 cortaría la petición antes de la cuota.
+	req.Host = "localhost:8000"
 	req.RemoteAddr = "198.51.100.42:60000"
 	w2 := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w2, req)
@@ -266,7 +281,14 @@ func TestIPCDownloadSoloLoopback(t *testing.T) {
 	s := nuevoServidorDePrueba()
 
 	// (a) Origen remoto (Host y RemoteAddr de fuera) → 401.
-	req := httptest.NewRequest(http.MethodPost, "http://panel.example.com/api/ipc/download",
+	// El Host es una IP literal remota, no un nombre de dominio: SEC-08
+	// (hostValidationMiddleware) admite cualquier IP, de modo que la
+	// petición sigue llegando hasta la puerta de SEC-03 y se conserva la
+	// aserción original de 401. Antes usaba
+	// «http://panel.example.com/…», que ahora recibiría un 421 previo y
+	// taparía el 401 que este test protege; el dominio se ha mudado al
+	// caso (d), que es donde desde entonces tiene que caer.
+	req := httptest.NewRequest(http.MethodPost, "http://192.168.1.40:8000/api/ipc/download",
 		strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(ownRequestHeader, "1")
@@ -300,6 +322,25 @@ func TestIPCDownloadSoloLoopback(t *testing.T) {
 	if w3.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("loopback bien formado debe llegar al decode (422), got %d", w3.Code)
 	}
+
+	// (d) Host de dominio (el caso que antes ocupaba el (a)) → 421 de SEC-08,
+	// ANTES de cualquier otro guardia: ni el 401 de SEC-03 ni el 403 deben
+	// aparecer aquí, porque un Host que no nombra a este servidor no debe
+	// llegar a ningún handler (DNS rebinding). RemoteAddr de loopback a
+	// propósito: demuestra que el corte lo marca el Host, no la IP.
+	req4 := httptest.NewRequest(http.MethodPost, "http://panel.example.com/api/ipc/download",
+		strings.NewReader(`{}`))
+	req4.Header.Set("Content-Type", "application/json")
+	req4.Header.Set(ownRequestHeader, "1")
+	req4.RemoteAddr = "127.0.0.1:51003"
+	w4 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w4, req4)
+	if w4.Code == http.StatusUnauthorized || w4.Code == http.StatusForbidden {
+		t.Fatalf("el 421 de SEC-08 debe llegar antes que la puerta de SEC-03: got %d", w4.Code)
+	}
+	if w4.Code != http.StatusMisdirectedRequest {
+		t.Fatalf("Host de dominio: se esperaba 421, got %d", w4.Code)
+	}
 }
 
 // Quien trae token no pasa por la puerta de setup, ni siquiera con sesión
@@ -310,6 +351,8 @@ func TestConTokenNoPasaPorLaPuertaDeSetup(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
 	req.Header.Set("Authorization", "Bearer "+s.apiToken)
+	// Host permitido: sin él mandaría el 421 de SEC-08 en lugar del 200.
+	req.Host = "localhost:8000"
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 

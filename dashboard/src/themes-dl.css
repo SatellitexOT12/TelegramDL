@@ -13,10 +13,10 @@
    este archivo, así que el panel de siempre se comporta exactamente igual que
    antes de que existiera.
 
-   Para añadir otro tema especial: una paleta nueva en el themeMap de App.vue e
-   index.html, su clase en `clasesTemaEspecial` (en los dos archivos) y un
-   bloque aquí. La vista de Ajustes no hay que tocarla: saca sola los ids 16+
-   del themeMap.
+   Para añadir otro tema especial: una paleta nueva en el themeMap de
+   src/utils/theme.js y en public/theme-init.js (el que precarga el <head>),
+   su clase en `specialThemeClasses` (en ambos archivos) y un bloque aquí.
+   La vista de Ajustes no hay que tocarla: saca sola los ids 16+ del themeMap.
    ========================================================================== */
 
 /* -----------------------------------------------------------------------------

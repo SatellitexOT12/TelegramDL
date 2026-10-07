@@ -101,6 +101,14 @@ type Server struct {
 	// mapa no crezca sin límite aunque lleguen orígenes nuevos a millares.
 	authLogByOrigin map[string]rateWindow
 
+	// hostRejectLastAt es el instante del último aviso de Host rechazado por
+	// hostValidationMiddleware (SEC-08). A propósito es un único timestamp
+	// global y no un mapa indexado por el Host: el índice lo controlaría el
+	// atacante (un dominio distinto por petición) y el mapa crecería sin
+	// techo. Con un solo reloj, como mucho se escribe un aviso por minuto y
+	// la memoria que ocupa la supresión no depende de nadie más.
+	hostRejectLastAt time.Time
+
 	// Apagado del equipo al terminar la cola (interruptor shutdown_when_done).
 	// hadActiveDownloads recuerda que hubo descargas activas o en cola: solo
 	// así una cola vacía significa «terminó» y no «todavía no ha empezado
@@ -641,8 +649,200 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// viteDevPort es el puerto del servidor de desarrollo de Vite
+// (dashboard/vite.config.js). El proxy /api reescribe el Host a la dirección
+// del backend (changeOrigin), pero el Origin de la página sigue siendo
+// localhost:8080, así que ese puerto hay que admitirlo a la hora de mirar el
+// Origin de una petición en desarrollo.
+const viteDevPort = 8080
+
+// hostLogMaxLen acorta el Host escrito en el registro: la cabecera Host es
+// entrada del atacante y no tiene por qué caber ni ser legible tal cual.
+const hostLogMaxLen = 100
+
+// hostValidationMiddleware rechaza con 421 Misdirected Request cualquier
+// petición cuya cabecera Host no apunte a este servidor (SEC-08, DNS
+// rebinding). Se sitúa ANTES de todo handler, de modo que ninguna ruta —pública
+// o protegida— llega a ejecutarse con un Host ajeno.
+//
+// La cadena final es securityHeadersMiddleware(hostValidationMiddleware(...))
+// en Handler() y en WebHandler(): el middleware de cabeceras va por fuera
+// para que la propia respuesta 421 salga ya con la CSP y el resto de
+// cabeceras de SEC-07 (si validase el Host por fuera, el 421 sería la única
+// respuesta del servidor sin ellas).
+//
+// El cuerpo se emite con s.errorResponse para que tenga exactamente la misma
+// forma JSON ({"detail": ..., "error": ...}) que el resto de errores.
+func (s *Server) hostValidationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hostAllowed(r.Host) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Nada en silencio: el rechazo deja constancia en el registro, con
+		// supresión de inundación (ver registerHostRejection).
+		s.registerHostRejection(r.Host)
+		s.errorResponse(w, http.StatusMisdirectedRequest, "Cabecera Host no permitida")
+	})
+}
+
+// hostAllowed decide si la cabecera Host de una petición nombra a este
+// servidor (SEC-08).
+//
+// El cliente manda el Host que corresponde a la URL que tiene delante, y de
+// esa URL se encarga el DNS: si «evil.com» apunta a 127.0.0.1, una página
+// servida desde ese dominio llega aquí con Host: evil.com:8000 y Origin:
+// http://evil.com:8000, dos cabeceras que coinciden entre sí pero que no
+// nombran a este servidor. Antes de este hallazgo no existía ninguna
+// comprobación del Host en ningún punto del servidor, de modo que cualquier
+// reflejo de «mismo origen» (isOriginAllowed) acababa validando un dominio
+// ajeno: era el agujero clásico de DNS rebinding.
+//
+// Reglas aplicadas sobre el host ya sin puerto, en minúsculas y sin los
+// corchetes [] de las IPv6:
+//
+//  1. Vacío → se admite. Toda petición HTTP/1.1 real que entra por net/http
+//     lleva cabecera Host (de hecho net/http la exige), así que un valor
+//     vacío solo puede venir de una llamada directa al handler, como las que
+//     hacen los tests con httptest.NewRequest; no hay motivo para romperlas.
+//  2. IP literal → se admite sea la que sea: loopback, IP de LAN o la
+//     100.x.y.z de Tailscale. El rebinding siempre se monta sobre nombres de
+//     dominio, nunca sobre una IP.
+//  3. localhost, wails.localhost y *.wails.localhost → se admiten: la ventana
+//     de escritorio sirve el panel bajo wails.localhost con puerto dinámico.
+//  4. Nombre de una sola etiqueta (sin puntos) → se admite: los nombres
+//     cortos de LAN y los de MagicDNS (p. ej. «mispeluquin») son habituales.
+//     Riesgo residual aceptado y comentado: un nombre sin puntos solo puede
+//     resolverse dentro de la propia red o del propio equipo, no desde
+//     Internet, así que el rebinding externo sigue cortado.
+//  5. Sufijos .ts.net (MagicDNS de Tailscale) y .local (mDNS de red local) →
+//     se admiten: son infraestructuras gobernadas por el dueño de la red, y
+//     REMOTE_ACCESS.md documenta Tailscale como el método de acceso remoto
+//     recomendado para el panel (LAN y Tailscale incluidos).
+//  6. El host concreto de la configuración de escucha (bind_host), cuando no
+//     es wildcard (0.0.0.0, :: o vacío) → se admite porque nombra a este
+//     mismo servidor. Se lee con config.GetServerHost(), la misma fuente en
+//     vivo que usa Server.Start para abrir el listener (env > base de datos >
+//     valor por defecto); no se añade ninguna dependencia nueva.
+//  7. Cualquier otro nombre de dominio punteado (evil.com, panel.example.com
+//     cuando no es el bind_host) → se rechaza: es justo el caso del DNS
+//     rebinding y de un Host reescrito a mano.
+func hostAllowed(host string) bool {
+	// Regla 1: sin Host no hay nada que validar (ver comentario de la regla).
+	if strings.TrimSpace(host) == "" {
+		return true
+	}
+	normalized := hostWithoutPort(host)
+
+	// Regla 2: cualquier IP literal es este mismo equipo o esta misma red.
+	if net.ParseIP(normalized) != nil {
+		return true
+	}
+
+	// Regla 3: los nombres de la ventana de escritorio de Wails.
+	if normalized == "localhost" || normalized == "wails.localhost" ||
+		strings.HasSuffix(normalized, ".wails.localhost") {
+		return true
+	}
+
+	// Regla 4: nombres de una sola etiqueta (LAN / MagicDNS cortos).
+	if !strings.Contains(normalized, ".") {
+		return true
+	}
+
+	// Regla 5: infraestructuras gobernadas (Tailscale y mDNS).
+	if strings.HasSuffix(normalized, ".ts.net") || strings.HasSuffix(normalized, ".local") {
+		return true
+	}
+
+	// Regla 6: el host de escucha concreto configurado para este servidor.
+	if bind := hostWithoutPort(config.GetServerHost()); !isWildcardBind(bind) &&
+		strings.EqualFold(bind, normalized) {
+		return true
+	}
+
+	// Regla 7: el resto de dominios punteados se rechazan.
+	return false
+}
+
+// hostWithoutPort reduce un valor «host» o «host:puerto» a la sola parte del
+// host, en minúsculas y sin los corchetes [] de las IPv6. Si no hay puerto
+// (o el valor es una IPv6 entre corchetes sin puerto), SplitHostPort falla y
+// se conserva el valor tal cual, que es lo que quieren las reglas 3 a 7.
+func hostWithoutPort(host string) string {
+	h := strings.TrimSpace(host)
+	if withoutPort, _, err := net.SplitHostPort(h); err == nil {
+		h = strings.TrimSpace(withoutPort)
+	}
+	return strings.ToLower(strings.Trim(h, "[]"))
+}
+
+// isWildcardBind indica si la dirección de escucha configurada no nombra una
+// interfaz concreta (vacío, 0.0.0.0 o ::: todas las interfaces). En ese caso
+// no hay host propio que añadir a la lista de permitidos, porque el valor no
+// identifica a este servidor ante nadie.
+func isWildcardBind(bind string) bool {
+	switch bind {
+	case "", "0.0.0.0", "::":
+		return true
+	}
+	return false
+}
+
+// registerHostRejection anota en el registro un Host rechazado por
+// hostValidationMiddleware (SEC-08): sin este aviso, un intento de DNS
+// rebinding sería invisible para quien mire el panel de logs.
+//
+// La supresión de inundación deja como mucho un aviso por minuto usando un
+// único timestamp del servidor (hostRejectLastAt). No se indexa por el Host
+// atacante: así la memoria ocupada no depende de cuantos dominios distintos
+// se prueben, ni dentro ni fuera de la ventana.
+//
+// Debe llamarse sin s.mu tomado.
+func (s *Server) registerHostRejection(host string) {
+	now := time.Now()
+
+	s.mu.Lock()
+	if !s.hostRejectLastAt.IsZero() && now.Sub(s.hostRejectLastAt) < rateWindowDuration {
+		// Ya se dejó constancia de un rechazo en la ventana actual: se
+		// silencia aquí para no inundar el registro con la misma línea.
+		s.mu.Unlock()
+		return
+	}
+	s.hostRejectLastAt = now
+	s.mu.Unlock()
+
+	// Mensaje en literal inglés al estilo de los avisos internos de app.go
+	// («engine shutdown incomplete», «database close failed»): es un aviso
+	// interno del backend, no una cadena de la interfaz. El Host va saneado
+	// y acortado porque se inyecta desde la cabecera de la petición.
+	logbus.Warn(logbus.CatServer,
+		"Request rejected: Host header is not allowed for this server",
+		"Host: "+sanitizeLogHost(host))
+}
+
+// sanitizeLogHost prepara un valor de cabecera Host para escribirlo en el
+// registro: quita los caracteres de control (CR/LF primero, que son los que
+// permitirían fabricar una línea falsa en el log) y lo acorta a
+// hostLogMaxLen bytes sin cortar por medio de un rune UTF-8. Es defensa en
+// profundidad: el logbus ya sanea, pero este valor llega de la cabecera y
+// también puede llegar de un proxy o de una llamada de test.
+func sanitizeLogHost(host string) string {
+	clean := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, host)
+	if len(clean) > hostLogMaxLen {
+		// ToValidUTF8 descarta el último rune a medias si el corte lo parte.
+		clean = strings.ToValidUTF8(clean[:hostLogMaxLen], "")
+	}
+	return clean
+}
+
 func (s *Server) Handler() http.Handler {
-	return securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return securityHeadersMiddleware(s.hostValidationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
@@ -650,11 +850,11 @@ func (s *Server) Handler() http.Handler {
 		// Para cualquier ruta de frontend, devolver 404 para que Wails AssetServer
 		// sirva index.html e inyecte los bindings e IPC nativos.
 		http.NotFound(w, r)
-	}))
+	})))
 }
 
 func (s *Server) WebHandler() http.Handler {
-	return securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return securityHeadersMiddleware(s.hostValidationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
@@ -662,7 +862,7 @@ func (s *Server) WebHandler() http.Handler {
 		// El panel estático (HTML/JS/CSS) se sirve siempre sin autenticación:
 		// la pantalla de login remoto necesita poder cargar antes de tener token.
 		s.mux.ServeHTTP(w, r)
-	}))
+	})))
 }
 
 // nuevoHTTPServer monta el http.Server con los límites de red (SEC-02). Se
@@ -781,8 +981,8 @@ func (s *Server) Stop() {
 	}
 }
 
-// origenPermitido decide si una petición que llega con cabecera Origin puede
-// tocar la API. Son dos casos:
+// isOriginAllowed decide si una petición que llega con cabecera Origin puede
+// tocar la API. Son estos los casos que se admiten:
 //
 //  1. El panel se sirve desde la misma dirección y puerto que la API. Esto es
 //     lo normal, y cubre el acceso remoto entero —el móvil entrando por
@@ -790,15 +990,20 @@ func (s *Server) Stop() {
 //     enumerar direcciones de antemano.
 //
 //  2. El panel corre en este mismo equipo con otra dirección: la ventana de
-//     Wails (wails.localhost), un navegador local, o el servidor de desarrollo
-//     de Vite, que usa otro puerto.
+//     Wails (wails.localhost), o el servidor de desarrollo de Vite, que usa
+//     otro puerto.
 //
 // Antes esto era una lista fija de nombres (localhost, 127.0.0.1 y el host
-// configurado). Como la dirección de escucha puede ser 0.0.0.0, desde
-// cualquier IP real quedaban fuera los dos: el navegador manda
-// «Origin: http://192.168.1.40:8000», no coincidía con nada, y el WebSocket se
-// rechazaba con un 403. El panel cargaba pero no recibía estado nunca y se
-// quedaba reintentando la conexión cada dos segundos.
+// configurado) y después una comprobación genérica de «equipo local» que
+// admitía CUALQUIER puerto de loopback: cualquier proceso local sirviendo
+// una página en :9999 obtenía CORS de lectura sobre los endpoints públicos
+// con PII. También reflejaba r.Host como si fuese «mismo origen» sin que
+// nadie hubiese validado antes ese Host (DNS rebinding). Ambos agujeros
+// quedan cerrados aquí y en hostValidationMiddleware.
+//
+// Las peticiones sin cabecera Origin (el CLI `tgdown <url>`, curl) no llegan
+// a entrar en esta función: vacío significa «no es una petición de
+// navegador» y lo único que se omite es el CORS de siempre.
 func isOriginAllowed(origin string, r *http.Request) bool {
 	if strings.TrimSpace(origin) == "" {
 		return false
@@ -811,28 +1016,47 @@ func isOriginAllowed(origin string, r *http.Request) bool {
 		return false
 	}
 
-	// Mismo origen: el panel y la API entraron por la misma puerta.
+	// Mismo origen: el panel y la API entraron por la misma puerta. Esto solo
+	// es seguro porque el middleware de validación del Host corre ANTES en la
+	// cadena (securityHeadersMiddleware(hostValidationMiddleware(...)), en
+	// Handler() y WebHandler()) y ya ha descartado con 421 cualquier r.Host
+	// que no nombre a este servidor: sin esa garantía, un Host reescrito por
+	// DNS rebinding haría que «mismo origen» cubriese un dominio ajeno.
 	if r != nil && r.Host != "" && strings.EqualFold(parsed.Host, r.Host) {
 		return true
 	}
 
-	return isLocalHost(parsed.Host)
-}
-
-// isLocalHost indica si el host de una URL apunta a esta misma máquina.
-func isLocalHost(hostPort string) bool {
-	host := hostPort
-	if h, _, err := net.SplitHostPort(hostPort); err == nil {
-		host = h
+	originHost := hostWithoutPort(parsed.Host)
+	originPort := ""
+	if _, port, splitErr := net.SplitHostPort(parsed.Host); splitErr == nil {
+		originPort = port
 	}
-	host = strings.ToLower(strings.Trim(host, "[]"))
 
-	if host == "localhost" || host == "wails.localhost" || strings.HasSuffix(host, ".wails.localhost") {
+	// wails.localhost (con cualquier puerto): el asset server de Wails sirve
+	// el panel con un puerto dinámico, así que su Host nunca coincidirá con
+	// el del servidor; y la ventana de escritorio conecta el WebSocket
+	// directamente a ws://127.0.0.1:8000 con Origin http://wails.localhost:
+	// <puerto> (App.vue:862-865). Sin esta rama, la ventana se quedaría sin
+	// estado en el panel de escritorio.
+	if originHost == "wails.localhost" || strings.HasSuffix(originHost, ".wails.localhost") {
 		return true
 	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return true
+
+	// Loopback con puerto: solo el del propio servidor (config en vivo) o el
+	// 8080 del servidor de desarrollo de Vite (dashboard/vite.config.js:40).
+	// El proxy de Vite reescribe el Host a 127.0.0.1:<puerto del backend>
+	// (changeOrigin), pero el Origin de la página sigue siendo
+	// localhost:8080, así que sin admitir ese puerto el panel se rompería en
+	// desarrollo. Puerto ausente u otro distinto → no se admite: era el
+	// agujero de «cualquier puerto de loopback».
+	if originHost == "localhost" || originHost == "127.0.0.1" || originHost == "::1" {
+		serverPort := strconv.Itoa(config.GetServerPort())
+		return originPort != "" && (originPort == serverPort || originPort == strconv.Itoa(viteDevPort))
 	}
+
+	// El resto de orígenes (IP de LAN, Tailscale, nombres de dominio) solo
+	// se admiten por la vía de mismo origen de arriba; aquí no se reflejan
+	// jamás.
 	return false
 }
 

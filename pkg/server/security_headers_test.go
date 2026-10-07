@@ -33,14 +33,21 @@ func TestCabecerasSeguridadEnRespuestaEstatica(t *testing.T) {
 	s := nuevoServidorDePrueba()
 
 	// WebHandler es el camino del modo web/remoto, donde se sirve el panel.
+	// El Host se fija a un valor permitido: httptest deja example.com en las
+	// rutas relativas y el middleware de Host (SEC-08) respondería 421, en
+	// cuyo caso ya no se estaría mirando la respuesta estática de siempre.
+	reqWeb := httptest.NewRequest(http.MethodGet, "/", nil)
+	reqWeb.Host = "localhost:8000"
 	w := httptest.NewRecorder()
-	s.WebHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	s.WebHandler().ServeHTTP(w, reqWeb)
 
 	// Handler es el camino que Wails deriva a la API en modo escritorio:
 	// también debe llevar las cabeceras (el asset server de Wails solo cubre
 	// los ficheros estáticos, que quedan fuera de este alcance).
+	reqHandler := httptest.NewRequest(http.MethodGet, "/", nil)
+	reqHandler.Host = "localhost:8000"
 	wHandler := httptest.NewRecorder()
-	s.Handler().ServeHTTP(wHandler, httptest.NewRequest(http.MethodGet, "/", nil))
+	s.Handler().ServeHTTP(wHandler, reqHandler)
 
 	for nombre, rec := range map[string]*httptest.ResponseRecorder{
 		"WebHandler": w,
@@ -98,7 +105,11 @@ func TestCacheControlNoStoreEnAPI(t *testing.T) {
 	s := nuevoServidorDePrueba()
 
 	w := httptest.NewRecorder()
-	s.WebHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, publicAPIPath, nil))
+	// Host permitido: con el example.com por defecto el 421 de SEC-08
+	// impediría el 200 que se comprueba justo debajo.
+	reqWeb := httptest.NewRequest(http.MethodGet, publicAPIPath, nil)
+	reqWeb.Host = "localhost:8000"
+	s.WebHandler().ServeHTTP(w, reqWeb)
 	if w.Code != http.StatusOK {
 		t.Fatalf("se esperaba 200 de %s, got %d", publicAPIPath, w.Code)
 	}
@@ -108,7 +119,9 @@ func TestCacheControlNoStoreEnAPI(t *testing.T) {
 
 	// El mismo criterio en el camino de Handler (API en modo escritorio).
 	wHandler := httptest.NewRecorder()
-	s.Handler().ServeHTTP(wHandler, httptest.NewRequest(http.MethodGet, publicAPIPath, nil))
+	reqHandler := httptest.NewRequest(http.MethodGet, publicAPIPath, nil)
+	reqHandler.Host = "localhost:8000"
+	s.Handler().ServeHTTP(wHandler, reqHandler)
 	if wHandler.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("Handler: Cache-Control = %q, se esperaba no-store en /api/",
 			wHandler.Header().Get("Cache-Control"))
@@ -122,7 +135,11 @@ func TestRespuestaEstaticaSinNoStore(t *testing.T) {
 	s := nuevoServidorDePrueba()
 
 	w := httptest.NewRecorder()
-	s.WebHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	// Host permitido para que la respuesta sea la del panel estático y no el
+	// 421 de SEC-08 (con el 421 el test pasaría casi por accidente).
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Host = "localhost:8000"
+	s.WebHandler().ServeHTTP(w, req)
 
 	if strings.Contains(w.Header().Get("Cache-Control"), "no-store") {
 		t.Errorf("la respuesta estática no debe llevar no-store, Cache-Control = %q",
