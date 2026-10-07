@@ -75,7 +75,7 @@ TelegramDL.exe --server
 Al iniciarse en este modo:
 1. Adquiere el bloqueo de instancia única para evitar colisiones.
 2. Inicia la conexión MTProto con Telegram.
-3. Arranca el servidor HTTP y WebSocket en la IP y puerto configurados (por defecto `0.0.0.0:8000`).
+3. Arranca el servidor HTTP y WebSocket en la IP y puerto configurados (por defecto `127.0.0.1:8000` en instalaciones nuevas; las existentes conservan su dirección guardada).
 4. Permanece activo escuchando descargas y eventos del Listener hasta recibir una señal de terminación (`Ctrl+C` / `SIGINT`).
 
 ---

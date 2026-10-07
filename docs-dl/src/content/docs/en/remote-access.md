@@ -9,7 +9,9 @@ TelegramDL features an integrated HTTP and WebSocket server (defaulting to port 
 
 ## Security: Bearer Token Authentication
 
-Every REST endpoint (`/api/*`) and WebSocket handshake requires a valid **Access Token**. No unauthorized party on your local network or the internet can view downloads, trigger transfers, or inspect your credentials without this token.
+Almost every REST endpoint (`/api/*`) and the WebSocket flow require an **Access Token**, sent in the `Authorization: Bearer <TOKEN>` header (over WebSocket it travels as the second subprotocol: `Sec-WebSocket-Protocol: tgdl-v1, <TOKEN>`). No unauthorized party on your local network or the internet can view downloads, trigger transfers, or inspect your credentials without this token.
+
+The only exceptions without a token: the public `/api/theme`, `/api/auth/has-credentials`, `/api/auth/token/send` (each with its own rate limits) and `/api/ipc/download` (local machine only, requiring the `X-TGDL-Request: 1` and `Content-Type: application/json` headers); plus the first-time Telegram setup (`/api/auth/status`, `credentials`, `send-code`, `verify-code`, `verify-2fa`, `logout`), which responds without a token **only while no Telegram session is stored**, always as `POST` (`status` also accepts `GET`) with the `X-TGDL-Request: 1` header, `Content-Type: application/json` and a limit of 5/min per origin and 30/min globally. With a stored session it responds `401`.
 
 ### Managing the Token
 
@@ -36,7 +38,7 @@ If you are away from your PC and opening the web dashboard from your smartphone:
 
 ## Local Network Access (LAN / Wi-Fi)
 
-By default, TelegramDL binds to `0.0.0.0`, listening across all network interfaces:
+On new installations, TelegramDL binds to `127.0.0.1` by default (local machine only); existing installations keep whatever address they already have. To let any device on your home Wi-Fi access the panel, bind to `0.0.0.0`:
 
 ```env
 TGDL_BIND_HOST=0.0.0.0
@@ -50,7 +52,7 @@ To connect from your phone or secondary computer:
 3. Provide your Access Token when prompted.
 
 :::warning
-If you are connected to a public network (university, office, coffee shop), change `TGDL_BIND_HOST=127.0.0.1` in the `app_config` table within the database so that the port only responds to requests from the local machine.
+If you are connected to a public network (university, office, coffee shop), keep or set `bind_host` (a configuration key in the `app_config` table) — or the `TGDL_BIND_HOST` environment variable — to `127.0.0.1` so that the port only responds to requests from the local machine.
 :::
 
 ---

@@ -133,8 +133,13 @@ TelegramDL/
 
 ## Acceso remoto
 
-Toda la API (`/api/*`) exige un token de acceso (visible y regenerable en
-**Ajustes → Acceso remoto** dentro de la app). Para controlar TelegramDL
+Casi toda la API (`/api/*`) exige un token de acceso (visible y regenerable en
+**Ajustes → Acceso remoto** dentro de la app), enviado en la cabecera
+`Authorization: Bearer`. Son públicos solo unos pocos endpoints (`/api/theme`,
+`/api/auth/has-credentials`, `/api/auth/token/send` con su límite de
+frecuencia y `/api/ipc/download` desde el propio equipo), y los endpoints de
+la primera configuración de Telegram responden sin token únicamente mientras
+no haya sesión guardada. Para controlar TelegramDL
 desde otro dispositivo (celular, otra PC) sin exponer el puerto a internet,
 consulta [REMOTE_ACCESS.md](REMOTE_ACCESS.md).
 

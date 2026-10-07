@@ -80,7 +80,7 @@ When launched in this mode:
 
 1. Acquires the single-instance lock to prevent process conflicts.
 2. Initializes the MTProto session with Telegram.
-3. Launches the HTTP REST and WebSocket listener on the configured host and port (default `0.0.0.0:8000`).
+3. Launches the HTTP REST and WebSocket listener on the configured host and port (default `127.0.0.1:8000` on new installations; existing ones keep their saved address).
 4. Stays resident handling downloads and listener events until receiving a termination signal (`Ctrl+C` / `SIGINT`).
 
 ---

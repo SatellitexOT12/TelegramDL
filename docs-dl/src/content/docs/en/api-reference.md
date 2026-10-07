@@ -9,31 +9,32 @@ TelegramDL exposes a comprehensive HTTP REST API and a WebSocket feed on its con
 
 ## Authentication
 
-All endpoints under `/api/*` (except the public endpoints listed below) require authentication via HTTP header or query parameter:
+All endpoints under `/api/*` require authentication via the HTTP header:
 
 ```http
 Authorization: Bearer <YOUR_API_TOKEN>
 ```
 
-Or alternatively:
+For example:
 
-```text
-http://127.0.0.1:8000/api/downloads?token=<YOUR_API_TOKEN>
+```bash
+curl -H "Authorization: Bearer <YOUR_API_TOKEN>" http://127.0.0.1:8000/api/downloads
 ```
+
+The `?token=` query parameter is **no longer accepted** (it responds `401`).
 
 ### Public Endpoints (no token required)
 
 The following endpoints can be accessed without authentication:
 
 - **`GET /api/theme`**: Gets the panel theme (color).
-- **`POST /api/auth/token/send`**: Sends the access token to Telegram Saved Messages (for remote access).
+- **`POST /api/auth/token/send`**: Sends the access token to Telegram Saved Messages (for remote access). It has its own rate limit.
 - **`GET /api/auth/has-credentials`**: Indicates if Telegram credentials are configured and session is active.
-- **`GET /api/auth/status`**: Telegram authentication status.
-- **`POST /api/auth/credentials`**: Configures Telegram API credentials.
-- **`POST /api/auth/send-code`**: Requests verification code to phone.
-- **`POST /api/auth/verify-code`**: Verifies the received code.
-- **`POST /api/auth/verify-2fa`**: Verifies two-factor password.
-- **`POST /api/auth/logout`**: Logs out of Telegram.
+- **`GET /api/ipc/download`**: Queues an IPC download; only responds from the local machine (loopback) and additionally requires the `X-TGDL-Request: 1` and `Content-Type: application/json` headers.
+
+### Setup Gate (no token only during first-time setup)
+
+`/api/auth/status` (also accepts `GET`), `POST /api/auth/credentials`, `POST /api/auth/send-code`, `POST /api/auth/verify-code`, `POST /api/auth/verify-2fa` and `POST /api/auth/logout` respond without a token **only while no Telegram session file exists** (first-time setup). They require the `POST` method, the `X-TGDL-Request: 1` header and `Content-Type: application/json`, with a limit of 5 requests/min per origin and 30/min globally (the `429` includes a `Retry-After` header). With a stored session they respond `401`.
 
 ### Token Endpoints (require authentication)
 
@@ -174,5 +175,6 @@ The following endpoints can be accessed without authentication:
 
 To maintain UI reactivity without polling:
 
-- **Route**: `ws://127.0.0.1:8000/api/ws?token=<YOUR_API_TOKEN>`
+- **Route**: `ws://127.0.0.1:8000/api/ws`
+- **Authentication**: the token travels in the `Sec-WebSocket-Protocol` header as the second subprotocol: `Sec-WebSocket-Protocol: tgdl-v1, <YOUR_API_TOKEN>` (the dashboard sets this up automatically). A connection without a token responds `401`.
 - **Behavior**: Upon connection, emits a complete system state snapshot. Any subsequent state change (chunk progress, speed, listener event) broadcasts an incremental JSON update immediately.

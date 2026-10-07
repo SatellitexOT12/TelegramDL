@@ -9,31 +9,32 @@ TelegramDL expone una API HTTP REST completa y un canal WebSocket en el puerto c
 
 ## Autenticación
 
-Todas las rutas bajo `/api/*` (excepto los endpoints públicos listados abajo) requieren autenticación mediante encabezado HTTP o parámetro de consulta:
+Todas las rutas bajo `/api/*` requieren autenticación mediante cabecera HTTP:
 
 ```http
 Authorization: Bearer <TU_API_TOKEN>
 ```
 
-O bien:
+Por ejemplo:
 
-```text
-http://127.0.0.1:8000/api/downloads?token=<TU_API_TOKEN>
+```bash
+curl -H "Authorization: Bearer <TU_API_TOKEN>" http://127.0.0.1:8000/api/downloads
 ```
+
+El parámetro de consulta `?token=` ya **no se acepta** (responde `401`).
 
 ### Endpoints Públicos (sin token)
 
 Los siguientes endpoints pueden ser accedidos sin autenticación:
 
 - **`GET /api/theme`**: Obtiene el tema del panel (color).
-- **`POST /api/auth/token/send`**: Envía el token de acceso a los Mensajes guardados de Telegram (para acceso remoto).
+- **`POST /api/auth/token/send`**: Envía el token de acceso a los Mensajes guardados de Telegram (para acceso remoto). Tiene su propio límite de frecuencia.
 - **`GET /api/auth/has-credentials`**: Indica si hay credenciales de Telegram configuradas y sesión activa.
-- **`GET /api/auth/status`**: Estado de autenticación de Telegram.
-- **`POST /api/auth/credentials`**: Configura las credenciales API de Telegram.
-- **`POST /api/auth/send-code`**: Solicita código de verificación al teléfono.
-- **`POST /api/auth/verify-code`**: Verifica el código recibido.
-- **`POST /api/auth/verify-2fa`**: Verifica la contraseña de dos factores.
-- **`POST /api/auth/logout`**: Cierra la sesión de Telegram.
+- **`GET /api/ipc/download`**: Encola una descarga vía IPC; solo responde desde el propio equipo (loopback) y exige además las cabeceras `X-TGDL-Request: 1` y `Content-Type: application/json`.
+
+### Puerta de configuración (sin token solo en el primer arranque)
+
+`/api/auth/status` (admite `GET`), `POST /api/auth/credentials`, `POST /api/auth/send-code`, `POST /api/auth/verify-code`, `POST /api/auth/verify-2fa` y `POST /api/auth/logout` responden sin token **solo mientras no exista ningún fichero de sesión de Telegram** (primera configuración). Exigen método `POST`, cabecera `X-TGDL-Request: 1` y `Content-Type: application/json`, con un límite de 5 peticiones/minuto por origen y 30/min global (el `429` incluye cabecera `Retry-After`). Con sesión guardada responden `401`.
 
 ### Endpoints de Token (requieren autenticación)
 
@@ -173,5 +174,6 @@ Los siguientes endpoints pueden ser accedidos sin autenticación:
 
 Para sincronizar la interfaz sin necesidad de peticiones HTTP constantes:
 
-- **Ruta**: `ws://127.0.0.1:8000/api/ws?token=<TU_API_TOKEN>`
+- **Ruta**: `ws://127.0.0.1:8000/api/ws`
+- **Autenticación**: el token viaja en la cabecera `Sec-WebSocket-Protocol` como segundo subprotocolo: `Sec-WebSocket-Protocol: tgdl-v1, <TU_API_TOKEN>` (el panel lo monta automáticamente). Una conexión sin token responde `401`.
 - **Comportamiento**: Al conectarse, el servidor envía un snapshot completo del estado. Posteriormente, cada cambio (progreso de descarga, velocidad, nuevo elemento en escucha) emite inmediatamente una actualización estructurada en JSON.

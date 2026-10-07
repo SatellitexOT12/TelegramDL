@@ -9,7 +9,9 @@ TelegramDL incorpora un servidor HTTP y WebSocket interno (por defecto en el pue
 
 ## Seguridad: Autenticación por Token Bearer
 
-Toda la API REST (`/api/*`) y el flujo WebSocket exigen un **Token de Acceso**. Nadie en tu red local ni en internet puede consultar tus descargas, iniciar transferencias ni acceder a tus credenciales de Telegram sin este token.
+Casi toda la API REST (`/api/*`) y el flujo WebSocket exigen un **Token de Acceso**, enviado en la cabecera `Authorization: Bearer <TOKEN>` (en WebSocket, como segundo subprotocolo: `Sec-WebSocket-Protocol: tgdl-v1, <TOKEN>`). Nadie en tu red local ni en internet puede consultar tus descargas, iniciar transferencias ni acceder a tus credenciales de Telegram sin este token.
+
+Las únicas excepciones sin token: los públicos `/api/theme`, `/api/auth/has-credentials`, `/api/auth/token/send` (con sus propios límites de frecuencia) y `/api/ipc/download` (solo desde el propio equipo, con cabecera `X-TGDL-Request: 1` y `Content-Type: application/json`); y la primera configuración de Telegram (`/api/auth/status`, `credentials`, `send-code`, `verify-code`, `verify-2fa`, `logout`), que responde sin token **solo mientras no exista sesión de Telegram guardada**, siempre con método `POST` (`status` admite `GET`), cabecera `X-TGDL-Request: 1`, `Content-Type: application/json` y límite de 5/min por origen y 30/min global. Con sesión guardada responde `401`.
 
 ### Gestión del Token
 
@@ -36,7 +38,7 @@ Si intentas acceder a TelegramDL desde tu smartphone fuera del ordenador y no re
 
 ## Acceso en Red Local (LAN / Wi-Fi)
 
-Por defecto, TelegramDL enlaza a `0.0.0.0`, lo que permite que cualquier dispositivo conectado a tu red Wi-Fi doméstica acceda al panel:
+En las instalaciones nuevas, TelegramDL enlaza por defecto a `127.0.0.1` (solo el propio equipo); las instalaciones existentes conservan la dirección que ya tuvieran. Para que cualquier dispositivo de tu red Wi-Fi doméstica acceda al panel, enlaza a `0.0.0.0`:
 
 ```env
 TGDL_BIND_HOST=0.0.0.0
@@ -50,7 +52,7 @@ Para conectarte desde tu móvil o portátil:
 3. Introduce el Token de acceso cuando te lo solicite.
 
 :::warning
-Si estás conectado a una red pública (universidad, oficina, cafetería), cambia `TGDL_BIND_HOST=127.0.0.1` dentro de la base de datos en la tabla `app_config` para que el puerto solo responda a peticiones del propio equipo.
+Si estás conectado a una red pública (universidad, oficina, cafetería), mantén o cambia `bind_host` (clave de la configuración, tabla `app_config`) —o la variable de entorno `TGDL_BIND_HOST`— a `127.0.0.1` para que el puerto solo responda a peticiones del propio equipo.
 :::
 
 ---

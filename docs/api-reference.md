@@ -6,15 +6,21 @@ TelegramDL expone una API HTTP REST completa y un canal WebSocket en el puerto c
 
 ## :material-lock: Autenticación
 
-Todas las rutas bajo `/api/*` (excepto la petición para enviar el token a Telegram y el tema público) requieren autenticación mediante encabezado HTTP o parámetro de consulta:
+Todas las rutas bajo `/api/*` requieren autenticación mediante cabecera HTTP:
 
 ```http
 Authorization: Bearer <TU_API_TOKEN>
 ```
-O bien:
+
+Por ejemplo:
+
+```bash
+curl -H "Authorization: Bearer <TU_API_TOKEN>" http://127.0.0.1:8000/api/downloads
 ```
-http://127.0.0.1:8000/api/downloads?token=<TU_API_TOKEN>
-```
+
+El parámetro de consulta `?token=` ya **no se acepta** (responde `401`).
+
+Excepciones sin token: los públicos `/api/theme`, `/api/auth/has-credentials` y `/api/auth/token/send` (con sus propios límites de frecuencia) más `/api/ipc/download` (solo desde el propio equipo, con las cabeceras `X-TGDL-Request: 1` y `Content-Type: application/json`); y la primera configuración de Telegram (`/api/auth/status`, `credentials`, `send-code`, `verify-code`, `verify-2fa`, `logout`), que responde sin token **solo mientras no exista sesión de Telegram guardada**, con método `POST` (`status` admite `GET`), cabecera `X-TGDL-Request: 1`, `Content-Type: application/json` y límite de 5/min por origen y 30/min global. El resto de rutas responde `401` sin token.
 
 ---
 
@@ -87,5 +93,6 @@ http://127.0.0.1:8000/api/downloads?token=<TU_API_TOKEN>
 
 Para sincronizar la interfaz sin necesidad de peticiones HTTP constantes:
 
-- **Ruta**: `ws://127.0.0.1:8000/api/ws?token=<TU_API_TOKEN>`
+- **Ruta**: `ws://127.0.0.1:8000/api/ws`
+- **Autenticación**: el token viaja en la cabecera `Sec-WebSocket-Protocol` como segundo subprotocolo: `Sec-WebSocket-Protocol: tgdl-v1, <TU_API_TOKEN>` (el panel lo monta automáticamente). Una conexión sin token responde `401`.
 - **Comportamiento**: Al conectarse, el servidor envía un snapshot completo del estado. Posteriormente, cada cambio (progreso de descarga, velocidad, nuevo elemento en escucha) emite inmediatamente una actualización estructurada en JSON.

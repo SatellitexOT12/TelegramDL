@@ -6,15 +6,21 @@ TelegramDL exposes a comprehensive HTTP REST API and a WebSocket feed on its con
 
 ## :material-lock: Authentication
 
-All endpoints under `/api/*` (except theme queries and the send-token-to-telegram endpoint) require authentication via HTTP header or query parameter:
+All endpoints under `/api/*` require authentication via the HTTP header:
 
 ```http
 Authorization: Bearer <YOUR_API_TOKEN>
 ```
-Or alternatively:
+
+For example:
+
+```bash
+curl -H "Authorization: Bearer <YOUR_API_TOKEN>" http://127.0.0.1:8000/api/downloads
 ```
-http://127.0.0.1:8000/api/downloads?token=<YOUR_API_TOKEN>
-```
+
+The `?token=` query parameter is **no longer accepted** (it responds `401`).
+
+Exceptions without a token: the public `/api/theme`, `/api/auth/has-credentials` and `/api/auth/token/send` (each with its own rate limits) plus `/api/ipc/download` (local machine only, requiring the `X-TGDL-Request: 1` and `Content-Type: application/json` headers); and the first-time Telegram setup (`/api/auth/status`, `credentials`, `send-code`, `verify-code`, `verify-2fa`, `logout`), which responds without a token **only while no Telegram session is stored**, always as `POST` (`status` also accepts `GET`) with the `X-TGDL-Request: 1` header, `Content-Type: application/json` and a limit of 5/min per origin and 30/min globally. All other routes respond `401` without a token.
 
 ---
 
@@ -87,5 +93,6 @@ http://127.0.0.1:8000/api/downloads?token=<YOUR_API_TOKEN>
 
 To maintain UI reactivity without polling:
 
-- **Route**: `ws://127.0.0.1:8000/api/ws?token=<YOUR_API_TOKEN>`
+- **Route**: `ws://127.0.0.1:8000/api/ws`
+- **Authentication**: the token travels in the `Sec-WebSocket-Protocol` header as the second subprotocol: `Sec-WebSocket-Protocol: tgdl-v1, <YOUR_API_TOKEN>` (the dashboard sets this up automatically). A connection without a token responds `401`.
 - **Behavior**: Upon connection, emits a complete system state snapshot. Any subsequent state change (chunk progress, speed, listener event) broadcasts an incremental JSON update immediately.
