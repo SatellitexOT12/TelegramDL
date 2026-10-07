@@ -11,9 +11,10 @@ import {
   Loader2,
   Info
 } from '../icons'
-import { useAuthToken } from '../composables/useAuthToken'
+import { useAuthToken, isWailsRuntime } from '../composables/useAuthToken'
 import { openExternal } from '../composables/useExternalLink'
 import { useI18n } from '../i18n'
+import { isLoopbackHost } from '../utils/loopback.js'
 
 const { authHeaders } = useAuthToken()
 const { t, locale, setLocale, splitOn } = useI18n()
@@ -176,6 +177,21 @@ const verifyCode = async () => {
     emit('auth-success', { ...data, authenticated: true })
   }
 }
+
+// SEC-05: cuando el panel se ve desde fuera de este equipo y por HTTP, la
+// contraseña de 2FA viaja en claro por la red. Aquí SOLO se advierte, no se
+// bloquea el envío: el acceso por HTTP en la LAN es un escenario documentado
+// (REMOTE_ACCESS.md) y cortar el envío rompería a usuarios legítimos; la
+// decisión de continuar es del usuario.
+const insecureTransport = computed(() => {
+  // Dentro de la ventana nativa (Wails) el panel no viaja por la red: ahí no
+  // hay nada que advertir, aunque el hostname interno no sea loopback.
+  if (isWailsRuntime()) return false
+  return (
+    !isLoopbackHost(window.location.hostname) &&
+    window.location.protocol !== 'https:'
+  )
+})
 
 const verify2FA = async () => {
   if (!password.value) {
@@ -550,6 +566,18 @@ const cancelBack = () => {
             :placeholder="t('auth.tfaPlaceholder')"
             @keyup.enter="verify2FA"
           />
+          <!-- Advertencia en línea junto al campo: no bloquea el envío (ver
+               insecureTransport en el script), solo pone el riesgo sobre la
+               mesa antes de que el usuario pulse "Iniciar Sesión". -->
+          <div
+            v-if="insecureTransport"
+            class="auth-alert danger"
+            role="alert"
+            aria-live="polite"
+          >
+            <AlertCircle :size="18" class="alert-icon" />
+            <span>{{ t('auth.tfaHttpWarning') }}</span>
+          </div>
         </div>
 
         <div class="button-group">

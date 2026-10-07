@@ -386,6 +386,9 @@ export default {
     copied: 'Copied!',
     copyFail: 'Could not copy',
     regenerate: 'Regenerate token',
+    exposureTitle: 'Panel exposed to the network without encryption',
+    exposureText:
+      'The server is listening on {host}, so any device on your local network can read everything that travels through it (token, credentials and 2FA password). Close that port or protect it with a tunnel or a VPN like Tailscale; details are in REMOTE_ACCESS.md.',
     dataTitle: 'Data and backup',
     dataSub: 'Export or import the listener and clear the history',
     exportListener: 'Export listener',
@@ -505,6 +508,8 @@ export default {
     signIn: 'Sign In',
     backNote:
       '"Back" returns to the phone step. Telegram already used the previous code, so a new one will be sent to you.',
+    tfaHttpWarning:
+      'This connection is not encrypted: the 2FA password will travel over the network in cleartext. You can continue, but to protect it use HTTPS or access from localhost.',
     successTitle: 'Connection Successful!',
     connectedAs: 'Connected as',
     successFallback: 'Your Telegram session is ready and active.',

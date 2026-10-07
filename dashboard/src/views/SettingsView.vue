@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   Settings2,
   Zap,
@@ -17,13 +17,15 @@ import {
   HardDrive,
   Languages,
   Bell,
-  Send
+  Send,
+  AlertCircle
 } from '../icons'
 import FolderPicker from '../components/FolderPicker.vue'
 import { useAuthToken } from '../composables/useAuthToken'
 import { useExternalLink } from '../composables/useExternalLink'
 import { useI18n } from '../i18n'
 import AppAccordion from '../components/AppAccordion.vue'
+import { isLoopbackHost } from '../utils/loopback.js'
 
 const { authHeaders } = useAuthToken()
 const { openExternal } = useExternalLink()
@@ -78,6 +80,34 @@ const patch = (partial) => emit('update:settings', partial)
 // Apartado de Ajustes abierto. Solo puede haber uno: abrir un acordeón cierra
 // el que ya estaba, como hacía el menú antiguo antes del componente.
 const openSection = ref('')
+
+// Aviso de exposición (SEC-05): si el servidor escucha en una dirección que no
+// es de loopback, el panel queda expuesto a la red local sin cifrar. Se consulta
+// una única vez al montar la vista (sin sondeos ni watchers) y, si el servidor
+// no contesta, simplemente no se muestra el aviso.
+const serverInfo = ref(null)
+const networkExposed = computed(
+  () => serverInfo.value !== null && !isLoopbackHost(serverInfo.value.host)
+)
+
+onMounted(async () => {
+  try {
+    // Mismo patrón de petición que listenerApi en esta vista: fetch con
+    // authHeaders() y parseo de JSON, lanzando Error si la respuesta no es OK.
+    const response = await fetch('/api/system/info', {
+      headers: { ...authHeaders() }
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data.detail || data.error || t('common.serverError'))
+    }
+    serverInfo.value = data
+  } catch (err) {
+    // Regla 5: nunca en silencio. Sin datos no se pinta el aviso, pero el
+    // fallo queda registrado para poder diagnosticarlo.
+    console.error('Could not load /api/system/info:', err)
+  }
+})
 
 const showToken = ref(false)
 // Estado del botón de copiar ('' = normal, 'ok', 'fail'): la etiqueta se deriva
@@ -363,6 +393,17 @@ const sendTestNotification = async () => {
           <span class="save-state">
             {{ saving ? t('settings.saving') : t('settings.autosaved') }}
           </span>
+        </div>
+
+        <!-- Aviso de exposición (SEC-05): solo aparece cuando el servidor
+             escucha en una dirección que no es de loopback, en cuyo caso el
+             panel queda abierto a la red local sin cifrar. -->
+        <div v-if="networkExposed" class="exposure-banner" role="alert">
+          <AlertCircle :size="18" class="banner-icon" />
+          <div class="exposure-banner-text">
+            <strong>{{ t('settings.exposureTitle') }}</strong>
+            <p>{{ t('settings.exposureText', { host: serverInfo.host }) }}</p>
+          </div>
         </div>
 
         <div class="settings-accordion">
@@ -1042,3 +1083,40 @@ const sendTestNotification = async () => {
     </button>
   </div>
 </template>
+
+<style scoped>
+/* El aviso de exposición reutiliza el aspecto de los avisos que ya existen en
+   el panel (.auth-alert de AuthWizard y .logs-error de Registro): esa base vive
+   con scope dentro de cada componente y no hay una clase de aviso global, así
+   que aquí se reproduce con una única clase local la misma paleta existente,
+   sin montar un sistema de estilos nuevo. */
+.exposure-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  margin-bottom: 18px;
+  border: 1px solid #732a36;
+  border-radius: 10px;
+  background: #3d171d;
+  color: #ff9e9e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.exposure-banner .banner-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #ffc764;
+}
+
+.exposure-banner-text strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.exposure-banner-text p {
+  margin: 0;
+}
+</style>

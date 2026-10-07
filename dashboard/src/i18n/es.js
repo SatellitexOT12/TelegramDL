@@ -394,6 +394,9 @@ export default {
     copied: '¡Copiado!',
     copyFail: 'No se pudo copiar',
     regenerate: 'Regenerar token',
+    exposureTitle: 'Panel expuesto a la red sin cifrar',
+    exposureText:
+      'El servidor está escuchando en {host}, así que cualquier equipo de tu red local puede leer todo lo que viaja por él (token, credenciales y contraseña de 2FA). Cierra ese puerto o protégelo con un túnel o una VPN como Tailscale; los detalles están en REMOTE_ACCESS.md.',
     dataTitle: 'Datos y respaldo',
     dataSub: 'Exportar o importar la escucha y limpiar el historial',
     exportListener: 'Exportar escucha',
@@ -516,6 +519,8 @@ export default {
     signIn: 'Iniciar Sesión',
     backNote:
       '«Atrás» vuelve al paso del teléfono. Telegram ya usó el código anterior, así que se te enviará uno nuevo.',
+    tfaHttpWarning:
+      'Esta conexión no está cifrada: la contraseña de 2FA viajará en claro por la red. Puedes continuar, pero para protegerla usa HTTPS o accede desde localhost.',
     successTitle: '¡Conexión Exitosa!',
     connectedAs: 'Conectado como',
     successFallback: 'Tu sesión de Telegram está lista y activa.',
