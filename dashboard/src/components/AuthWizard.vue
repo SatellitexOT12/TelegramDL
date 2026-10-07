@@ -133,13 +133,29 @@ const apiCall = async (url, body) => {
 }
 
 const saveCredentials = async () => {
-  if (!apiId.value || !apiHash.value) {
+  // SEC-34: validar el formato ANTES de enviar, sobre el valor ya recortado,
+  // para que los espacios de los extremos no enmascaren un campo vacío ni un
+  // valor mal formado. El backend solo hace TrimSpace y Atoi sobre api_id y
+  // no valida api_hash, así que un dato inválido llegaría hasta Telegram:
+  // acotamos aquí con el patrón canónico (api_id solo dígitos, api_hash de 32
+  // caracteres hexadecimales, igual que el placeholder de este mismo formulario).
+  const trimmedApiId = apiId.value.trim()
+  const trimmedApiHash = apiHash.value.trim()
+  if (!trimmedApiId || !trimmedApiHash) {
     errorMessage.value = t('auth.errFillBoth')
     return
   }
+  if (!/^\d+$/.test(trimmedApiId)) {
+    errorMessage.value = t('auth.errApiIdFormat')
+    return
+  }
+  if (!/^[0-9a-fA-F]{32}$/.test(trimmedApiHash)) {
+    errorMessage.value = t('auth.errApiHashFormat')
+    return
+  }
   const data = await apiCall('/api/auth/credentials', {
-    api_id: apiId.value.trim(),
-    api_hash: apiHash.value.trim()
+    api_id: trimmedApiId,
+    api_hash: trimmedApiHash
   })
   emit('auth-success', data)
 }
@@ -171,6 +187,11 @@ const verifyCode = async () => {
     phone_number: phoneNumber.value,
     code: code.value.trim()
   })
+  // SEC-34: Telegram ya consumió el código en este punto (tanto si entra
+  // directo como si pide 2FA después). Ningún paso posterior lo reutiliza,
+  // así que se vacía el ref de inmediato para no retenerlo en memoria.
+  // Si la llamada falla, apiCall lanza antes y el valor queda para reintentar.
+  code.value = ''
   if (data.status === '2fa_required' || data.state === 'WAITING_2FA') {
     emit('auth-success', { ...props.authStatus, state: 'WAITING_2FA' })
   } else {
@@ -201,6 +222,13 @@ const verify2FA = async () => {
   const data = await apiCall('/api/auth/verify-2fa', {
     password: password.value
   })
+  // SEC-34: este es el punto final real del login. Tras este éxito solo queda
+  // el paso 5, que únicamente pinta la pantalla de éxito y no lee password,
+  // y el resto del panel nunca tuvo acceso a este ref; por eso se vacía aquí,
+  // justo antes de emitir, para que la contraseña 2FA no permanezca en
+  // memoria durante el resto de la sesión. Si la llamada falla, apiCall lanza
+  // antes y el valor se conserva para que el usuario pueda reintentar.
+  password.value = ''
   emit('auth-success', { ...data, authenticated: true })
 }
 
@@ -397,10 +425,14 @@ const cancelBack = () => {
 
         <div class="form-group">
           <label>TGDL_API_HASH</label>
+          <!-- SEC-34: el hash es un secreto de la app, no debe verse en pantalla
+               (ni en capturas/grabaciones); autocomplete="off" igual que el campo
+               de token de RemoteLogin para que el navegador no lo guarde. -->
           <input
             v-model="apiHash"
-            type="text"
+            type="password"
             :placeholder="t('auth.apiHashPlaceholder')"
+            autocomplete="off"
             @keyup.enter="saveCredentials"
           />
         </div>

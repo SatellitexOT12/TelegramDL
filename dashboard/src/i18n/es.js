@@ -535,6 +535,9 @@ export default {
     successFallback: 'Tu sesión de Telegram está lista y activa.',
     goDashboard: 'Ir al Dashboard',
     errFillBoth: 'Por favor completa tanto el API ID como el API HASH',
+    errApiIdFormat: 'El API ID debe contener solo dígitos (ej. 12345678)',
+    errApiHashFormat:
+      'El API HASH debe ser de 32 caracteres hexadecimales (0-9, a-f)',
     errPhone:
       'Ingresa un número de teléfono válido con código de país (ej. +34600112233)',
     errCode: 'Ingresa el código de 5 dígitos recibido en Telegram',
