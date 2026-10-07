@@ -84,6 +84,12 @@ type Server struct {
 	setupRateByOrigin map[string]rateWindow
 	setupRateGlobal   rateWindow
 
+	// setupStatusRate acota /api/auth/status cuando la puerta la deja pasar
+	// sin token (solo sin sesión guardada): 30 por minuto y origen, en un mapa
+	// aparte para que quien martillee status no se coma la cuota de mutaciones
+	// que necesita el asistente de login (SEC-09).
+	setupStatusRate map[string]rateWindow
+
 	// ipcRateByOrigin limita /api/ipc/download sin token a 30 intentos por
 	// minuto y origen (SEC-03). Quien trae token válido no consume cuota.
 	ipcRateByOrigin map[string]rateWindow
@@ -164,6 +170,7 @@ func NewServer(
 		setupRateByOrigin: make(map[string]rateWindow),
 		ipcRateByOrigin:   make(map[string]rateWindow),
 		authLogByOrigin:   make(map[string]rateWindow),
+		setupStatusRate:   make(map[string]rateWindow),
 		// Costura para tests: aquí se conecta con la sesión real de Telegram.
 		haySesion: func() bool { return cm != nil && cm.HaySesionGuardada() },
 	}
@@ -215,6 +222,12 @@ const (
 	setupMaxPorOrigen = 5
 	setupMaxGlobal    = 30
 	ipcMaxPorOrigen   = 30
+
+	// setupStatusMax es la cuota de /api/auth/status en la puerta de setup.
+	// Es más holgada que la de las mutaciones porque el panel la consulta de
+	// forma event-driven, pero evita que un bombardeo de GETs sin sesión
+	// dispare decenas de esperas de hasta 3 s en WaitReady (SEC-09).
+	setupStatusMax = 30
 
 	// tokenSendCooldown es lo que hay que esperar entre dos envíos del token.
 	// Al ser un endpoint abierto, es lo que evita que alguien que alcance el
@@ -410,6 +423,36 @@ func (s *Server) consumeSetupQuota(origin string) (bool, int) {
 	return true, 0
 }
 
+// consumeStatusQuota gasta un intento de la cuota propia de /api/auth/status
+// cuando la puerta la deja pasar sin token (solo sin sesión guardada):
+// setupStatusMax por minuto y origen, sin cuota global para que el desgaste
+// de status no recorte la de las mutaciones del asistente de login.
+//
+// Debe llamarse sin s.mu tomado.
+func (s *Server) consumeStatusQuota(origin string) (bool, int) {
+	ahora := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.setupStatusRate == nil {
+		s.setupStatusRate = make(map[string]rateWindow)
+	}
+	// Se purgan las ventanas caducadas, igual que en las demás cuotas, para
+	// que el mapa no crezca sin límite si alguien insiste desde muchas
+	// direcciones.
+	for k, w := range s.setupStatusRate {
+		if w.start.IsZero() || ahora.Sub(w.start) >= rateWindowDuration {
+			delete(s.setupStatusRate, k)
+		}
+	}
+
+	w := s.setupStatusRate[origin]
+	ok, retry := w.add(ahora, setupStatusMax)
+	s.setupStatusRate[origin] = w
+	return ok, retry
+}
+
 // consumeIPCQuota gasta un intento de la cuota de /api/ipc/download sin token
 // (30 por minuto y origen). Igual que consumeSetupQuota, purga las ventanas
 // caducadas antes de contar para que el mapa no crezca sin límite.
@@ -468,20 +511,29 @@ func (s *Server) setupSinToken(r *http.Request) (ok bool, codigo int, detalle st
 		return false, 0, "", 0
 	}
 
+	// 2) Frecuencia: las mutaciones gastan su cuota (5 por origen y 30 en
+	// total) y /api/auth/status la suya propia, más holgada (30 por origen y
+	// en mapa aparte). Con sesión no se llega aquí (paso 1), pero sin ella y
+	// con el cliente MTProto ya creado —la ventana entre guardar credenciales
+	// y completar el login— cada GET de status espera hasta 3 s en WaitReady
+	// (pkg/telegram): sin freno, esa espera se convierte en amplificación
+	// (SEC-09).
+	var permitido bool
+	var retry int
 	if esMutacion {
-		// 2) Frecuencia, solo en las mutaciones. /api/auth/status no consume
-		// cuota sin token: sin sesión responde de inmediato el estado
-		// «UNCONFIGURED» sin tocar la red (GetAuthStatus en pkg/telegram), así
-		// que no hay amplificación que limitar.
-		permitido, retry := s.consumeSetupQuota(origin)
-		if !permitido {
-			logbus.Warn(logbus.CatServer,
-				i18n.T("server.setupRateLimited"),
-				i18n.T("server.requestOriginDetail", origin))
-			return false, http.StatusTooManyRequests,
-				i18n.T("server.rateLimitedDetail", retry), retry
-		}
+		permitido, retry = s.consumeSetupQuota(origin)
+	} else {
+		permitido, retry = s.consumeStatusQuota(origin)
+	}
+	if !permitido {
+		logbus.Warn(logbus.CatServer,
+			i18n.T("server.setupRateLimited"),
+			i18n.T("server.requestOriginDetail", origin))
+		return false, http.StatusTooManyRequests,
+			i18n.T("server.rateLimitedDetail", retry), retry
+	}
 
+	if esMutacion {
 		// 3) Forma de la petición: un método que no sea POST no puede venir
 		// del panel (logout por <img>, SEC-01); sin la cabecera propia el
 		// navegador no hace el preflight de CORS (SEC-04); y un Content-Type

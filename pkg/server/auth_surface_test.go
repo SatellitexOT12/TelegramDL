@@ -202,14 +202,61 @@ func TestSetupSinTokenAdmiteLaPrimeraConfiguracion(t *testing.T) {
 		t.Fatalf("estado inesperado: %q", cuerpo["status"])
 	}
 
-	// /api/auth/status sin token pasa la puerta sin consumir cuota ni exigir
-	// POST: sin sesión responde de inmediato el estado «UNCONFIGURED».
+	// /api/auth/status sin token pasa la puerta sin exigir POST y con la
+	// cuota propia que tiene (setupStatusMax por minuto): sin sesión responde
+	// de inmediato el estado «UNCONFIGURED».
 	for i := 0; i < 10; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
 		ok, codigo, _, _ := s.setupSinToken(req)
 		if !ok || codigo != 0 {
 			t.Fatalf("status sin token debe pasar la puerta (intento %d): ok=%v codigo=%d", i+1, ok, codigo)
 		}
+	}
+}
+
+// SEC-09: sin sesión, /api/auth/status consume cuota propia (30 por minuto y
+// origen). Sin este freno, un bombardeo de GETs en primera configuración se
+// traducía en esperas de hasta 3 s en WaitReady. La cuota va en mapa aparte:
+// agotar la de status no debe recortar la de las mutaciones.
+func TestSetupLimitaStatusSinSesion(t *testing.T) {
+	s := nuevoServidorDePrueba()
+
+	status := func(origen string) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
+		if origen != "" {
+			req.RemoteAddr = origen
+		}
+		return req
+	}
+
+	// Las primeras setupStatusMax pasan la puerta.
+	for i := 1; i <= setupStatusMax; i++ {
+		ok, codigo, _, _ := s.setupSinToken(status(""))
+		if !ok || codigo != 0 {
+			t.Fatalf("status %d: debía pasar la puerta, ok=%v codigo=%d", i, ok, codigo)
+		}
+	}
+
+	// La siguiente se corta con 429 y segundos de espera.
+	ok, codigo, _, retry := s.setupSinToken(status(""))
+	if ok || codigo != http.StatusTooManyRequests {
+		t.Fatalf("status %d debe recibir 429 por la puerta: ok=%v codigo=%d", setupStatusMax+1, ok, codigo)
+	}
+	if retry <= 0 {
+		t.Fatalf("faltan los segundos de espera para reintentar, got %d", retry)
+	}
+
+	// Otro origen distinto sigue pasando: la cuota es por origen.
+	req2 := status("198.51.100.77:60000")
+	if ok, codigo, _, _ := s.setupSinToken(req2); !ok || codigo != 0 {
+		t.Fatalf("otro origen debe seguir pasando la puerta: ok=%v codigo=%d", ok, codigo)
+	}
+
+	// Las mutaciones no heredan el desgaste de status: el asistente de login
+	// conserva su cuota (logout responde 200 sin sesión y sin storage).
+	w := peticionSetup(s, http.MethodPost, "/api/auth/logout", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("agotar la cuota de status no debe recortar la de mutaciones: got %d", w.Code)
 	}
 }
 
