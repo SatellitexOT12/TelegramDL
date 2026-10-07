@@ -202,14 +202,34 @@ func (b *Bus) writeFile(line string) {
 // Registro de entradas
 // ---------------------------------------------------------------------------
 
+// logLineBreaks sustituye cualquier salto de línea (CRLF, LF o CR) por la
+// secuencia literal "\n" (dos caracteres). Se usa "\n" y no un espacio porque
+// el registro es una pista de auditoría: un espacio borraría la huella de que
+// el origen intentó partir la línea, mientras que "\n" deja constancia del
+// intento sin permitir que se forgeen líneas físicas falsas con nivel o
+// categoría inventados (p. ej. inyectando "\n[ERROR] [AUTH] ..."). El orden de
+// los patrones hace que "\r\n" cuente como un solo salto y no genere "\n\n".
+var logLineBreaks = strings.NewReplacer("\r\n", `\n`, "\n", `\n`, "\r", `\n`)
+
+// sanitizeLogField elimina los CR/LF de un campo de texto libre para que cada
+// entrada ocupe exactamente una línea física en el archivo y en el panel
+// (SEC-28: inyección de log / CRLF). Solo reemplaza los saltos; nunca trunca.
+func sanitizeLogField(s string) string {
+	return logLineBreaks.Replace(s)
+}
+
 // Emit registra un evento con nivel, categoría, mensaje y detalle opcional.
+// Es el único punto por el que pasa toda entrada del registro, así que aquí se
+// neutralizan los saltos de línea de message y detail: pueden contener texto
+// externo (nombres de chat, mensajes de terceros, err.Error()) y nadie debe
+// poder partir la línea para falsificar nivel o categoría.
 func (b *Bus) Emit(level, category, message, detail string) Entry {
 	level = normalizeLevel(level)
 	if strings.TrimSpace(category) == "" {
 		category = CatSystem
 	}
-	message = strings.TrimSpace(message)
-	detail = strings.TrimSpace(detail)
+	message = sanitizeLogField(strings.TrimSpace(message))
+	detail = sanitizeLogField(strings.TrimSpace(detail))
 	if message == "" && detail == "" {
 		return Entry{}
 	}
