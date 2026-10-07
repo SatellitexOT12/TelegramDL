@@ -68,6 +68,11 @@ type ClientManager struct {
 	cancelRun            context.CancelFunc
 	runWg                sync.WaitGroup
 	mu                   sync.RWMutex
+	// dcMu serializa únicamente la creación de pools por DC (SEC-18). La
+	// llamada de red client.DC() se hace fuera de cm.mu para no bloquear
+	// todo el manejador; este candado corto evita que dos goroutines abran
+	// dos pools duplicados para el mismo DC mientras tanto.
+	dcMu                 sync.Mutex
 	readyChan            chan struct{}
 	phoneCodeHash        string
 	pendingPhone         string
@@ -242,10 +247,20 @@ func (cm *ClientManager) DownloadClientForDC(ctx context.Context, dc int) (*tg.C
 		return nil, errors.New(i18n.T("telegram.notConnected"))
 	}
 
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+	// SEC-18: la apertura del pool es I/O de red, así que NO se hace con
+	// cm.mu tomado (antes bloqueaba DownloadClient, GetChatName, RawClient,
+	// WaitReady, FetchDialogs, Stop y company durante toda la llamada).
+	// dcMu serializa solo la creación para que dos descargas simultáneas no
+	// abran pools duplicados para el mismo DC.
+	cm.dcMu.Lock()
+	defer cm.dcMu.Unlock()
 
-	if dlClient, ok := cm.dcClients[dc]; ok && dlClient != nil {
+	// Doble comprobación: otra goroutine pudo publicar el pool mientras
+	// esperábamos a dcMu. Si ya está publicado, se devuelve sin tocar la red.
+	cm.mu.RLock()
+	dlClient, ok = cm.dcClients[dc]
+	cm.mu.RUnlock()
+	if ok && dlClient != nil {
 		return dlClient, nil
 	}
 
@@ -256,12 +271,31 @@ func (cm *ClientManager) DownloadClientForDC(ctx context.Context, dc int) (*tg.C
 	}
 
 	dlClient = tg.NewClient(pool)
+
+	// Publicación con cm.mu tomado solo el tiempo de la asignación.
+	cm.mu.Lock()
+	// Carrera residual: la sesión pudo reiniciarse (stopRunning/InitClient)
+	// mientras DC conectaba. Ese pool pertenece al cliente viejo y quedaría
+	// publicado en un manejador que ya no lo usa, así que se descarta con su
+	// API de cierre en lugar de dejarlo abandonado.
+	if cm.client != client {
+		cm.mu.Unlock()
+		if cerrErr := pool.Close(); cerrErr != nil {
+			log.Printf("[TG CLIENT] Error cerrando pool DC %d descartado: %v", dc, cerrErr)
+		}
+		return nil, errors.New("cliente de Telegram no conectado")
+	}
 	if cm.dcPools == nil {
 		cm.dcPools = make(map[int]telegram.CloseInvoker)
 		cm.dcClients = make(map[int]*tg.Client)
 	}
 	cm.dcPools[dc] = pool
 	cm.dcClients[dc] = dlClient
+	// El candado se suelta antes de loguear: es precisamente el motivo del
+	// reordenamiento (SEC-18), para no retener cm.mu durante una llamada de
+	// red o de log.
+	cm.mu.Unlock()
+
 	log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolDCOpened", dc, DownloadConnections))
 	return dlClient, nil
 }
