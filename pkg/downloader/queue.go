@@ -89,17 +89,22 @@ func (e *Engine) QueueItem(item storage.DownloadItem) string {
 
 	e.downloads[item.ID] = &item
 	e.chatMsgMap[key] = item.ID
+	// Copia por valor ANTES de soltar el candado: e.downloads[item.ID] apunta a
+	// la variable local 'item', así que tras el Unlock otros escritores bajo
+	// e.mu (onProgress) modifican esa misma memoria mientras aquí la leemos.
+	// 'cp' es un valor privado de esta goroutine: todo lo posterior al Unlock
+	// se hace con él para evitar la carrera con SaveDownload.
 	cp := item
 	e.mu.Unlock()
 	if e.storage != nil {
-		if err := e.storage.SaveDownload(item); err != nil {
+		if err := e.storage.SaveDownload(cp); err != nil {
 			log.Printf("[DOWNLOADER] %s", i18n.T("downloader.saveStateError", err))
 		}
 	}
 	e.notifyState(cp)
 
-	e.launchDownloadJob(item.ID)
-	return item.ID
+	e.launchDownloadJob(cp.ID)
+	return cp.ID
 }
 
 func (e *Engine) launchDownloadJob(itemID string) {
