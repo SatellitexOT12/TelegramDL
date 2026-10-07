@@ -26,3 +26,8 @@ pendientes.txt
 /build/windows
 /site
 md_ideas/
+
+# Material temporal de auditoría/pruebas de seguridad: no debe subirse al repo
+/pent-test/
+/SECURITY_AUDIT.md
+/SECURITY_FIXPLAN.md
