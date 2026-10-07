@@ -675,6 +675,27 @@ func (cm *ClientManager) Client() *telegram.Client {
 }
 
 func (cm *ClientManager) InitClient(apiIDStr, apiHash string) error {
+	// SEC-01: validar las credenciales ANTES de tocar la sesión. Antes,
+	// stopRunning() se ejecutaba primero y un api_id inválido mataba el
+	// cliente MTProto vivo solo para devolver después un error. La
+	// validación no lee ni escribe cm, así que un error de formato sale sin
+	// llamar a stopRunning() y sin modificar ningún campo del manejador.
+	apiIDStr = strings.TrimSpace(apiIDStr)
+	apiHash = strings.TrimSpace(apiHash)
+
+	// Borrado intencionado de credenciales: solo en ese caso se decide parar
+	// la sesión actual, porque el usuario pide vaciar la configuración.
+	borrarSesion := apiIDStr == "" || apiHash == ""
+	id := 0
+	if !borrarSesion {
+		var err error
+		id, err = strconv.Atoi(apiIDStr)
+		if err != nil {
+			// Sin stopRunning() ni mutación de cm: el estado previo queda intacto.
+			return fmt.Errorf(i18n.T("telegram.invalidAPIID"), err)
+		}
+	}
+
 	// Detener la sesión anterior antes de tomar el mutex. La goroutine de
 	// Telegram puede necesitarlo mientras termina.
 	cm.stopRunning()
@@ -682,19 +703,12 @@ func (cm *ClientManager) InitClient(apiIDStr, apiHash string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	apiIDStr = strings.TrimSpace(apiIDStr)
-	apiHash = strings.TrimSpace(apiHash)
-	if apiIDStr == "" || apiHash == "" {
+	if borrarSesion {
 		cm.apiID = 0
 		cm.apiHash = ""
 		cm.client = nil
 		cm.rawClient = nil
 		return nil
-	}
-
-	id, err := strconv.Atoi(apiIDStr)
-	if err != nil {
-		return fmt.Errorf(i18n.T("telegram.invalidAPIID"), err)
 	}
 
 	cm.apiID = id
@@ -868,6 +882,28 @@ func (cm *ClientManager) stopRunning() {
 	cm.dcClients = make(map[int]*tg.Client)
 	cm.primaryDC = 0
 	cm.mu.Unlock()
+}
+
+// HaySesionGuardada informa si existe el fichero de sesión de Telegram en
+// disco. El panel (pkg/server) usa este método para decidir si los endpoints
+// de configuración de /api/auth/ pueden responder sin token SOLO mientras no
+// haya sesión guardada: es el único momento en que configurar la cuenta no
+// expone ni destruye nada ajeno (ver SECURITY_FIXPLAN.md §1.3, cierre de
+// SEC-01). Nil-safe: un manejador nulo no tiene sesión.
+func (cm *ClientManager) HaySesionGuardada() bool {
+	if cm == nil {
+		return false
+	}
+	// Copiar el path y soltar el candado ANTES de os.Stat: no se hace I/O con
+	// el candado tomado, aunque la llamada sea barata (estilo SEC-18).
+	cm.mu.RLock()
+	sessionPath := cm.sessionPath
+	cm.mu.RUnlock()
+
+	// Cualquier error de stat (incluido «no existe») cuenta como «sin
+	// sesión»: es la respuesta conservadora, porque hace exigir token.
+	_, err := os.Stat(sessionPath)
+	return err == nil
 }
 
 func (cm *ClientManager) GetAuthStatus(ctx context.Context) AuthStatus {

@@ -162,7 +162,21 @@ func sendURLToActiveInstance(url string) int {
 		return 1
 	}
 
-	resp, err := http.Post(endpoint, "application/json", bytes.NewBuffer(jsonData))
+	// http.Post no admite cabeceras: se construye la petición a mano para
+	// poder marcarla como propia (SEC-03/SEC-04).
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, i18n.T("cli.ipcConnectError"), err)
+		fmt.Fprint(os.Stderr, i18n.T("cli.ipcConnectHint"))
+		return 1
+	}
+	req.Header.Set("Content-Type", "application/json")
+	// Cabecera que el servidor exige para rechazar las peticiones disparadas
+	// desde una página web en el navegador (CSRF): el navegador no puede
+	// fijarla, así que un sitio remoto no puede encolar descargas.
+	req.Header.Set("X-TGDL-Request", "1")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, i18n.T("cli.ipcConnectError"), err)
 		fmt.Fprint(os.Stderr, i18n.T("cli.ipcConnectHint"))
