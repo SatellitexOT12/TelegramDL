@@ -5,14 +5,13 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-  actions: write
-
 jobs:
   test:
     name: Tests y vet antes de compilar
     runs-on: ubuntu-22.04
+    # Solo lectura: este job únicamente hace checkout, compila y ejecuta tests.
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,6 +49,9 @@ jobs:
     name: Build Windows
     needs: test
     runs-on: windows-latest
+    # Solo lectura: checkout y subida de artefactos; upload-artifact no necesita más.
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -118,6 +120,9 @@ jobs:
     name: Build Linux x86_64
     needs: test
     runs-on: ubuntu-22.04
+    # Solo lectura: checkout y subida de artefactos; upload-artifact no necesita más.
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -172,6 +177,9 @@ jobs:
     name: Build macOS Universal
     needs: test
     runs-on: macos-14
+    # Solo lectura: checkout y subida de artefactos; upload-artifact no necesita más.
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -221,6 +229,11 @@ jobs:
     name: Publish Release
     needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
+    # contents: write para crear la release y subir los assets (softprops/action-gh-release);
+    # actions: write para que github-script pueda eliminar los artefactos del run.
+    permissions:
+      contents: write
+      actions: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -249,7 +262,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
-        uses: appleboy/telegram-action@master
+        # Se fija por SHA en lugar de un tag movible (@master) para que un tag
+        # comprometido en el upstream no pueda colar código con el token del bot.
+        uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1 # v1.1.1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
