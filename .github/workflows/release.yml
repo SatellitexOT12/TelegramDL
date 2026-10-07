@@ -244,6 +244,14 @@ jobs:
       # La aplicación exige este archivo antes de instalar nada: sin él, una
       # descarga manipulada sería indistinguible de la legítima. Si se quita de
       # aquí, las actualizaciones automáticas dejan de funcionar a propósito.
+      #
+      # SEC-11: este checksums.txt da integridad, NO autenticidad —se publica
+      # desde el mismo origen que los binarios—, así que un runner o token
+      # comprometido podría publicar artefactos y checksums coherentes. La
+      # firma criptográfica (minisign/sigstore) queda pendiente como decisión
+      # abierta. Además, por la misma cadena de suministro: los builds de aquí
+      # NO deben llevar nunca `-tags dev` (SEC-39), que desactiva comprobaciones
+      # de seguridad en los binarios distribuidos.
       - name: Generate checksums
         run: |
           cd release_assets

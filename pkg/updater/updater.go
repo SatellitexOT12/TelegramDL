@@ -932,6 +932,16 @@ func safeMode(mode int64) os.FileMode {
 // Se exige que exista y que coincida. Si falta, la actualización se rechaza en
 // vez de instalarse a ciegas: una release sin checksums es indistinguible de
 // una manipulada.
+//
+// SEC-11 (decisión abierta §10.4 del plan de remediación, resuelta por ahora
+// documentando): el checksums.txt sale del MISMO origen que el binario, así
+// que protege contra corrupción en tránsito, NO contra autenticidad. Un
+// atacante capaz de publicar en la release (cuenta comprometida, token de CI
+// filtrado —véase SEC-12— o runner manipulado) publicaría binario y checksums
+// coherentes y lograría ejecución remota en todos los usuarios auto-
+// actualizados. La remediación completa es firmar binario y checksums.txt
+// (minisign/sigstore con clave offline u OIDC) y verificar contra una clave
+// pública embebida aquí, rechazando las actualizaciones sin firma válida.
 // ---------------------------------------------------------------------------
 
 const checksumsFileName = "checksums.txt"
