@@ -80,6 +80,11 @@ var messagesES = map[string]string{
 	"server.logoutFailed":            "No se pudo cerrar la sesión de Telegram",
 	"server.logoutFailedDetail":      "No se pudo cerrar la sesión de Telegram: %s",
 
+	// Límites de red y WebSocket (SEC-16/SEC-32)
+	"server.authRejected":     "Solicitud rechazada: token de acceso inválido o ausente",
+	"server.wsTooManyClients": "Demasiados paneles conectados a la vez; vuelve a intentarlo en unos segundos",
+	"server.wsDeadlineError":  "No se pudo limpiar la fecha límite del WebSocket: %v",
+
 	// Cliente de Telegram (pkg/telegram y parte de pkg/server)
 	"downloads.migratingDC":             "Migración detectada a DC %d, reconectando al centro de datos adecuado...",
 	"downloads.interruptedUnexpectedly": "Descarga interrumpida inesperadamente",

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/netutil"
 
 	"tgdown/pkg/config"
 	"tgdown/pkg/downloader"
@@ -86,6 +87,12 @@ type Server struct {
 	// ipcRateByOrigin limita /api/ipc/download sin token a 30 intentos por
 	// minuto y origen (SEC-03). Quien trae token válido no consume cuota.
 	ipcRateByOrigin map[string]rateWindow
+
+	// authLogByOrigin suprime la inundación del registro de los 401 (SEC-32):
+	// como mucho un aviso por origen y minuto (rateWindow con maxAttempts=1).
+	// Las ventanas caducadas se purgan al registrar cada rechazo para que el
+	// mapa no crezca sin límite aunque lleguen orígenes nuevos a millares.
+	authLogByOrigin map[string]rateWindow
 
 	// Apagado del equipo al terminar la cola (interruptor shutdown_when_done).
 	// hadActiveDownloads recuerda que hubo descargas activas o en cola: solo
@@ -156,6 +163,7 @@ func NewServer(
 
 		setupRateByOrigin: make(map[string]rateWindow),
 		ipcRateByOrigin:   make(map[string]rateWindow),
+		authLogByOrigin:   make(map[string]rateWindow),
 		// Costura para tests: aquí se conecta con la sesión real de Telegram.
 		haySesion: func() bool { return cm != nil && cm.HaySesionGuardada() },
 	}
@@ -233,6 +241,29 @@ const (
 	// el apagado del equipo, con el interruptor «Apagar al terminar» armado.
 	// Da margen a encadenar más descargas o a desarmar el interruptor.
 	shutdownDelay = 15 * time.Second
+
+	// maxCuerpoAPI limita el cuerpo de cada petición de /api/ a 1 MiB. Ningún
+	// endpoint legítimo necesita más (el mayor es el listado de ajustes o una
+	// descarga por URL), y sin techo cualquier visitante podía obligar al
+	// servidor a leer cuerpos gigantes hasta agotar memoria (SEC-02).
+	maxCuerpoAPI = 1 << 20
+
+	// maxConexionesSimultaneas acota las conexiones TCP que el servidor
+	// admite a la vez. Por encima de este número, Accept espera a que se
+	// libere una entrada en vez de crear goroutines y búferes sin límite: sin
+	// el techo, abrir conexiones y no consumirlas bastaba para tumbar la app
+	// completa, incluida la ventana de Wails, que comparte el servidor (SEC-02).
+	maxConexionesSimultaneas = 64
+
+	// maxClientesWS es el techo de paneles conectados por WebSocket a la vez.
+	// Quien llega con el techo lleno recibe un 503 antes del handshake, en
+	// vez de una conexión que se abriría para morir en el registro (SEC-16).
+	maxClientesWS = 32
+
+	// maxLecturaWS limita el tamaño de los mensajes que se leen del panel:
+	// el cliente no manda nada con más de 4 KiB, así que un WebSocket
+	// malintencionado no puede forzar búferes de tamaño arbitrario (SEC-16).
+	maxLecturaWS = 4 << 10
 )
 
 // publicAPIPaths son los únicos endpoints de la API que responden sin token.
@@ -475,10 +506,18 @@ func (s *Server) setupSinToken(r *http.Request) (ok bool, codigo int, detalle st
 	return true, 0, "", 0
 }
 
+// limiteDeCuerpo acota el cuerpo de cada petición de /api/ a maxCuerpoAPI
+// (SEC-02). Solo se envuelve la rama de la API: los estáticos y el IPC de
+// Wails no aceptan cuerpos, y el handshake del WebSocket viaja sin cuerpo, así
+// que no hay nada que limitar en ellos.
+func (s *Server) limiteDeCuerpo(h http.Handler) http.Handler {
+	return http.MaxBytesHandler(h, maxCuerpoAPI)
+}
+
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			s.handlerDeAPI(r).ServeHTTP(w, r)
+			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
 		}
 		// Para cualquier ruta de frontend, devolver 404 para que Wails AssetServer
@@ -490,13 +529,46 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) WebHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			s.handlerDeAPI(r).ServeHTTP(w, r)
+			s.limiteDeCuerpo(s.handlerDeAPI(r)).ServeHTTP(w, r)
 			return
 		}
 		// El panel estático (HTML/JS/CSS) se sirve siempre sin autenticación:
 		// la pantalla de login remoto necesita poder cargar antes de tener token.
 		s.mux.ServeHTTP(w, r)
 	})
+}
+
+// nuevoHTTPServer monta el http.Server con los límites de red (SEC-02). Se
+// extrae a una función propia para que los tests puedan comprobar los campos
+// sin abrir puertos.
+//
+// Por qué cada límite:
+//
+//   - ReadHeaderTimeout e IdleTimeout ya estaban: acotan la lectura de las
+//     cabeceras y el tiempo ocioso entre peticiones de una conexión keep-alive.
+//   - ReadTimeout es nuevo: sin él, un atacante podía abrir una conexión y
+//     soltar el cuerpo gota a gota (slowloris) manteniendo ocupada una
+//     goroutine para siempre.
+//   - MaxHeaderBytes acaba con cabeceras gigantes que el servidor acabaría
+//     alojando en memoria.
+//   - NO se fija WriteTimeout: mataría los WebSocket, que son conexiones
+//     largas por definición, y también las respuestas amplias (historial,
+//     listado de descargas). Antes el comentario decía que solo se limitaba
+//     ReadHeaderTimeout porque ReadTimeout también habría cortado el WS: ahora
+//     ReadTimeout sí se aplica y el WebSocket sobrevive porque, tras el
+//     upgrade, handleWebSocket limpia la fecha límite heredada con
+//     conn.UnderlyingConn().SetDeadline(time.Time{}).
+func nuevoHTTPServer(h http.Handler) *http.Server {
+	return &http.Server{
+		Handler: h,
+		// 30 s para leer cabeceras y cuerpo; la conexión ociosa tiene su
+		// propio tope más amplio (IdleTimeout).
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		// 16 KiB de cabeceras como máximo; por encima se corta la petición.
+		MaxHeaderBytes: 16 << 10,
+	}
 }
 
 func (s *Server) Start(port int) error {
@@ -518,14 +590,12 @@ func (s *Server) Start(port int) error {
 		}
 	}
 
-	s.httpServer = &http.Server{
-		Handler: s.WebHandler(),
-		// Solo se limita la lectura de cabeceras y el tiempo ocioso. Ni
-		// ReadTimeout ni WriteTimeout: cortarían los WebSocket, que son
-		// conexiones largas por definición.
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
-	}
+	// Techo de conexiones simultáneas (SEC-02): por encima de
+	// maxConexionesSimultaneas, Accept espera a que se libere una entrada en
+	// vez de seguir creando goroutines y búferes sin límite.
+	listener = netutil.LimitListener(listener, maxConexionesSimultaneas)
+
+	s.httpServer = nuevoHTTPServer(s.WebHandler())
 
 	// Tarea de refresco y broadcast periódico debounced
 	go s.periodicBroadcastLoop()
@@ -653,11 +723,54 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.checkAuth(r) {
+			// Cada rechazo deja constancia con el origen, con supresión de
+			// inundación: sin esto, la fuerza bruta del token era invisible
+			// en el panel de logs (SEC-32).
+			s.registrarRechazoAuth(r)
 			s.errorResponse(w, http.StatusUnauthorized, i18n.T("server.invalidToken"))
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// registrarRechazoAuth anota en el registro un 401 con el origen de la
+// petición (SEC-32): la fuerza bruta del token no dejaba rastro alguno.
+//
+// La supresión de inundación admite como mucho un aviso por origen y minuto,
+// reutilizando rateWindow con maxAttempts=1. Las ventanas caducadas se purgan
+// en cada llamada, así que el mapa no crece sin límite aunque cada petición
+// venga de un origen distinto.
+//
+// Debe llamarse sin s.mu tomado.
+func (s *Server) registrarRechazoAuth(r *http.Request) {
+	origin := requestOrigin(r)
+	ahora := time.Now()
+
+	s.mu.Lock()
+	if s.authLogByOrigin == nil {
+		s.authLogByOrigin = make(map[string]rateWindow)
+	}
+	// Se purgan las ventanas caducadas para que el mapa no crezca sin límite.
+	for k, w := range s.authLogByOrigin {
+		if w.start.IsZero() || ahora.Sub(w.start) >= rateWindowDuration {
+			delete(s.authLogByOrigin, k)
+		}
+	}
+	w := s.authLogByOrigin[origin]
+	// maxAttempts=1: dentro de la ventana solo se registra la primera vez.
+	permitido, _ := w.add(ahora, 1)
+	s.authLogByOrigin[origin] = w
+	s.mu.Unlock()
+
+	if !permitido {
+		// Este origen ya dejó su aviso en la ventana actual: se silencia aquí
+		// para no inundar el registro con la misma línea una y otra vez.
+		return
+	}
+	logbus.Warn(logbus.CatServer,
+		i18n.T("server.authRejected"),
+		i18n.T("server.requestOriginDetail", origin))
 }
 
 // wsSubprotocol es el subprotocolo que marca una conexión de TelegramDL. El
@@ -884,6 +997,15 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 }
 
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Techo de clientes (SEC-16): se comprueba ANTES del upgrade para que el
+	// navegador vea un 503 de verdad. Respondido esto, se sale sin tocar el
+	// handshake: si se comprobara después, la conexión ya habría quedado
+	// abierta y el cliente solo vería un WebSocket que se cae en el acto.
+	if s.websocketLimiteSuperado() {
+		http.Error(w, i18n.T("server.wsTooManyClients"), http.StatusServiceUnavailable)
+		return
+	}
+
 	// Si el cliente ofreció subprotocolos hay que devolverle uno, o el navegador
 	// rechaza la conexión. Se responde siempre el nuestro, nunca el token.
 	var headers http.Header
@@ -894,6 +1016,19 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, headers)
 	if err != nil {
 		return
+	}
+
+	// Handshake hecho: solo entra lo razonable. El panel no manda mensajes de
+	// más de 4 KiB, así que cualquier tamaño mayor es un ataque (SEC-16).
+	conn.SetReadLimit(maxLecturaWS)
+
+	// El servidor aplica ReadTimeout (30 s) a la conexión que acaba de ser
+	// secuestrada para el WebSocket, y esa fecha límite sigue impuesta en el
+	// socket subyacente: sin limpiarla, el panel moriría cada 30 s y entraría
+	// en bucle de reconexión. Se borra para que la conexión larga solo la rija
+	// su propia actividad.
+	if err := conn.UnderlyingConn().SetDeadline(time.Time{}); err != nil {
+		log.Printf("[SERVER] %s", i18n.T("server.wsDeadlineError", err))
 	}
 
 	client := &wsClient{conn: conn}
@@ -919,6 +1054,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+// websocketLimiteSuperado indica que ya hay maxClientesWS paneles conectados.
+// Se lee bajo s.mu para que dos handshakes simultáneos no superen el techo
+// entre los dos.
+func (s *Server) websocketLimiteSuperado() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.wsClients) >= maxClientesWS
 }
 
 // periodicBroadcastLoop refresca el estado que ve el panel.

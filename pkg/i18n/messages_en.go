@@ -79,6 +79,11 @@ var messagesEN = map[string]string{
 	"server.logoutFailed":            "Could not close the Telegram session",
 	"server.logoutFailedDetail":      "Could not close the Telegram session: %s",
 
+	// Network and WebSocket limits (SEC-16/SEC-32)
+	"server.authRejected":     "Request rejected: missing or invalid access token",
+	"server.wsTooManyClients": "Too many dashboard clients connected at once; try again in a few seconds",
+	"server.wsDeadlineError":  "Could not clear the WebSocket deadline: %v",
+
 	// Telegram client (pkg/telegram and part of pkg/server)
 	"downloads.migratingDC":             "Detected migration to DC %d, reconnecting to proper data center...",
 	"downloads.interruptedUnexpectedly": "Download interrupted unexpectedly",
