@@ -14,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-"tgdown/pkg/config"
+	"tgdown/pkg/config"
 	"tgdown/pkg/i18n"
 )
 
@@ -56,6 +56,9 @@ type Storage struct {
 	dbPath string
 	db     *sql.DB
 	mu     sync.RWMutex
+	// vacuumMu serializa los VACUUM entre limpiezas simultáneas. Es un mutex
+	// por valor, así que no necesita inicialización.
+	vacuumMu sync.Mutex
 }
 
 func NewStorage(dbPath string) (*Storage, error) {
@@ -1033,23 +1036,56 @@ func (s *Storage) DeleteChunks(downloadID string) error {
 	return err
 }
 
+// ClearFinishedDownloads borra del historial las descargas terminadas y los
+// chunks huérfanos, y después devuelve el espacio al disco con un VACUUM.
+// Los DELETE van con s.mu tomado porque son operaciones rápidas; el VACUUM se
+// ejecuta fuera del candado porque necesita escritura exclusiva y en una base
+// grande tarda segundos: con s.mu tomado durante ese rato quedaban congeladas
+// el progreso, los guardados de descargas y el arranque de nuevas.
 func (s *Storage) ClearFinishedDownloads() (int64, error) {
+	rows, err := s.deleteFinishedAndOrphanChunks()
+	if err != nil {
+		return 0, err
+	}
+
+	s.vacuumMu.Lock()
+	defer s.vacuumMu.Unlock()
+
+	// El fallo del VACUUM no tumba la operación: los DELETE de arriba ya se
+	// aplicaron y las filas se borraron, así que se sigue devolviendo
+	// (rows, nil). Tampoco se traga el error: log.Printf está enganchado a
+	// logbus (logbus.Attach), por lo que la línea acaba en la vista de logs.
+	// Va sin clave i18n porque los diccionarios no forman parte de este
+	// cambio; el texto va en inglés por ser un mensaje de log interno.
+	if _, err := s.db.Exec("VACUUM"); err != nil {
+		log.Printf("[STORAGE] vacuum failed: %v", err)
+	}
+
+	return rows, nil
+}
+
+// deleteFinishedAndOrphanChunks ejecuta los dos DELETE de la limpieza con s.mu
+// tomado y devuelve las filas borradas de downloads. El VACUUM no entra aquí:
+// se queda en ClearFinishedDownloads, fuera del candado.
+func (s *Storage) deleteFinishedAndOrphanChunks() (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// 1. Borrar registros de descargas terminadas del historial
 	res, err := s.db.Exec("DELETE FROM downloads WHERE status IN ('completed', 'skipped', 'failed', 'cancelled', 'duplicate')")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error al borrar descargas terminadas: %w", err)
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("error al contar las descargas borradas: %w", err)
+	}
 
 	// 2. Borrar CUALQUIER chunk que no tenga una descarga asociada (limpieza de huérfanos)
 	// Esto soluciona casos donde las descargas se borraron pero los chunks quedaron atrás.
-	_, _ = s.db.Exec("DELETE FROM download_chunks WHERE download_id NOT IN (SELECT id FROM downloads)")
-
-	// 3. Ejecutar VACUUM para liberar el espacio en el archivo de base de datos físicamente
-	_, _ = s.db.Exec("VACUUM")
+	if _, err := s.db.Exec("DELETE FROM download_chunks WHERE download_id NOT IN (SELECT id FROM downloads)"); err != nil {
+		return 0, fmt.Errorf("error al borrar chunks huérfanos: %w", err)
+	}
 
 	return rows, nil
 }
