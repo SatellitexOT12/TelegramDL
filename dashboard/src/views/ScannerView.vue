@@ -413,7 +413,7 @@ const getKindIcon = (kind) => {
         </div>
 
         <div class="date-filters-group">
-          <div class="field-compact-date">
+          <div class="field-compact-item">
             <label class="compact-label">
               <Clock3 :size="11" /> {{ t('scanner.startDateLabel') }}
             </label>
@@ -424,7 +424,7 @@ const getKindIcon = (kind) => {
             />
           </div>
 
-          <div class="field-compact-date">
+          <div class="field-compact-item">
             <label class="compact-label">
               <Clock3 :size="11" /> {{ t('scanner.endDateLabel') }}
             </label>
@@ -437,7 +437,7 @@ const getKindIcon = (kind) => {
         </div>
 
         <div class="size-filters-group">
-          <div class="field-compact-size">
+          <div class="field-compact-item">
             <label class="compact-label">{{ t('scanner.minSizeLabel') }}</label>
             <div class="size-input-wrapper">
               <input
@@ -457,7 +457,7 @@ const getKindIcon = (kind) => {
             </div>
           </div>
 
-          <div class="field-compact-size">
+          <div class="field-compact-item">
             <label class="compact-label">{{ t('scanner.maxSizeLabel') }}</label>
             <div class="size-input-wrapper">
               <input
@@ -921,14 +921,14 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 
 /* Fila 2: Filtros por Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea */
 .scanner-row-2 {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--user-border);
-  flex-wrap: wrap;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-top: 18px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid var(--user-border) !important;
+  flex-wrap: wrap !important;
 }
 
 .media-filters-group {
@@ -990,46 +990,81 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 
 .date-filters-group,
 .size-filters-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 12px !important;
 }
 
-.field-compact-date,
-.field-compact-size {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.field-compact-item {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  margin: 0 !important;
 }
 
 .compact-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--user-text-dim, #94a8bc);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: var(--user-text-dim, #94a8bc) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  height: 14px !important;
+  line-height: 14px !important;
+  margin: 0 !important;
 }
 
 .compact-input {
-  width: 125px;
-  padding: 5px 8px;
-  font-size: 11px;
+  width: 125px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
 }
 
 .size-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 32px !important;
 }
 
 .compact-number {
-  width: 60px;
-  padding: 5px 6px;
-  font-size: 11px;
-  text-align: right;
+  width: 55px !important;
+  height: 32px !important;
+  padding: 0 6px !important;
+  font-size: 11px !important;
+  text-align: center !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  /* Ocultar flechas numéricas de incrementar/decrementar */
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+.compact-number::-webkit-outer-spin-button,
+.compact-number::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+.compact-select {
+  background: var(--user-bg-base) !important;
+  border: 1px solid var(--user-border-light) !important;
+  color: var(--user-text-main, #dbe7f5) !important;
+  border-radius: 8px !important;
+  padding: 0 6px !important;
+  font-size: 11px !important;
+  height: 32px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  cursor: pointer !important;
 }
 
 .scanner-error {
