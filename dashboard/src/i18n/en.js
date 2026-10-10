@@ -284,8 +284,11 @@ export default {
   },
 
   scanner: {
-    title: 'Search & Historical',
+    kicker: 'SEARCH & HISTORICAL',
+    title: 'Historical Scanner',
     subtitle: 'Scan chat or bot history to find and download past media',
+    floodWarningNote:
+      'Use this tool with care: performing continuous mass scans may trigger temporary Telegram rate limits (FLOOD_WAIT).',
     targetLabel: 'Chat ID, Bot Username or Link',
     targetPlaceholder: 'E.g.: -100123456789, @bot_name or https://t.me/...',
     dateRangeLabel: 'Date Range',
@@ -317,7 +320,7 @@ export default {
     downloadAll: 'Download all',
     downloadingQueued: '{n} files added to download queue',
     fileName: 'File name',
-    nameModeColumn: 'Mode',
+    nameModeColumn: 'Name',
     date: 'Date',
     size: 'Size',
     type: 'Type',

@@ -287,9 +287,12 @@ export default {
   },
 
   scanner: {
-    title: 'Búsqueda e Histórico',
+    kicker: 'BÚSQUEDA E HISTÓRICO',
+    title: 'Escáner Histórico',
     subtitle:
       'Escanea el historial de chats o bots para encontrar y descargar contenido antiguo',
+    floodWarningNote:
+      'Usa esta herramienta con moderación: realizar escaneos masivos continuos puede activar limitaciones temporales de Telegram (FLOOD_WAIT).',
     targetLabel: 'ID de Chat, Bot o Enlace',
     targetPlaceholder: 'Ej: -100123456789, @nombre_bot o https://t.me/...',
     dateRangeLabel: 'Rango de Fechas',
@@ -324,7 +327,7 @@ export default {
     downloadAll: 'Descargar todos',
     downloadingQueued: '{n} archivos añadidos a la cola de descargas',
     fileName: 'Nombre de archivo',
-    nameModeColumn: 'Modo',
+    nameModeColumn: 'Nombre',
     date: 'Fecha',
     size: 'Tamaño',
     type: 'Tipo',

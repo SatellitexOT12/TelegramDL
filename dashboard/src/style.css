@@ -592,6 +592,10 @@ select {
   display: flex;
   align-items: center;
   gap: 5px;
+  color: var(--user-primary);
+}
+.panel-heading .eyebrow svg {
+  color: var(--user-primary);
 }
 .count-pill,
 .save-state {

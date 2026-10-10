@@ -342,9 +342,14 @@ const getKindIcon = (kind) => {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">
-            <Search :size="12" /> {{ t('scanner.title') }}
+            <Search :size="12" /> {{ t('scanner.kicker') }}
           </span>
-          <h2>{{ t('scanner.subtitle') }}</h2>
+          <h2>{{ t('scanner.title') }}</h2>
+          <p class="subtitle">{{ t('scanner.subtitle') }}</p>
+          <p class="flood-warning-text">
+            <AlertCircle :size="12" />
+            <span>{{ t('scanner.floodWarningNote') }}</span>
+          </p>
         </div>
       </div>
 
@@ -636,7 +641,10 @@ const getKindIcon = (kind) => {
               </td>
               <td class="col-name-mode">
                 <div
-                  v-if="item.caption_file_name || item.original_file_name"
+                  v-if="
+                    item.caption_file_name &&
+                    item.caption_file_name.trim() !== ''
+                  "
                   class="name-select-wrapper"
                 >
                   <button
@@ -649,10 +657,6 @@ const getKindIcon = (kind) => {
                   </button>
                   <div v-if="nameSelectionMenus[item.id]" class="name-dropdown">
                     <div
-                      v-if="
-                        item.caption_file_name &&
-                        item.caption_file_name !== item.file_name
-                      "
                       class="name-option"
                       @click="selectFileName(item, item.caption_file_name)"
                     >
@@ -662,10 +666,7 @@ const getKindIcon = (kind) => {
                       <small>({{ t('listener.captionTag') }})</small>
                     </div>
                     <div
-                      v-if="
-                        item.original_file_name &&
-                        item.original_file_name !== item.file_name
-                      "
+                      v-if="item.original_file_name"
                       class="name-option"
                       @click="selectFileName(item, item.original_file_name)"
                     >
@@ -779,6 +780,20 @@ const getKindIcon = (kind) => {
   margin-bottom: 14px;
 }
 
+.flood-warning-text {
+  font-size: 11px;
+  color: var(--user-text-dim, #94a8bc);
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.flood-warning-text svg {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
 /* Fila 1: Target input + Botón de escaneo + Botón de eliminar filtros */
 .scanner-row-1 {
   display: flex !important;
@@ -830,13 +845,10 @@ const getKindIcon = (kind) => {
 }
 
 /* Visibilidad clara del icono de calendario en temas oscuros (blanco brillante) */
-.scanner-input[type='date'] {
-  color-scheme: dark;
-}
-
 .scanner-input[type='date']::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  filter: invert(1) brightness(1.8) !important;
+  cursor: pointer !important;
+  filter: invert(1) !important;
+  -webkit-filter: invert(1) !important;
   opacity: 0.95 !important;
 }
 
@@ -857,12 +869,9 @@ html.tema-claro .compact-label {
   color: var(--claro-texto-atenuado, #64748b) !important;
 }
 
-html.tema-claro .scanner-input[type='date'] {
-  color-scheme: light;
-}
-
 html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   filter: none !important;
+  -webkit-filter: none !important;
   opacity: 0.8 !important;
 }
 
