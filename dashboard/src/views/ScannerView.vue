@@ -558,30 +558,61 @@ const getKindIcon = (kind) => {
   font: inherit;
   font-size: 12px;
   width: 100%;
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .scanner-input:focus {
   border-color: var(--user-primary);
 }
 
-/* Visibilidad clara del icono de calendario según tema claro / oscuro */
+.compact-select {
+  background: var(--user-bg-base);
+  border: 1px solid var(--user-border-light);
+  color: var(--user-text-main, #dbe7f5);
+  border-radius: 8px;
+  padding: 5px 4px;
+  font-size: 10px;
+  outline: none;
+}
+
+/* Visibilidad clara del icono de calendario en temas oscuros (blanco brillante) */
 .scanner-input[type='date'] {
   color-scheme: dark;
+}
+
+.scanner-input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1) brightness(1.8) !important;
+  opacity: 0.95 !important;
+}
+
+/* Reglas específicas para Temas Claros (Silent Cherry, OSX Light, etc. - html.tema-claro) */
+html.tema-claro .scanner-input {
+  color: #0f172a !important;
+  background: var(--claro-superficie, #ffffff) !important;
+  border-color: var(--claro-borde, rgba(0, 0, 0, 0.15)) !important;
+}
+
+html.tema-claro .compact-select {
+  color: #0f172a !important;
+  background: var(--claro-superficie, #ffffff) !important;
+  border-color: var(--claro-borde, rgba(0, 0, 0, 0.15)) !important;
+}
+
+html.tema-claro .compact-label {
+  color: var(--claro-texto-atenuado, #64748b) !important;
 }
 
 html.tema-claro .scanner-input[type='date'] {
   color-scheme: light;
 }
 
-.scanner-input[type='date']::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  filter: invert(0.9);
-  opacity: 0.85;
-}
-
 html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
-  filter: invert(0.1);
+  filter: none !important;
+  opacity: 0.8 !important;
 }
 
 /* Anulamos width: 100% y margin-top de .save-button global para que quepa al lado */
