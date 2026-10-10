@@ -313,6 +313,11 @@ export default {
       'No se encontraron archivos multimedia en el período seleccionado.',
     resultsFound:
       '{count} elementos encontrados ({scanned} mensajes inspeccionados)',
+    resultsCount: '{count} elementos encontrados',
+    messagesScanned: '{scanned} mensajes inspeccionados',
+    useCaptionSub: 'Aplica la leyenda o pie de foto como nombre de archivo',
+    useOriginalSub:
+      'Aplica el nombre de archivo original asignado por Telegram',
     selectAll: 'Seleccionar todos',
     deselectAll: 'Deseleccionar todos',
     downloadSelected: 'Descargar seleccionados ({n})',

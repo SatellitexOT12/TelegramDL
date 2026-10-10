@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   AlertCircle,
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Loader2,
   Music,
   Search,
+  Settings2,
   Trash2,
   Video
 } from '../icons'
@@ -51,6 +52,10 @@ const matchCount = ref(0)
 const serverMessage = ref('')
 const selectedIds = ref(new Set())
 const downloadingBatch = ref(false)
+
+// Menús desplegables para selección de nombres (individual y masivo)
+const nameSelectionMenus = ref({})
+const bulkNameMenuOpen = ref(false)
 
 // Paginación de resultados idéntica al historial de descargas
 const PAGE_SIZES = [10, 25, 50, 100]
@@ -95,6 +100,8 @@ const onSearch = async () => {
   selectedIds.value = new Set()
   serverMessage.value = ''
   currentPage.value = 1
+  nameSelectionMenus.value = {}
+  bulkNameMenuOpen.value = false
 
   try {
     const payload = {
@@ -153,6 +160,8 @@ const onResetFilters = () => {
   error.value = ''
   serverMessage.value = ''
   currentPage.value = 1
+  nameSelectionMenus.value = {}
+  bulkNameMenuOpen.value = false
 }
 
 // Reactividad instantánea en el cliente al activar/desactivar filtros
@@ -226,6 +235,67 @@ const toggleSelectItem = (id) => {
 
 const selectedItemsList = computed(() => {
   return filteredResults.value.filter((item) => selectedIds.value.has(item.id))
+})
+
+// Funciones para selección de nombres (individual y masivo)
+const toggleNameMenu = (itemId) => {
+  const current = !!nameSelectionMenus.value[itemId]
+  nameSelectionMenus.value = { [itemId]: !current }
+  bulkNameMenuOpen.value = false
+}
+
+const toggleBulkNameMenu = () => {
+  bulkNameMenuOpen.value = !bulkNameMenuOpen.value
+  nameSelectionMenus.value = {}
+}
+
+const selectFileName = (item, selectedName) => {
+  if (selectedName) {
+    item.file_name = selectedName
+  }
+  nameSelectionMenus.value[item.id] = false
+}
+
+const selectBulkFileName = (type) => {
+  bulkNameMenuOpen.value = false
+  let updatedCount = 0
+
+  filteredResults.value.forEach((item) => {
+    const targetName =
+      type === 'caption' ? item.caption_file_name : item.original_file_name
+    if (
+      targetName &&
+      targetName.trim() !== '' &&
+      item.file_name !== targetName
+    ) {
+      item.file_name = targetName
+      updatedCount++
+    }
+  })
+
+  if (updatedCount > 0) {
+    const targetLabel =
+      type === 'caption'
+        ? t('listener.targetCaption')
+        : t('listener.targetOriginal')
+    props.notify(
+      t('listener.bulkUpdated', { n: updatedCount, target: targetLabel }),
+      'success'
+    )
+  }
+}
+
+const onWindowClick = () => {
+  bulkNameMenuOpen.value = false
+  nameSelectionMenus.value = {}
+}
+
+onMounted(() => {
+  window.addEventListener('click', onWindowClick)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', onWindowClick)
 })
 
 const onDownloadItems = async (itemsToDownload) => {
@@ -426,11 +496,18 @@ const getKindIcon = (kind) => {
       class="panel scanner-results-panel"
     >
       <div class="panel-heading results-heading">
-        <div>
-          <span class="eyebrow">
+        <!-- Texto del contador dividido en 2 líneas y más grande -->
+        <div class="results-counter-box">
+          <span class="results-count-title">
             {{
-              t('scanner.resultsFound', {
-                count: filteredResults.length,
+              t('scanner.resultsCount', {
+                count: filteredResults.length
+              })
+            }}
+          </span>
+          <span class="scanned-count-sub">
+            {{
+              t('scanner.messagesScanned', {
                 scanned: scannedCount
               })
             }}
@@ -439,6 +516,34 @@ const getKindIcon = (kind) => {
         </div>
 
         <div class="results-toolbar">
+          <!-- Menú masivo de cambio de nombre idéntico al del Listener -->
+          <div class="bulk-name-wrapper">
+            <button
+              type="button"
+              class="bulk-name-button btn-compact"
+              :title="t('listener.bulkNameTitle')"
+              @click.stop="toggleBulkNameMenu"
+            >
+              <Settings2 :size="13" />
+              <span>{{ t('listener.nameLabel') }}</span>
+            </button>
+            <div
+              v-if="bulkNameMenuOpen"
+              class="name-dropdown bulk-name-dropdown"
+            >
+              <div class="name-option" @click="selectBulkFileName('caption')">
+                <span class="name-preview">{{ t('listener.useCaption') }}</span>
+                <small>{{ t('scanner.useCaptionSub') }}</small>
+              </div>
+              <div class="name-option" @click="selectBulkFileName('original')">
+                <span class="name-preview">{{
+                  t('listener.useOriginal')
+                }}</span>
+                <small>{{ t('scanner.useOriginalSub') }}</small>
+              </div>
+            </div>
+          </div>
+
           <button
             type="button"
             class="ghost-button btn-compact"
@@ -487,6 +592,7 @@ const getKindIcon = (kind) => {
               </th>
               <th class="col-type">{{ t('scanner.type') }}</th>
               <th class="col-name">{{ t('scanner.fileName') }}</th>
+              <th class="col-name-mode"></th>
               <th class="col-date">{{ t('scanner.date') }}</th>
               <th class="col-size">{{ t('scanner.size') }}</th>
               <th class="col-action"></th>
@@ -514,7 +620,9 @@ const getKindIcon = (kind) => {
               </td>
               <td class="col-name">
                 <div class="name-box">
-                  <span class="main-name">{{ item.file_name }}</span>
+                  <span class="main-name" :title="item.file_name">{{
+                    item.file_name
+                  }}</span>
                   <span
                     v-if="
                       item.caption_file_name &&
@@ -524,6 +632,49 @@ const getKindIcon = (kind) => {
                   >
                     {{ item.caption_file_name }}
                   </span>
+                </div>
+              </td>
+              <td class="col-name-mode">
+                <div
+                  v-if="item.caption_file_name || item.original_file_name"
+                  class="name-select-wrapper"
+                >
+                  <button
+                    type="button"
+                    class="name-select-button"
+                    :title="t('listener.nameLabel')"
+                    @click.stop="toggleNameMenu(item.id)"
+                  >
+                    <Settings2 :size="12" />
+                  </button>
+                  <div v-if="nameSelectionMenus[item.id]" class="name-dropdown">
+                    <div
+                      v-if="
+                        item.caption_file_name &&
+                        item.caption_file_name !== item.file_name
+                      "
+                      class="name-option"
+                      @click="selectFileName(item, item.caption_file_name)"
+                    >
+                      <span class="name-preview">{{
+                        item.caption_file_name
+                      }}</span>
+                      <small>({{ t('listener.captionTag') }})</small>
+                    </div>
+                    <div
+                      v-if="
+                        item.original_file_name &&
+                        item.original_file_name !== item.file_name
+                      "
+                      class="name-option"
+                      @click="selectFileName(item, item.original_file_name)"
+                    >
+                      <span class="name-preview">{{
+                        item.original_file_name
+                      }}</span>
+                      <small>({{ t('listener.originalTag') }})</small>
+                    </div>
+                  </div>
                 </div>
               </td>
               <td class="col-date">{{ item.date_str }}</td>
@@ -540,7 +691,7 @@ const getKindIcon = (kind) => {
               </td>
             </tr>
             <tr v-if="filteredResults.length === 0">
-              <td colspan="6" class="no-filtered-matches">
+              <td colspan="7" class="no-filtered-matches">
                 {{ t('scanner.noResults') }}
               </td>
             </tr>
@@ -715,7 +866,6 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.8 !important;
 }
 
-/* Anulamos width: 100% y margin-top de .save-button global para que quepa al lado con alto parejo */
 .search-btn.save-button {
   width: auto !important;
   margin-top: 0 !important;
@@ -730,7 +880,6 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   box-sizing: border-box !important;
 }
 
-/* Anulación de margen/ancho para encajar .clear-history-button.boton-historial en la misma fila con alto parejo */
 .clear-btn.clear-history-button {
   width: auto !important;
   margin-top: 0 !important;
@@ -897,6 +1046,25 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   margin-bottom: 12px;
 }
 
+.results-counter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.results-count-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--user-primary);
+  line-height: 1.2;
+}
+
+.scanned-count-sub {
+  font-size: 11px;
+  color: var(--user-text-dim, #94a8bc);
+  line-height: 1.2;
+}
+
 .server-msg {
   font-size: 11px;
   color: #f59e0b;
@@ -996,6 +1164,12 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   flex-direction: column;
 }
 
+.name-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .main-name {
   font-weight: 500;
   color: var(--user-text-main, #dbe7f5);
@@ -1004,6 +1178,138 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 
 .sub-name {
   font-size: 11px;
+  color: var(--user-text-dim, #94a8bc);
+}
+
+/* Columna propia y centrada para el botón individual de cambio de nombre */
+.col-name-mode {
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.col-name-mode .name-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.name-select-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.name-select-button {
+  border: 1px solid var(--user-primary);
+  background: var(--user-icon-bg);
+  color: var(--user-primary);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.name-select-button:hover {
+  background: var(--user-surface-light);
+  border-color: var(--user-accent);
+  color: var(--user-accent);
+}
+
+/* Selector masivo de nombres en la barra de herramientas */
+.bulk-name-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.bulk-name-button {
+  border: 1px solid var(--user-primary);
+  background: var(--user-icon-bg);
+  color: var(--user-primary);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+  font-weight: 600;
+  height: 32px;
+}
+
+.bulk-name-button:hover {
+  background: var(--user-surface-light);
+  border-color: var(--user-accent);
+  color: var(--user-accent);
+}
+
+.bulk-name-dropdown {
+  left: 0;
+  right: auto;
+}
+
+.name-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--user-surface);
+  border: 2px solid var(--user-primary);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 200px;
+  max-width: 320px;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.name-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 16px;
+  width: 10px;
+  height: 10px;
+  background: var(--user-surface);
+  border-left: 2px solid var(--user-primary);
+  border-top: 2px solid var(--user-primary);
+  transform: rotate(45deg);
+}
+
+.bulk-name-dropdown::before {
+  left: 16px;
+  right: auto;
+}
+
+.name-option {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.name-option:hover {
+  background: var(--user-icon-bg);
+  border-color: var(--user-primary);
+}
+
+.name-preview {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--user-text-main, #dbe7f5);
+  word-break: break-all;
+}
+
+.name-option small {
+  font-size: 10px;
   color: var(--user-text-dim, #94a8bc);
 }
 
