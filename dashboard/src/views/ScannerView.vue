@@ -8,8 +8,8 @@ import {
   Image,
   Loader2,
   Music,
-  RotateCcw,
   Search,
+  Trash2,
   Video
 } from '../icons'
 import { useAuthToken } from '../composables/useAuthToken'
@@ -267,11 +267,11 @@ const getKindIcon = (kind) => {
 
         <button
           type="button"
-          class="ghost-button clear-btn"
+          class="clear-history-button boton-historial clear-btn"
           :title="t('scanner.clearFilters')"
           @click="onResetFilters"
         >
-          <RotateCcw :size="13" />
+          <Trash2 :size="15" />
           <span>{{ t('scanner.clearFilters') }}</span>
         </button>
       </div>
@@ -598,29 +598,15 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   justify-content: center !important;
 }
 
-/* Estilo idéntico al botón "Limpiar historial" de Ajustes (.clear-history-button) */
+/* Anulación de margen/ancho para encajar .clear-history-button.boton-historial en la misma fila */
 .clear-btn.clear-history-button {
   width: auto !important;
   margin-top: 0 !important;
   height: 35px !important;
   padding: 0 16px !important;
-  border: 1px solid #6e3942 !important;
-  border-radius: 10px !important;
-  background: rgba(125, 48, 61, 0.16) !important;
-  color: #ffadb5 !important;
-  cursor: pointer !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
   font-size: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
-}
-
-.clear-btn.clear-history-button:hover {
-  background: rgba(125, 48, 61, 0.3) !important;
-  border-color: #a95663 !important;
 }
 
 /* Fila 2: Filtros de Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea */
