@@ -302,6 +302,7 @@ export default {
     maxSizeLabel: 'Maximum Size',
     sizeOpenHint: 'If left blank, size restrictions are open and show all.',
     searchButton: 'Scan History',
+    clearFilters: 'Clear filters',
     scanning: 'Scanning history...',
     scanningNote: 'Applying pauses to prevent Telegram FLOOD_WAIT',
     noResults: 'No media files found in the selected range.',

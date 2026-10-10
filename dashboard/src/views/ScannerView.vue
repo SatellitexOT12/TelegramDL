@@ -8,6 +8,7 @@ import {
   Image,
   Loader2,
   Music,
+  RotateCcw,
   Search,
   Video
 } from '../icons'
@@ -88,8 +89,6 @@ const onSearch = async () => {
   serverMessage.value = ''
 
   try {
-    // Al buscar en backend pedimos con todos los tipos abiertos para poder
-    // filtrar/desfiltrar al vuelo en el cliente sin tener que re-consultar a Telegram
     const payload = {
       target: cleanTarget,
       start_date: startDate.value,
@@ -126,8 +125,28 @@ const onSearch = async () => {
   }
 }
 
-// Reactividad instantánea en el cliente: cuando el usuario desactiva un filtro
-// (fotos, videos, etc.) o ajusta el tamaño mín/máx, se ocultan al instante los archivos correspondientes
+const onResetFilters = () => {
+  target.value = ''
+  startDate.value = ''
+  endDate.value = ''
+  fPhotos.value = true
+  fVideos.value = true
+  fAudios.value = true
+  fDocs.value = true
+  fStickers.value = true
+  minSizeVal.value = ''
+  minSizeUnit.value = 'MB'
+  maxSizeVal.value = ''
+  maxSizeUnit.value = 'MB'
+  rawResults.value = []
+  scannedCount.value = 0
+  matchCount.value = 0
+  selectedIds.value = new Set()
+  error.value = ''
+  serverMessage.value = ''
+}
+
+// Reactividad instantánea en el cliente al activar/desactivar filtros
 const filteredResults = computed(() => {
   const minB = parseSizeBytes(minSizeVal.value, minSizeUnit.value)
   const maxB = parseSizeBytes(maxSizeVal.value, maxSizeUnit.value)
@@ -186,7 +205,6 @@ const onDownloadItems = async (itemsToDownload) => {
     const count = data.queued || itemsToDownload.length
     props.notify(t('scanner.downloadingQueued', { n: count }), 'success')
 
-    // Limpiar selección de los elementos enviados a la cola
     const newSet = new Set(selectedIds.value)
     itemsToDownload.forEach((item) => newSet.delete(item.id))
     selectedIds.value = newSet
@@ -224,7 +242,7 @@ const getKindIcon = (kind) => {
         </div>
       </div>
 
-      <!-- Fila 1: Entrada de objetivo + Fechas compactas + Botón Buscar -->
+      <!-- Fila 1: Entrada de objetivo + Botón de búsqueda compacto + Botón de eliminar filtros -->
       <div class="scanner-row-1">
         <div class="field-target">
           <input
@@ -233,28 +251,6 @@ const getKindIcon = (kind) => {
             class="scanner-input"
             :placeholder="t('scanner.targetPlaceholder')"
             @keyup.enter="onSearch"
-          />
-        </div>
-
-        <div class="field-compact-date">
-          <label class="compact-label">
-            <Clock3 :size="11" /> {{ t('scanner.startDateLabel') }}
-          </label>
-          <input
-            v-model="startDate"
-            type="date"
-            class="scanner-input compact-input"
-          />
-        </div>
-
-        <div class="field-compact-date">
-          <label class="compact-label">
-            <Clock3 :size="11" /> {{ t('scanner.endDateLabel') }}
-          </label>
-          <input
-            v-model="endDate"
-            type="date"
-            class="scanner-input compact-input"
           />
         </div>
 
@@ -268,9 +264,19 @@ const getKindIcon = (kind) => {
           <Search v-else :size="14" />
           <span>{{ t('scanner.searchButton') }}</span>
         </button>
+
+        <button
+          type="button"
+          class="ghost-button clear-btn"
+          :title="t('scanner.clearFilters')"
+          @click="onResetFilters"
+        >
+          <RotateCcw :size="13" />
+          <span>{{ t('scanner.clearFilters') }}</span>
+        </button>
       </div>
 
-      <!-- Fila 2: Filtros por Tipo (estilo Listener) + Filtros de Tamaño compactos al lado -->
+      <!-- Fila 2: Filtros por Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea -->
       <div class="scanner-row-2">
         <div class="media-filters-group">
           <label class="filter-tag f-photos" :class="{ active: fPhotos }">
@@ -295,41 +301,69 @@ const getKindIcon = (kind) => {
           </label>
         </div>
 
-        <div class="size-filters-group">
-          <div class="size-compact-field">
-            <span class="compact-label">{{ t('scanner.minSizeLabel') }}:</span>
+        <div class="date-filters-group">
+          <div class="field-compact-date">
+            <label class="compact-label">
+              <Clock3 :size="11" /> {{ t('scanner.startDateLabel') }}
+            </label>
             <input
-              v-model="minSizeVal"
-              type="number"
-              min="0"
-              step="any"
-              class="scanner-input compact-number"
-              placeholder="0"
+              v-model="startDate"
+              type="date"
+              class="scanner-input compact-input"
             />
-            <select v-model="minSizeUnit" class="compact-select">
-              <option value="B">B</option>
-              <option value="KB">KB</option>
-              <option value="MB">MB</option>
-              <option value="GB">GB</option>
-            </select>
           </div>
 
-          <div class="size-compact-field">
-            <span class="compact-label">{{ t('scanner.maxSizeLabel') }}:</span>
+          <div class="field-compact-date">
+            <label class="compact-label">
+              <Clock3 :size="11" /> {{ t('scanner.endDateLabel') }}
+            </label>
             <input
-              v-model="maxSizeVal"
-              type="number"
-              min="0"
-              step="any"
-              class="scanner-input compact-number"
-              placeholder="0"
+              v-model="endDate"
+              type="date"
+              class="scanner-input compact-input"
             />
-            <select v-model="maxSizeUnit" class="compact-select">
-              <option value="B">B</option>
-              <option value="KB">KB</option>
-              <option value="MB">MB</option>
-              <option value="GB">GB</option>
-            </select>
+          </div>
+        </div>
+
+        <div class="size-filters-group">
+          <div class="field-compact-size">
+            <label class="compact-label">{{ t('scanner.minSizeLabel') }}</label>
+            <div class="size-input-wrapper">
+              <input
+                v-model="minSizeVal"
+                type="number"
+                min="0"
+                step="any"
+                class="scanner-input compact-number"
+                placeholder="0"
+              />
+              <select v-model="minSizeUnit" class="compact-select">
+                <option value="B">B</option>
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-compact-size">
+            <label class="compact-label">{{ t('scanner.maxSizeLabel') }}</label>
+            <div class="size-input-wrapper">
+              <input
+                v-model="maxSizeVal"
+                type="number"
+                min="0"
+                step="any"
+                class="scanner-input compact-number"
+                placeholder="0"
+              />
+              <select v-model="maxSizeUnit" class="compact-select">
+                <option value="B">B</option>
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -500,31 +534,18 @@ const getKindIcon = (kind) => {
   margin-bottom: 14px;
 }
 
+/* Fila 1: Target input compacto + Botón de escaneo + Botón de eliminar filtros */
 .scanner-row-1 {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
 }
 
 .field-target {
-  flex: 1;
-  min-width: 220px;
-}
-
-.field-compact-date {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.compact-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--user-text-dim, #94a8bc);
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  flex: 1 1 240px !important;
+  min-width: 180px !important;
+  max-width: 320px !important;
 }
 
 .scanner-input {
@@ -532,10 +553,10 @@ const getKindIcon = (kind) => {
   border: 1px solid var(--user-border-light);
   color: var(--user-text-main, #dbe7f5);
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   outline: none;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   width: 100%;
   transition: border-color 0.2s;
 }
@@ -544,24 +565,70 @@ const getKindIcon = (kind) => {
   border-color: var(--user-primary);
 }
 
-.compact-input {
-  width: 135px;
-  padding: 7px 8px;
+/* Visibilidad clara del icono de calendario según tema claro / oscuro */
+.scanner-input[type='date'] {
+  color-scheme: dark;
 }
 
-.search-btn {
-  height: 36px;
-  margin: 0;
-  padding: 0 16px;
-  font-size: 12px;
-  white-space: nowrap;
+html.tema-claro .scanner-input[type='date'] {
+  color-scheme: light;
 }
 
+.scanner-input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.9);
+  opacity: 0.85;
+}
+
+html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.1);
+}
+
+/* Anulamos width: 100% y margin-top de .save-button global para que quepa al lado */
+.search-btn.save-button {
+  width: auto !important;
+  margin-top: 0 !important;
+  height: 35px !important;
+  padding: 0 16px !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Estilo idéntico al botón "Limpiar historial" de Ajustes (.clear-history-button) */
+.clear-btn.clear-history-button {
+  width: auto !important;
+  margin-top: 0 !important;
+  height: 35px !important;
+  padding: 0 16px !important;
+  border: 1px solid #6e3942 !important;
+  border-radius: 10px !important;
+  background: rgba(125, 48, 61, 0.16) !important;
+  color: #ffadb5 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.clear-btn.clear-history-button:hover {
+  background: rgba(125, 48, 61, 0.3) !important;
+  border-color: #a95663 !important;
+}
+
+/* Fila 2: Filtros de Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea */
 .scanner-row-2 {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--user-border);
@@ -626,22 +693,47 @@ const getKindIcon = (kind) => {
   box-shadow: 0 4px 12px rgba(244, 114, 182, 0.3);
 }
 
+.date-filters-group,
 .size-filters-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.size-compact-field {
+.field-compact-date,
+.field-compact-size {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.compact-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--user-text-dim, #94a8bc);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.compact-input {
+  width: 125px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.size-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .compact-number {
-  width: 65px;
-  padding: 5px 8px;
-  font-size: 12px;
+  width: 60px;
+  padding: 5px 6px;
+  font-size: 11px;
   text-align: right;
 }
 
@@ -650,8 +742,8 @@ const getKindIcon = (kind) => {
   border: 1px solid var(--user-border-light);
   color: var(--user-text-main, #dbe7f5);
   border-radius: 8px;
-  padding: 5px 6px;
-  font-size: 11px;
+  padding: 5px 4px;
+  font-size: 10px;
   outline: none;
 }
 
@@ -669,7 +761,7 @@ const getKindIcon = (kind) => {
 }
 
 .scanner-loading-panel {
-  padding: 24px;
+  padding: 20px;
 }
 
 .loading-content {
@@ -683,7 +775,7 @@ const getKindIcon = (kind) => {
 }
 
 .small-hint {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--user-text-dim, #94a8bc);
   margin-top: 2px;
 }
@@ -710,13 +802,13 @@ const getKindIcon = (kind) => {
 }
 
 .btn-compact {
-  padding: 6px 12px;
+  padding: 5px 10px;
   font-size: 11px;
-  height: 30px;
+  height: 28px;
 }
 
 .btn-icon {
-  padding: 5px 8px;
+  padding: 4px 6px;
   border-radius: 6px;
 }
 
@@ -728,7 +820,7 @@ const getKindIcon = (kind) => {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.2s;
 }
 

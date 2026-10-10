@@ -306,6 +306,7 @@ export default {
     maxSizeLabel: 'Tamaño Máximo',
     sizeOpenHint: 'Si no se especifican, quedan abiertos y muestra todo.',
     searchButton: 'Escanear Histórico',
+    clearFilters: 'Eliminar filtros',
     scanning: 'Escaneando historial...',
     scanningNote: 'Aplicando pausas para evitar FLOOD_WAIT de Telegram',
     noResults:
