@@ -770,23 +770,37 @@ const getKindIcon = (kind) => {
 }
 
 .panel {
-  padding: 16px;
+  padding: 22px 24px;
   background: var(--user-surface);
   border: 1px solid var(--user-border);
   border-radius: 15px;
 }
 
+.scanner-search-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 30px;
+  border: 1px solid var(--user-border-light);
+  border-radius: 15px;
+  background: linear-gradient(
+    110deg,
+    var(--user-surface-light),
+    var(--user-surface) 70%
+  );
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.3);
+}
+
 .scanner-search-panel .panel-heading {
-  margin-bottom: 14px;
+  margin-bottom: 20px;
 }
 
 .flood-warning-text {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--user-text-dim, #94a8bc);
-  margin-top: 5px;
+  margin-top: 6px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .flood-warning-text svg {
@@ -798,19 +812,21 @@ const getKindIcon = (kind) => {
 .scanner-row-1 {
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 12px !important;
   width: 100% !important;
 }
 
 .field-target {
-  flex: 1 1 240px !important;
-  min-width: 180px !important;
-  max-width: 320px !important;
+  flex: 1 1 260px !important;
+  min-width: 200px !important;
+  max-width: 380px !important;
 }
 
 .field-target .scanner-input {
-  height: 35px !important;
-  padding: 0 12px !important;
+  height: 42px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  border-radius: 12px !important;
   box-sizing: border-box !important;
 }
 
@@ -819,7 +835,7 @@ const getKindIcon = (kind) => {
   border: 1px solid var(--user-border-light);
   color: var(--user-text-main, #dbe7f5);
   border-radius: 10px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   outline: none;
   font: inherit;
   font-size: 12px;
@@ -838,9 +854,10 @@ const getKindIcon = (kind) => {
   background: var(--user-bg-base);
   border: 1px solid var(--user-border-light);
   color: var(--user-text-main, #dbe7f5);
-  border-radius: 8px;
-  padding: 5px 4px;
-  font-size: 10px;
+  border-radius: 10px;
+  padding: 5px 8px;
+  font-size: 11px;
+  height: 36px;
   outline: none;
 }
 
@@ -878,9 +895,10 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 .search-btn.save-button {
   width: auto !important;
   margin-top: 0 !important;
-  height: 35px !important;
-  padding: 0 16px !important;
-  font-size: 12px !important;
+  height: 42px !important;
+  padding: 0 20px !important;
+  font-size: 13px !important;
+  border-radius: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   display: inline-flex !important;
@@ -892,9 +910,10 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 .clear-btn.clear-history-button {
   width: auto !important;
   margin-top: 0 !important;
-  height: 35px !important;
-  padding: 0 16px !important;
-  font-size: 12px !important;
+  height: 42px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  border-radius: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   box-sizing: border-box !important;

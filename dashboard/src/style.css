@@ -211,7 +211,7 @@ select {
 .stat-label {
   font-size: 10px;
   letter-spacing: 0.14em;
-  color: var(--user-text-dim);
+  color: var(--user-accent);
   font-weight: 700;
 }
 
@@ -592,10 +592,10 @@ select {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--user-primary);
+  color: var(--user-accent);
 }
 .panel-heading .eyebrow svg {
-  color: var(--user-primary);
+  color: var(--user-accent);
 }
 .count-pill,
 .save-state {
