@@ -202,19 +202,15 @@ const goToPage = (page) => {
 }
 
 const isAllSelected = computed(() => {
-  if (paginatedResults.value.length === 0) return false
-  return paginatedResults.value.every((item) => selectedIds.value.has(item.id))
+  if (filteredResults.value.length === 0) return false
+  return filteredResults.value.every((item) => selectedIds.value.has(item.id))
 })
 
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
-    const newSet = new Set(selectedIds.value)
-    paginatedResults.value.forEach((item) => newSet.delete(item.id))
-    selectedIds.value = newSet
+    selectedIds.value = new Set()
   } else {
-    const newSet = new Set(selectedIds.value)
-    paginatedResults.value.forEach((item) => newSet.add(item.id))
-    selectedIds.value = newSet
+    selectedIds.value = new Set(filteredResults.value.map((item) => item.id))
   }
 }
 
