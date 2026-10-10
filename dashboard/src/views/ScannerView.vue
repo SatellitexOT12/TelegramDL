@@ -1,7 +1,9 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   AlertCircle,
+  ArrowLeft,
+  ArrowRight,
   Clock3,
   Download,
   FileText,
@@ -50,6 +52,11 @@ const serverMessage = ref('')
 const selectedIds = ref(new Set())
 const downloadingBatch = ref(false)
 
+// Paginación de resultados idéntica al historial de descargas
+const PAGE_SIZES = [10, 25, 50, 100]
+const pageSize = ref(25)
+const currentPage = ref(1)
+
 const unitMultipliers = {
   B: 1,
   KB: 1024,
@@ -87,6 +94,7 @@ const onSearch = async () => {
   rawResults.value = []
   selectedIds.value = new Set()
   serverMessage.value = ''
+  currentPage.value = 1
 
   try {
     const payload = {
@@ -144,6 +152,7 @@ const onResetFilters = () => {
   selectedIds.value = new Set()
   error.value = ''
   serverMessage.value = ''
+  currentPage.value = 1
 }
 
 // Reactividad instantánea en el cliente al activar/desactivar filtros
@@ -165,16 +174,47 @@ const filteredResults = computed(() => {
   })
 })
 
+// Reiniciar a la página 1 cuando cambian los resultados filtrados o el tamaño de página
+watch([filteredResults, pageSize], () => {
+  currentPage.value = 1
+})
+
+const totalPages = computed(() => {
+  return Math.max(1, Math.ceil(filteredResults.value.length / pageSize.value))
+})
+
+const paginatedResults = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredResults.value.slice(start, start + pageSize.value)
+})
+
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const maxVis = 5
+  if (total <= maxVis) return Array.from({ length: total }, (_, i) => i + 1)
+  const end = Math.min(total, Math.max(1, currentPage.value - 2) + maxVis - 1)
+  const start = Math.max(1, end - maxVis + 1)
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+})
+
+const goToPage = (page) => {
+  currentPage.value = Math.min(totalPages.value, Math.max(1, page))
+}
+
 const isAllSelected = computed(() => {
-  if (filteredResults.value.length === 0) return false
-  return filteredResults.value.every((item) => selectedIds.value.has(item.id))
+  if (paginatedResults.value.length === 0) return false
+  return paginatedResults.value.every((item) => selectedIds.value.has(item.id))
 })
 
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
-    selectedIds.value = new Set()
+    const newSet = new Set(selectedIds.value)
+    paginatedResults.value.forEach((item) => newSet.delete(item.id))
+    selectedIds.value = newSet
   } else {
-    selectedIds.value = new Set(filteredResults.value.map((item) => item.id))
+    const newSet = new Set(selectedIds.value)
+    paginatedResults.value.forEach((item) => newSet.add(item.id))
+    selectedIds.value = newSet
   }
 }
 
@@ -242,7 +282,7 @@ const getKindIcon = (kind) => {
         </div>
       </div>
 
-      <!-- Fila 1: Entrada de objetivo + Botón de búsqueda compacto + Botón de eliminar filtros -->
+      <!-- Fila 1: Entrada de ID + Botón Escanear Histórico + Botón Eliminar Filtros -->
       <div class="scanner-row-1">
         <div class="field-target">
           <input
@@ -276,7 +316,7 @@ const getKindIcon = (kind) => {
         </button>
       </div>
 
-      <!-- Fila 2: Filtros por Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea -->
+      <!-- Fila 2: Filtros por Tipo + Fechas + Tamaños Mínimo/Máximo -->
       <div class="scanner-row-2">
         <div class="media-filters-group">
           <label class="filter-tag f-photos" :class="{ active: fPhotos }">
@@ -458,7 +498,7 @@ const getKindIcon = (kind) => {
           </thead>
           <tbody>
             <tr
-              v-for="item in filteredResults"
+              v-for="item in paginatedResults"
               :key="item.id"
               :class="{ selected: selectedIds.has(item.id) }"
             >
@@ -511,6 +551,64 @@ const getKindIcon = (kind) => {
           </tbody>
         </table>
       </div>
+
+      <!-- Paginador de resultados idéntico al del historial de descargas -->
+      <div v-if="filteredResults.length" class="history-pager">
+        <template v-if="totalPages > 1">
+          <button
+            class="pager-btn"
+            type="button"
+            :title="t('downloads.prevPage')"
+            :aria-label="t('downloads.prevPage')"
+            :disabled="currentPage === 1"
+            @click="goToPage(currentPage - 1)"
+          >
+            <ArrowLeft :size="14" />
+          </button>
+          <button
+            v-for="page in visiblePages"
+            :key="page"
+            class="pager-btn"
+            :class="{ active: page === currentPage }"
+            type="button"
+            :aria-current="page === currentPage ? 'page' : undefined"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+          <button
+            class="pager-btn"
+            type="button"
+            :title="t('downloads.nextPage')"
+            :aria-label="t('downloads.nextPage')"
+            :disabled="currentPage === totalPages"
+            @click="goToPage(currentPage + 1)"
+          >
+            <ArrowRight :size="14" />
+          </button>
+        </template>
+
+        <div class="pager-side">
+          <span v-if="totalPages > 1" class="pager-info">
+            {{
+              t('downloads.pageOf', {
+                page: currentPage,
+                total: totalPages
+              })
+            }}
+          </span>
+          <select
+            v-model="pageSize"
+            class="pager-select"
+            :title="t('downloads.perPageLabel')"
+            :aria-label="t('downloads.perPageLabel')"
+          >
+            <option v-for="size in PAGE_SIZES" :key="size" :value="size">
+              {{ t('downloads.perPage', { n: size }) }}
+            </option>
+          </select>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -534,7 +632,7 @@ const getKindIcon = (kind) => {
   margin-bottom: 14px;
 }
 
-/* Fila 1: Target input compacto + Botón de escaneo + Botón de eliminar filtros */
+/* Fila 1: Target input + Botón de escaneo + Botón de eliminar filtros */
 .scanner-row-1 {
   display: flex !important;
   align-items: center !important;
@@ -546,6 +644,12 @@ const getKindIcon = (kind) => {
   flex: 1 1 240px !important;
   min-width: 180px !important;
   max-width: 320px !important;
+}
+
+.field-target .scanner-input {
+  height: 35px !important;
+  padding: 0 12px !important;
+  box-sizing: border-box !important;
 }
 
 .scanner-input {
@@ -615,7 +719,7 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.8 !important;
 }
 
-/* Anulamos width: 100% y margin-top de .save-button global para que quepa al lado */
+/* Anulamos width: 100% y margin-top de .save-button global para que quepa al lado con alto parejo */
 .search-btn.save-button {
   width: auto !important;
   margin-top: 0 !important;
@@ -627,9 +731,10 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
-/* Anulación de margen/ancho para encajar .clear-history-button.boton-historial en la misma fila */
+/* Anulación de margen/ancho para encajar .clear-history-button.boton-historial en la misma fila con alto parejo */
 .clear-btn.clear-history-button {
   width: auto !important;
   margin-top: 0 !important;
@@ -638,9 +743,10 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   font-size: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
+  box-sizing: border-box !important;
 }
 
-/* Fila 2: Filtros de Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea */
+/* Fila 2: Filtros por Tipo + Fechas Inicio/Fin + Tamaños Mínimo/Máximo en la misma línea */
 .scanner-row-2 {
   display: flex;
   align-items: flex-end;
@@ -659,7 +765,6 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   flex-wrap: wrap;
 }
 
-/* Etiquetas de filtro idénticas a la vista de Escucha (Listener) */
 .filter-tag {
   display: flex;
   align-items: center;
@@ -754,16 +859,6 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   text-align: right;
 }
 
-.compact-select {
-  background: var(--user-bg-base);
-  border: 1px solid var(--user-border-light);
-  color: var(--user-text-main, #dbe7f5);
-  border-radius: 8px;
-  padding: 5px 4px;
-  font-size: 10px;
-  outline: none;
-}
-
 .scanner-error {
   margin-top: 10px;
   padding: 8px 12px;
@@ -813,15 +908,22 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .results-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 
-.btn-compact {
-  padding: 5px 10px;
-  font-size: 11px;
-  height: 28px;
+.results-toolbar .btn-compact {
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
 }
 
 .btn-icon {
