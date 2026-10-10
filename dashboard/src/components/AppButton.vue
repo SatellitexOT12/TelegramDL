@@ -5,7 +5,13 @@ const props = defineProps({
   variant: {
     type: String,
     default: 'primary',
-    validator: (v) => ['primary', 'mini', 'row', 'icon', 'pager'].includes(v)
+    validator: (v) =>
+      ['primary', 'secondary', 'text', 'icon', 'pager'].includes(v)
+  },
+  size: {
+    type: String,
+    default: 'md',
+    validator: (v) => ['sm', 'md', 'lg'].includes(v)
   },
   tone: {
     type: String,
@@ -25,6 +31,7 @@ const attrs = useAttrs()
 const classes = computed(() => [
   'btn',
   `btn--${props.variant}`,
+  `btn--size-${props.size}`,
   ...(props.tone !== 'default' ? [`btn--tone-${props.tone}`] : []),
   ...(props.variant === 'pager' && props.active ? ['btn--active'] : []),
   ...(props.loading ? ['btn--loading'] : [])
@@ -96,8 +103,8 @@ const ariaCurrent = computed(
   cursor: not-allowed;
 }
 
-/* --- mini: acciones de cabecera ("Pausar todo", "Cancelar todo") ---------- */
-.btn--mini {
+/* --- secondary: acción de cabecera ("Pausar todo", "Cancelar todo") ------- */
+.btn--secondary {
   background: var(--user-surface-light);
   border: 1px solid var(--user-border);
   color: var(--user-text-dim);
@@ -107,25 +114,25 @@ const ariaCurrent = computed(
   font-weight: 600;
 }
 
-.btn--mini:hover:not(:disabled) {
+.btn--secondary:hover:not(:disabled) {
   background: var(--user-icon-bg);
   color: var(--user-accent);
   border-color: var(--user-primary);
 }
 
-.btn--mini.btn--tone-danger:hover:not(:disabled) {
+.btn--secondary.btn--tone-danger:hover:not(:disabled) {
   background: rgba(125, 48, 61, 0.3);
   border-color: #a95663;
   color: #ffadb5;
 }
 
-.btn--mini:disabled {
+.btn--secondary:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-/* --- row: acción de texto dentro de una fila ("Pausar", "Cancelar") ------- */
-.btn--row {
+/* --- text: acción de texto dentro de una fila ("Pausar", "Cancelar") -------- */
+.btn--text {
   border: 0;
   background: transparent;
   padding: 4px 0;
@@ -133,23 +140,23 @@ const ariaCurrent = computed(
   gap: 4px;
   color: #e88888;
 }
-.btn--row.btn--tone-warning {
+.btn--text.btn--tone-warning {
   color: #ffc764;
 }
-.btn--row.btn--tone-success {
+.btn--text.btn--tone-success {
   color: #69d2ac;
 }
-.btn--row:hover:not(:disabled) {
+.btn--text:hover:not(:disabled) {
   color: #ffb0b0;
   transform: translateX(-2px);
 }
-.btn--row.btn--tone-warning:hover:not(:disabled) {
+.btn--text.btn--tone-warning:hover:not(:disabled) {
   color: #ffd084;
 }
-.btn--row.btn--tone-success:hover:not(:disabled) {
+.btn--text.btn--tone-success:hover:not(:disabled) {
   color: #8fe3c0;
 }
-.btn--row:disabled {
+.btn--text:disabled {
   opacity: 0.45;
   cursor: default;
 }
@@ -224,6 +231,50 @@ const ariaCurrent = computed(
 .btn--pager:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* --- size: escala del botón, se combina con cualquier variant -------------- */
+.btn--size-sm {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  gap: 6px;
+  border-radius: 8px;
+}
+.btn--size-lg {
+  font-size: 14px;
+  padding: 14px 22px;
+  gap: 10px;
+  border-radius: 10px;
+}
+.btn--text.btn--size-sm {
+  font-size: 10px;
+  padding: 4px 0;
+  border-radius: 0;
+}
+.btn--text.btn--size-lg {
+  font-size: 12px;
+  padding: 6px 0;
+}
+.btn--icon.btn--size-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+.btn--icon.btn--size-lg {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+.btn--pager.btn--size-sm {
+  min-width: 26px;
+  height: 26px;
+  font-size: 10px;
+}
+.btn--pager.btn--size-lg {
+  min-width: 34px;
+  height: 34px;
+  font-size: 12px;
 }
 
 .btn.btn--loading {
