@@ -63,6 +63,7 @@ import {
   Cancel01Icon,
   DeliverySent02Icon,
   FlashIcon,
+  FilterIcon,
   LanguagesIcon
 } from '@hugeicons/core-free-icons'
 
@@ -101,6 +102,7 @@ export const EyeOff = icono(ViewOffIcon) // ocultar el token
 export const FileCheck = icono(FileValidationIcon) // descargas completadas
 export const FileDown = icono(FileDownloadIcon) // descargas en curso
 export const FileText = icono(File02Icon) // documento genérico
+export const Filter = icono(FilterIcon) // filtro de archivos
 export const Folder = icono(Folder01Icon) // carpeta de descargas
 export const Gauge = icono(DashboardSpeed02Icon) // velocidad
 export const HardDrive = icono(HardDriveIcon) // unidades de disco

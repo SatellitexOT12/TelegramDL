@@ -17,6 +17,7 @@ export default {
   nav: {
     downloads: 'Descargas',
     listener: 'Escucha',
+    scanner: 'Histórico',
     logs: 'Logs',
     settings: 'Ajustes',
     openMenu: 'Abrir menú'
@@ -283,6 +284,47 @@ export default {
       Servidor: 'Servidor',
       Actualizador: 'Actualizador'
     }
+  },
+
+  scanner: {
+    title: 'Búsqueda e Histórico',
+    subtitle:
+      'Escanea el historial de chats o bots para encontrar y descargar contenido antiguo',
+    targetLabel: 'ID de Chat, Bot o Enlace',
+    targetPlaceholder: 'Ej: -100123456789, @nombre_bot o https://t.me/...',
+    dateRangeLabel: 'Rango de Fechas',
+    startDateLabel: 'Desde',
+    endDateLabel: 'Hasta',
+    mediaTypesLabel: 'Filtros por Tipo de Archivo',
+    photos: 'Fotos',
+    videos: 'Videos',
+    audios: 'Audios',
+    docs: 'Documentos',
+    stickers: 'Stickers',
+    sizeFilterLabel: 'Filtros por Tamaño de Archivo',
+    minSizeLabel: 'Tamaño Mínimo',
+    maxSizeLabel: 'Tamaño Máximo',
+    sizeOpenHint: 'Si no se especifican, quedan abiertos y muestra todo.',
+    searchButton: 'Escanear Histórico',
+    scanning: 'Escaneando historial...',
+    scanningNote: 'Aplicando pausas para evitar FLOOD_WAIT de Telegram',
+    noResults:
+      'No se encontraron archivos multimedia en el período seleccionado.',
+    resultsFound:
+      '{count} elementos encontrados ({scanned} mensajes inspeccionados)',
+    selectAll: 'Seleccionar todos',
+    deselectAll: 'Deseleccionar todos',
+    downloadSelected: 'Descargar seleccionados ({n})',
+    downloadAll: 'Descargar todos',
+    downloadingQueued: '{n} archivos añadidos a la cola de descargas',
+    fileName: 'Nombre de archivo',
+    date: 'Fecha',
+    size: 'Tamaño',
+    type: 'Tipo',
+    actions: 'Acciones',
+    downloadItem: 'Descargar',
+    resolveError: 'No se pudo resolver el objetivo especificado',
+    searchError: 'Ocurrió un error durante el escaneo del historial'
   },
 
   settings: {

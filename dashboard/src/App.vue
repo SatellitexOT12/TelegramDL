@@ -10,6 +10,7 @@ import {
 } from 'vue'
 import DownloadsView from './views/DownloadsView.vue'
 import ListenerView from './views/ListenerView.vue'
+import ScannerView from './views/ScannerView.vue'
 import LogsView from './views/LogsView.vue'
 import SettingsView from './views/SettingsView.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
@@ -37,6 +38,7 @@ import {
   Power,
   Radio,
   ScrollText,
+  Search,
   Settings2,
   UserCheck,
   X,
@@ -643,6 +645,7 @@ const viewTitle = computed(
     ({
       downloads: t('nav.downloads'),
       listener: t('nav.listener'),
+      scanner: t('nav.scanner'),
       logs: t('nav.logs'),
       settings: t('nav.settings')
     })[activeView.value] || t('nav.downloads')
@@ -1198,6 +1201,17 @@ onUnmounted(() => {
               <Radio :size="16" /> {{ t('nav.listener') }}
             </button>
             <button
+              :class="{ selected: activeView === 'scanner' }"
+              @click="
+                () => {
+                  activeView = 'scanner'
+                  mobileMenuOpen = false
+                }
+              "
+            >
+              <Search :size="16" /> {{ t('nav.scanner') }}
+            </button>
+            <button
               :class="{ selected: activeView === 'logs' }"
               @click="
                 () => {
@@ -1383,6 +1397,14 @@ onUnmounted(() => {
             :notify="showMessage"
             :disk="disk"
             :initialItems="listenerItems"
+            :settings="settings"
+          />
+
+          <ScannerView
+            v-show="activeView === 'scanner'"
+            :active="activeView === 'scanner'"
+            :notify="showMessage"
+            :disk="disk"
             :settings="settings"
           />
 

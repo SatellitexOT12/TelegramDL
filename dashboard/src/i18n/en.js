@@ -16,6 +16,7 @@ export default {
   nav: {
     downloads: 'Downloads',
     listener: 'Listener',
+    scanner: 'Historical',
     logs: 'Logs',
     settings: 'Settings',
     openMenu: 'Open menu'
@@ -280,6 +281,44 @@ export default {
       Servidor: 'Server',
       Actualizador: 'Updater'
     }
+  },
+
+  scanner: {
+    title: 'Search & Historical',
+    subtitle: 'Scan chat or bot history to find and download past media',
+    targetLabel: 'Chat ID, Bot Username or Link',
+    targetPlaceholder: 'E.g.: -100123456789, @bot_name or https://t.me/...',
+    dateRangeLabel: 'Date Range',
+    startDateLabel: 'From',
+    endDateLabel: 'To',
+    mediaTypesLabel: 'File Type Filters',
+    photos: 'Photos',
+    videos: 'Videos',
+    audios: 'Audios',
+    docs: 'Documents',
+    stickers: 'Stickers',
+    sizeFilterLabel: 'File Size Filters',
+    minSizeLabel: 'Minimum Size',
+    maxSizeLabel: 'Maximum Size',
+    sizeOpenHint: 'If left blank, size restrictions are open and show all.',
+    searchButton: 'Scan History',
+    scanning: 'Scanning history...',
+    scanningNote: 'Applying pauses to prevent Telegram FLOOD_WAIT',
+    noResults: 'No media files found in the selected range.',
+    resultsFound: '{count} items found ({scanned} messages inspected)',
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    downloadSelected: 'Download selected ({n})',
+    downloadAll: 'Download all',
+    downloadingQueued: '{n} files added to download queue',
+    fileName: 'File name',
+    date: 'Date',
+    size: 'Size',
+    type: 'Type',
+    actions: 'Actions',
+    downloadItem: 'Download',
+    resolveError: 'Could not resolve specified target',
+    searchError: 'An error occurred while scanning history'
   },
 
   settings: {

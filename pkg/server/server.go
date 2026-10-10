@@ -29,6 +29,7 @@ import (
 	"tgdown/pkg/listener"
 	"tgdown/pkg/logbus"
 	"tgdown/pkg/notifier"
+	"tgdown/pkg/scanner"
 	"tgdown/pkg/storage"
 	"tgdown/pkg/telegram"
 	"tgdown/pkg/updater"
@@ -39,6 +40,7 @@ type Server struct {
 	storage    *storage.Storage
 	downloader *downloader.Engine
 	listener   *listener.ListenerEngine
+	scanner    *scanner.ScannerService
 	updater    *updater.AppUpdater
 	config     config.Config
 	assets     fs.FS
@@ -110,6 +112,7 @@ func NewServer(
 		storage:    st,
 		downloader: dl,
 		listener:   le,
+		scanner:    scanner.NewScannerService(cm, st, dl),
 		updater:    up,
 		config:     cfg,
 		assets:     assets,
@@ -608,6 +611,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/listener/topics/", s.handleListenerTopics)
 	mux.HandleFunc("/api/listener/update-filename", s.handleListenerUpdateFilename)
 	mux.HandleFunc("/api/listener/reorder", s.handleListenerReorder)
+
+	// Scanner / Histórico
+	mux.HandleFunc("/api/scanner/search", s.handleScannerSearch)
+	mux.HandleFunc("/api/scanner/download", s.handleScannerDownload)
+	mux.HandleFunc("/api/scanner/resolve-target", s.handleScannerResolveTarget)
 
 	// Registro de actividad (vista de logs en vivo)
 	mux.HandleFunc("/api/logs", s.handleLogs)
@@ -2362,6 +2370,72 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 		"version": config.AppVersion,
 	})
 }
+
+// Handlers del Escáner / Histórico
+func (s *Server) handleScannerSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		return
+	}
+
+	var req scanner.ScanRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.errorResponse(w, http.StatusUnprocessableEntity, "Cuerpo de petición no válido")
+		return
+	}
+
+	res, err := s.scanner.Scan(r.Context(), req)
+	if err != nil {
+		s.errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.jsonResponse(w, http.StatusOK, res)
+}
+
+func (s *Server) handleScannerDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		return
+	}
+
+	var body struct {
+		Items []scanner.ScanItem `json:"items"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Items) == 0 {
+		s.errorResponse(w, http.StatusUnprocessableEntity, "Se requiere al menos un elemento")
+		return
+	}
+
+	queued := s.scanner.QueueItems(body.Items)
+	s.broadcastState()
+
+	s.jsonResponse(w, http.StatusOK, map[string]any{
+		"status": "ok",
+		"queued": queued,
+	})
+}
+
+func (s *Server) handleScannerResolveTarget(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Target string `json:"target"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	if strings.TrimSpace(body.Target) == "" {
+		s.errorResponse(w, http.StatusUnprocessableEntity, "Objetivo requerido")
+		return
+	}
+
+	res, err := s.scanner.ResolveTarget(r.Context(), body.Target)
+	if err != nil {
+		s.errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.jsonResponse(w, http.StatusOK, res)
+}
+
 
 // Updater
 func (s *Server) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
