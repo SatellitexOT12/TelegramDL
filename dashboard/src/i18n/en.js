@@ -317,6 +317,7 @@ export default {
     downloadAll: 'Download all',
     downloadingQueued: '{n} files added to download queue',
     fileName: 'File name',
+    nameModeColumn: 'Mode',
     date: 'Date',
     size: 'Size',
     type: 'Type',

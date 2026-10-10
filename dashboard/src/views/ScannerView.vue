@@ -592,7 +592,7 @@ const getKindIcon = (kind) => {
               </th>
               <th class="col-type">{{ t('scanner.type') }}</th>
               <th class="col-name">{{ t('scanner.fileName') }}</th>
-              <th class="col-name-mode"></th>
+              <th class="col-name-mode">{{ t('scanner.nameModeColumn') }}</th>
               <th class="col-date">{{ t('scanner.date') }}</th>
               <th class="col-size">{{ t('scanner.size') }}</th>
               <th class="col-action"></th>
@@ -1125,6 +1125,7 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed; /* Evita desplazamientos horizontales de columnas entre páginas */
 }
 
 .scanner-table th,
@@ -1132,6 +1133,7 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid var(--user-border);
+  box-sizing: border-box;
 }
 
 .scanner-table th {
@@ -1151,39 +1153,36 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .col-type {
-  width: 40px;
+  width: 44px;
   text-align: center;
 }
 
-.kind-icon {
-  color: var(--user-primary);
-}
-
-.name-box {
-  display: flex;
-  flex-direction: column;
-}
-
-.name-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.col-name {
+  width: auto;
+  overflow: hidden;
 }
 
 .main-name {
   font-weight: 500;
   color: var(--user-text-main, #dbe7f5);
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .sub-name {
   font-size: 11px;
   color: var(--user-text-dim, #94a8bc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 /* Columna propia y centrada para el botón individual de cambio de nombre */
 .col-name-mode {
-  width: 36px;
+  width: 65px;
   text-align: center;
   vertical-align: middle;
 }
@@ -1314,17 +1313,19 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .col-date {
+  width: 150px;
   white-space: nowrap;
   color: var(--user-text-dim, #94a8bc);
 }
 
 .col-size {
+  width: 90px;
   white-space: nowrap;
   color: var(--user-text-main, #dbe7f5);
 }
 
 .col-action {
-  width: 40px;
+  width: 44px;
   text-align: right;
 }
 

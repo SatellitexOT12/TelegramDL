@@ -324,6 +324,7 @@ export default {
     downloadAll: 'Descargar todos',
     downloadingQueued: '{n} archivos añadidos a la cola de descargas',
     fileName: 'Nombre de archivo',
+    nameModeColumn: 'Modo',
     date: 'Fecha',
     size: 'Tamaño',
     type: 'Tipo',
