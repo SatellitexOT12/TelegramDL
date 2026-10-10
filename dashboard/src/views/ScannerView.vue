@@ -1,16 +1,15 @@
 <script setup>
 import { computed, ref } from 'vue'
 import {
+  AlertCircle,
+  Clock3,
   Download,
   FileText,
   Image,
   Loader2,
   Music,
   Search,
-  Video,
-  AlertCircle,
-  Clock3,
-  Filter
+  Video
 } from '../icons'
 import { useAuthToken } from '../composables/useAuthToken'
 import { useI18n } from '../i18n'
@@ -43,10 +42,9 @@ const loading = ref(false)
 const searchingMsg = ref('')
 const error = ref('')
 
-const results = ref([])
+const rawResults = ref([])
 const scannedCount = ref(0)
 const matchCount = ref(0)
-const reachedLimit = ref(false)
 const serverMessage = ref('')
 const selectedIds = ref(new Set())
 const downloadingBatch = ref(false)
@@ -85,22 +83,24 @@ const onSearch = async () => {
   error.value = ''
   loading.value = true
   searchingMsg.value = t('scanner.scanningNote')
-  results.value = []
+  rawResults.value = []
   selectedIds.value = new Set()
   serverMessage.value = ''
 
   try {
+    // Al buscar en backend pedimos con todos los tipos abiertos para poder
+    // filtrar/desfiltrar al vuelo en el cliente sin tener que re-consultar a Telegram
     const payload = {
       target: cleanTarget,
       start_date: startDate.value,
       end_date: endDate.value,
-      f_photos: fPhotos.value,
-      f_videos: fVideos.value,
-      f_audios: fAudios.value,
-      f_docs: fDocs.value,
-      f_stickers: fStickers.value,
-      min_size: parseSizeBytes(minSizeVal.value, minSizeUnit.value),
-      max_size: parseSizeBytes(maxSizeVal.value, maxSizeUnit.value),
+      f_photos: true,
+      f_videos: true,
+      f_audios: true,
+      f_docs: true,
+      f_stickers: true,
+      min_size: 0,
+      max_size: 0,
       max_scan: 1000
     }
 
@@ -110,13 +110,12 @@ const onSearch = async () => {
       body: JSON.stringify(payload)
     })
 
-    results.value = data.items || []
+    rawResults.value = data.items || []
     scannedCount.value = data.scanned_count || 0
     matchCount.value = data.match_count || 0
-    reachedLimit.value = !!data.reached_limit
     serverMessage.value = data.message || ''
 
-    if (results.value.length === 0) {
+    if (rawResults.value.length === 0) {
       props.notify(t('scanner.noResults'), 'info')
     }
   } catch (err) {
@@ -127,16 +126,36 @@ const onSearch = async () => {
   }
 }
 
+// Reactividad instantánea en el cliente: cuando el usuario desactiva un filtro
+// (fotos, videos, etc.) o ajusta el tamaño mín/máx, se ocultan al instante los archivos correspondientes
+const filteredResults = computed(() => {
+  const minB = parseSizeBytes(minSizeVal.value, minSizeUnit.value)
+  const maxB = parseSizeBytes(maxSizeVal.value, maxSizeUnit.value)
+
+  return rawResults.value.filter((item) => {
+    if (item.kind === 'photo' && !fPhotos.value) return false
+    if (item.kind === 'video' && !fVideos.value) return false
+    if (item.kind === 'song' && !fAudios.value) return false
+    if (item.kind === 'file' && !fDocs.value) return false
+    if (item.kind === 'sticker' && !fStickers.value) return false
+
+    if (minB > 0 && item.file_size < minB) return false
+    if (maxB > 0 && item.file_size > maxB) return false
+
+    return true
+  })
+})
+
 const isAllSelected = computed(() => {
-  if (results.value.length === 0) return false
-  return results.value.every((item) => selectedIds.value.has(item.id))
+  if (filteredResults.value.length === 0) return false
+  return filteredResults.value.every((item) => selectedIds.value.has(item.id))
 })
 
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
     selectedIds.value = new Set()
   } else {
-    selectedIds.value = new Set(results.value.map((item) => item.id))
+    selectedIds.value = new Set(filteredResults.value.map((item) => item.id))
   }
 }
 
@@ -151,7 +170,7 @@ const toggleSelectItem = (id) => {
 }
 
 const selectedItemsList = computed(() => {
-  return results.value.filter((item) => selectedIds.value.has(item.id))
+  return filteredResults.value.filter((item) => selectedIds.value.has(item.id))
 })
 
 const onDownloadItems = async (itemsToDownload) => {
@@ -167,7 +186,7 @@ const onDownloadItems = async (itemsToDownload) => {
     const count = data.queued || itemsToDownload.length
     props.notify(t('scanner.downloadingQueued', { n: count }), 'success')
 
-    // Remover los descargados de la selección
+    // Limpiar selección de los elementos enviados a la cola
     const newSet = new Set(selectedIds.value)
     itemsToDownload.forEach((item) => newSet.delete(item.id))
     selectedIds.value = newSet
@@ -193,172 +212,166 @@ const getKindIcon = (kind) => {
 </script>
 
 <template>
-  <div class="scanner-container">
-    <!-- Encabezado de la Sección -->
-    <div class="scanner-card">
-      <div class="card-header">
-        <div class="title-wrap">
-          <Search :size="20" class="icon-accent" />
-          <div>
-            <h2>{{ t('scanner.title') }}</h2>
-            <p class="subtitle">{{ t('scanner.subtitle') }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Formulario de Búsqueda e Histórico -->
-      <div class="card-body">
-        <div class="form-grid">
-          <!-- Campo 1: Objetivo (ID / Username / URL) -->
-          <div class="form-group full-width">
-            <label class="form-label">
-              {{ t('scanner.targetLabel') }}
-            </label>
-            <div class="input-with-button">
-              <input
-                v-model="target"
-                type="text"
-                class="form-input"
-                :placeholder="t('scanner.targetPlaceholder')"
-                @keyup.enter="onSearch"
-              />
-              <button
-                type="button"
-                class="btn btn-primary"
-                :disabled="loading || !target.trim()"
-                @click="onSearch"
-              >
-                <Loader2 v-if="loading" :size="16" class="spin" />
-                <Search v-else :size="16" />
-                <span>{{ t('scanner.searchButton') }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Campo 2: Rango de Fechas -->
-          <div class="form-group">
-            <label class="form-label">
-              <Clock3 :size="14" /> {{ t('scanner.startDateLabel') }}
-            </label>
-            <input v-model="startDate" type="date" class="form-input" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <Clock3 :size="14" /> {{ t('scanner.endDateLabel') }}
-            </label>
-            <input v-model="endDate" type="date" class="form-input" />
-          </div>
-
-          <!-- Campo 3: Filtros por Tipo de Archivo -->
-          <div class="form-group full-width">
-            <label class="form-label">
-              <Filter :size="14" /> {{ t('scanner.mediaTypesLabel') }}
-            </label>
-            <div class="checkbox-group">
-              <label class="checkbox-label">
-                <input v-model="fPhotos" type="checkbox" />
-                <span>{{ t('scanner.photos') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input v-model="fVideos" type="checkbox" />
-                <span>{{ t('scanner.videos') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input v-model="fAudios" type="checkbox" />
-                <span>{{ t('scanner.audios') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input v-model="fDocs" type="checkbox" />
-                <span>{{ t('scanner.docs') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input v-model="fStickers" type="checkbox" />
-                <span>{{ t('scanner.stickers') }}</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Campo 4: Filtros por Tamaño Mínimo y Máximo -->
-          <div class="form-group">
-            <label class="form-label">{{ t('scanner.minSizeLabel') }}</label>
-            <div class="size-input-group">
-              <input
-                v-model="minSizeVal"
-                type="number"
-                min="0"
-                step="any"
-                class="form-input"
-                placeholder="0"
-              />
-              <select v-model="minSizeUnit" class="form-select">
-                <option value="B">B</option>
-                <option value="KB">KB</option>
-                <option value="MB">MB</option>
-                <option value="GB">GB</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">{{ t('scanner.maxSizeLabel') }}</label>
-            <div class="size-input-group">
-              <input
-                v-model="maxSizeVal"
-                type="number"
-                min="0"
-                step="any"
-                class="form-input"
-                placeholder="0"
-              />
-              <select v-model="maxSizeUnit" class="form-select">
-                <option value="B">B</option>
-                <option value="KB">KB</option>
-                <option value="MB">MB</option>
-                <option value="GB">GB</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <p class="hint-text">{{ t('scanner.sizeOpenHint') }}</p>
-
-        <div v-if="error" class="alert alert-danger">
-          <AlertCircle :size="16" /> {{ error }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Banner de Carga en Búsqueda -->
-    <div v-if="loading" class="scanner-card loading-card">
-      <div class="loading-wrap">
-        <Loader2 :size="24" class="spin icon-accent" />
+  <div class="scanner-view">
+    <!-- Panel de Control y Búsqueda -->
+    <section class="panel scanner-search-panel">
+      <div class="panel-heading">
         <div>
-          <h3>{{ t('scanner.scanning') }}</h3>
-          <p class="subtitle">{{ searchingMsg }}</p>
+          <span class="eyebrow">
+            <Search :size="12" /> {{ t('scanner.title') }}
+          </span>
+          <h2>{{ t('scanner.subtitle') }}</h2>
         </div>
       </div>
-    </div>
+
+      <!-- Fila 1: Entrada de objetivo + Fechas compactas + Botón Buscar -->
+      <div class="scanner-row-1">
+        <div class="field-target">
+          <input
+            v-model="target"
+            type="text"
+            class="scanner-input"
+            :placeholder="t('scanner.targetPlaceholder')"
+            @keyup.enter="onSearch"
+          />
+        </div>
+
+        <div class="field-compact-date">
+          <label class="compact-label">
+            <Clock3 :size="11" /> {{ t('scanner.startDateLabel') }}
+          </label>
+          <input
+            v-model="startDate"
+            type="date"
+            class="scanner-input compact-input"
+          />
+        </div>
+
+        <div class="field-compact-date">
+          <label class="compact-label">
+            <Clock3 :size="11" /> {{ t('scanner.endDateLabel') }}
+          </label>
+          <input
+            v-model="endDate"
+            type="date"
+            class="scanner-input compact-input"
+          />
+        </div>
+
+        <button
+          type="button"
+          class="save-button search-btn"
+          :disabled="loading || !target.trim()"
+          @click="onSearch"
+        >
+          <Loader2 v-if="loading" :size="14" class="spin" />
+          <Search v-else :size="14" />
+          <span>{{ t('scanner.searchButton') }}</span>
+        </button>
+      </div>
+
+      <!-- Fila 2: Filtros por Tipo (estilo Listener) + Filtros de Tamaño compactos al lado -->
+      <div class="scanner-row-2">
+        <div class="media-filters-group">
+          <label class="filter-tag f-photos" :class="{ active: fPhotos }">
+            <input v-model="fPhotos" type="checkbox" />
+            <span>{{ t('scanner.photos') }}</span>
+          </label>
+          <label class="filter-tag f-videos" :class="{ active: fVideos }">
+            <input v-model="fVideos" type="checkbox" />
+            <span>{{ t('scanner.videos') }}</span>
+          </label>
+          <label class="filter-tag f-audios" :class="{ active: fAudios }">
+            <input v-model="fAudios" type="checkbox" />
+            <span>{{ t('scanner.audios') }}</span>
+          </label>
+          <label class="filter-tag f-docs" :class="{ active: fDocs }">
+            <input v-model="fDocs" type="checkbox" />
+            <span>{{ t('scanner.docs') }}</span>
+          </label>
+          <label class="filter-tag f-stickers" :class="{ active: fStickers }">
+            <input v-model="fStickers" type="checkbox" />
+            <span>{{ t('scanner.stickers') }}</span>
+          </label>
+        </div>
+
+        <div class="size-filters-group">
+          <div class="size-compact-field">
+            <span class="compact-label">{{ t('scanner.minSizeLabel') }}:</span>
+            <input
+              v-model="minSizeVal"
+              type="number"
+              min="0"
+              step="any"
+              class="scanner-input compact-number"
+              placeholder="0"
+            />
+            <select v-model="minSizeUnit" class="compact-select">
+              <option value="B">B</option>
+              <option value="KB">KB</option>
+              <option value="MB">MB</option>
+              <option value="GB">GB</option>
+            </select>
+          </div>
+
+          <div class="size-compact-field">
+            <span class="compact-label">{{ t('scanner.maxSizeLabel') }}:</span>
+            <input
+              v-model="maxSizeVal"
+              type="number"
+              min="0"
+              step="any"
+              class="scanner-input compact-number"
+              placeholder="0"
+            />
+            <select v-model="maxSizeUnit" class="compact-select">
+              <option value="B">B</option>
+              <option value="KB">KB</option>
+              <option value="MB">MB</option>
+              <option value="GB">GB</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="error" class="scanner-error">
+        <AlertCircle :size="14" /> {{ error }}
+      </div>
+    </section>
+
+    <!-- Estado de Carga -->
+    <section v-if="loading" class="panel scanner-loading-panel">
+      <div class="loading-content">
+        <Loader2 :size="22" class="spin icon-accent" />
+        <div>
+          <strong>{{ t('scanner.scanning') }}</strong>
+          <p class="small-hint">{{ searchingMsg }}</p>
+        </div>
+      </div>
+    </section>
 
     <!-- Resultados Encontrados -->
-    <div v-else-if="results.length > 0" class="scanner-card">
-      <div class="results-header">
-        <div class="results-info">
-          <h3>
+    <section
+      v-else-if="rawResults.length > 0"
+      class="panel scanner-results-panel"
+    >
+      <div class="panel-heading results-heading">
+        <div>
+          <span class="eyebrow">
             {{
               t('scanner.resultsFound', {
-                count: matchCount,
+                count: filteredResults.length,
                 scanned: scannedCount
               })
             }}
-          </h3>
+          </span>
           <p v-if="serverMessage" class="server-msg">{{ serverMessage }}</p>
         </div>
 
-        <div class="results-actions">
+        <div class="results-toolbar">
           <button
             type="button"
-            class="btn btn-secondary btn-sm"
+            class="ghost-button btn-compact"
             @click="toggleSelectAll"
           >
             {{
@@ -368,11 +381,11 @@ const getKindIcon = (kind) => {
 
           <button
             type="button"
-            class="btn btn-primary btn-sm"
+            class="save-button btn-compact"
             :disabled="selectedIds.size === 0 || downloadingBatch"
             @click="onDownloadItems(selectedItemsList)"
           >
-            <Download :size="14" />
+            <Download :size="13" />
             <span>{{
               t('scanner.downloadSelected', { n: selectedIds.size })
             }}</span>
@@ -380,19 +393,19 @@ const getKindIcon = (kind) => {
 
           <button
             type="button"
-            class="btn btn-outline btn-sm"
-            :disabled="downloadingBatch"
-            @click="onDownloadItems(results)"
+            class="ghost-button btn-compact"
+            :disabled="downloadingBatch || filteredResults.length === 0"
+            @click="onDownloadItems(filteredResults)"
           >
-            <Download :size="14" />
+            <Download :size="13" />
             <span>{{ t('scanner.downloadAll') }}</span>
           </button>
         </div>
       </div>
 
       <!-- Tabla de Resultados -->
-      <div class="table-responsive">
-        <table class="results-table">
+      <div class="results-table-wrapper">
+        <table class="scanner-table">
           <thead>
             <tr>
               <th class="col-check">
@@ -406,12 +419,12 @@ const getKindIcon = (kind) => {
               <th class="col-name">{{ t('scanner.fileName') }}</th>
               <th class="col-date">{{ t('scanner.date') }}</th>
               <th class="col-size">{{ t('scanner.size') }}</th>
-              <th class="col-action">{{ t('scanner.actions') }}</th>
+              <th class="col-action"></th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="item in results"
+              v-for="item in filteredResults"
               :key="item.id"
               :class="{ selected: selectedIds.has(item.id) }"
             >
@@ -425,7 +438,7 @@ const getKindIcon = (kind) => {
               <td class="col-type">
                 <component
                   :is="getKindIcon(item.kind)"
-                  :size="18"
+                  :size="16"
                   class="kind-icon"
                 />
               </td>
@@ -448,165 +461,365 @@ const getKindIcon = (kind) => {
               <td class="col-action">
                 <button
                   type="button"
-                  class="btn btn-icon btn-sm"
+                  class="ghost-button btn-icon"
                   :title="t('scanner.downloadItem')"
                   @click="onDownloadItems([item])"
                 >
-                  <Download :size="14" />
+                  <Download :size="13" />
                 </button>
+              </td>
+            </tr>
+            <tr v-if="filteredResults.length === 0">
+              <td colspan="6" class="no-filtered-matches">
+                {{ t('scanner.noResults') }}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.scanner-container {
+.scanner-view {
   display: flex;
   flex-direction: column;
   gap: 16px;
   width: 100%;
 }
 
-.scanner-card {
-  background: var(--bg-card, #1e1e2d);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-  padding: 20px;
+.panel {
+  padding: 16px;
+  background: var(--user-surface);
+  border: 1px solid var(--user-border);
+  border-radius: 15px;
 }
 
-.card-header {
-  margin-bottom: 20px;
+.scanner-search-panel .panel-heading {
+  margin-bottom: 14px;
 }
 
-.title-wrap {
+.scanner-row-1 {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.field-target {
+  flex: 1;
+  min-width: 220px;
+}
+
+.field-compact-date {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compact-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--user-text-dim, #94a8bc);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scanner-input {
+  background: var(--user-bg-base);
+  border: 1px solid var(--user-border-light);
+  color: var(--user-text-main, #dbe7f5);
+  border-radius: 10px;
+  padding: 8px 12px;
+  outline: none;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.scanner-input:focus {
+  border-color: var(--user-primary);
+}
+
+.compact-input {
+  width: 135px;
+  padding: 7px 8px;
+}
+
+.search-btn {
+  height: 36px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.scanner-row-2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--user-border);
+  flex-wrap: wrap;
+}
+
+.media-filters-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Etiquetas de filtro idénticas a la vista de Escucha (Listener) */
+.filter-tag {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--user-text-dim, #94a8bc);
+  cursor: pointer;
+  background: var(--user-bg-base);
+  border: 1px solid var(--user-border-light);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.filter-tag input {
+  display: none;
+}
+.filter-tag:hover {
+  border-color: var(--user-primary);
+  transform: translateY(-1px);
+}
+.filter-tag.active {
+  color: #000;
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+.filter-tag.f-photos.active {
+  background: #38bdf8;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+.filter-tag.f-videos.active {
+  background: #c084fc;
+  box-shadow: 0 4px 12px rgba(192, 132, 252, 0.3);
+}
+.filter-tag.f-audios.active {
+  background: #4ade80;
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+}
+.filter-tag.f-docs.active {
+  background: #94a3b8;
+  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.3);
+}
+.filter-tag.f-stickers.active {
+  background: #f472b6;
+  box-shadow: 0 4px 12px rgba(244, 114, 182, 0.3);
+}
+
+.size-filters-group {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.title-wrap h2 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.subtitle {
-  font-size: 0.85rem;
-  color: var(--text-muted, #8a8aa0);
-  margin-top: 2px;
-}
-
-.icon-accent {
-  color: var(--accent-color, #3b82f6);
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.full-width {
-  grid-column: span 2;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 0.85rem;
-  font-weight: 500;
+.size-compact-field {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-color, #e1e1e6);
 }
 
-.input-with-button {
-  display: flex;
-  gap: 8px;
+.compact-number {
+  width: 65px;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-align: right;
 }
 
-.form-input,
-.form-select {
-  background: var(--bg-input, rgba(0, 0, 0, 0.2));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
-  color: var(--text-color, #ffffff);
+.compact-select {
+  background: var(--user-bg-base);
+  border: 1px solid var(--user-border-light);
+  color: var(--user-text-main, #dbe7f5);
   border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
+  padding: 5px 6px;
+  font-size: 11px;
   outline: none;
-  transition: border-color 0.2s;
 }
 
-.form-input:focus,
-.form-select:focus {
-  border-color: var(--accent-color, #3b82f6);
-}
-
-.size-input-group {
-  display: flex;
-  gap: 8px;
-}
-
-.size-input-group .form-input {
-  flex: 1;
-}
-
-.checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding-top: 4px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.hint-text {
-  font-size: 0.8rem;
-  color: var(--text-muted, #8a8aa0);
-  margin-top: 12px;
-}
-
-.alert {
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.alert-danger {
+.scanner-error {
+  margin-top: 10px;
+  padding: 8px 12px;
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
   border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.loading-card {
-  padding: 30px;
+.scanner-loading-panel {
+  padding: 24px;
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.icon-accent {
+  color: var(--user-primary);
+}
+
+.small-hint {
+  font-size: 12px;
+  color: var(--user-text-dim, #94a8bc);
+  margin-top: 2px;
+}
+
+.results-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.server-msg {
+  font-size: 11px;
+  color: #f59e0b;
+  margin-top: 2px;
+}
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-compact {
+  padding: 6px 12px;
+  font-size: 11px;
+  height: 30px;
+}
+
+.btn-icon {
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+
+.ghost-button {
+  background: transparent;
+  border: 1px solid var(--user-border-light);
+  color: var(--user-text-main, #dbe7f5);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.ghost-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--user-primary);
+}
+
+.ghost-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.results-table-wrapper {
+  overflow-x: auto;
+}
+
+.scanner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.scanner-table th,
+.scanner-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--user-border);
+}
+
+.scanner-table th {
+  color: var(--user-text-dim, #94a8bc);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.scanner-table tr.selected {
+  background: rgba(56, 167, 255, 0.08);
+}
+
+.col-check {
+  width: 32px;
   text-align: center;
 }
 
-.loading-wrap {
+.col-type {
+  width: 40px;
+  text-align: center;
+}
+
+.kind-icon {
+  color: var(--user-primary);
+}
+
+.name-box {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+  flex-direction: column;
+}
+
+.main-name {
+  font-weight: 500;
+  color: var(--user-text-main, #dbe7f5);
+  word-break: break-all;
+}
+
+.sub-name {
+  font-size: 11px;
+  color: var(--user-text-dim, #94a8bc);
+}
+
+.col-date {
+  white-space: nowrap;
+  color: var(--user-text-dim, #94a8bc);
+}
+
+.col-size {
+  white-space: nowrap;
+  color: var(--user-text-main, #dbe7f5);
+}
+
+.col-action {
+  width: 40px;
+  text-align: right;
+}
+
+.no-filtered-matches {
+  text-align: center;
+  padding: 20px;
+  color: var(--user-text-dim, #94a8bc);
+  font-size: 12px;
 }
 
 .spin {
@@ -619,170 +832,6 @@ const getKindIcon = (kind) => {
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-.results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.results-info h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.server-msg {
-  font-size: 0.8rem;
-  color: #f59e0b;
-  margin-top: 4px;
-}
-
-.results-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.table-responsive {
-  overflow-x: auto;
-}
-
-.results-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.results-table th,
-.results-table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
-}
-
-.results-table th {
-  color: var(--text-muted, #8a8aa0);
-  font-weight: 600;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-}
-
-.results-table tr.selected {
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.col-check {
-  width: 36px;
-}
-
-.col-type {
-  width: 48px;
-  text-align: center;
-}
-
-.kind-icon {
-  color: var(--accent-color, #3b82f6);
-}
-
-.name-box {
-  display: flex;
-  flex-direction: column;
-}
-
-.main-name {
-  font-weight: 500;
-  word-break: break-all;
-}
-
-.sub-name {
-  font-size: 0.75rem;
-  color: var(--text-muted, #8a8aa0);
-}
-
-.col-date {
-  white-space: nowrap;
-  color: var(--text-muted, #8a8aa0);
-}
-
-.col-size {
-  white-space: nowrap;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--accent-color, #3b82f6);
-  color: #ffffff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-color, #ffffff);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
-  color: var(--text-color, #ffffff);
-}
-
-.btn-outline:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 0.8rem;
-}
-
-.btn-icon {
-  padding: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-color, #ffffff);
-  border-radius: 6px;
-}
-
-.btn-icon:hover:not(:disabled) {
-  background: var(--accent-color, #3b82f6);
-}
-
-@media (max-width: 640px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .full-width {
-    grid-column: span 1;
   }
 }
 </style>
