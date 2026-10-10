@@ -585,14 +585,15 @@ select {
 }
 .panel-heading h2 {
   font: 600 17px 'Space Grotesk';
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: #edf5fc;
 }
 .panel-heading .eyebrow {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--user-accent);
+  margin-bottom: 8px;
 }
 .panel-heading .eyebrow svg {
   color: var(--user-accent);

@@ -749,16 +749,16 @@
 .tema-edge-runner .panel::before {
   top: -1px;
   left: -1px;
-  border-top: 4px solid var(--user-primary);
-  border-left: 4px solid var(--user-primary);
+  border-top: 2px solid var(--user-primary);
+  border-left: 2px solid var(--user-primary);
   border-top-left-radius: 15px;
 }
 
 .tema-edge-runner .panel::after {
   bottom: -1px;
   right: -1px;
-  border-bottom: 4px solid var(--user-accent);
-  border-right: 4px solid var(--user-accent);
+  border-bottom: 2px solid var(--user-accent);
+  border-right: 2px solid var(--user-accent);
   border-bottom-right-radius: 15px;
   opacity: 1;
 }
