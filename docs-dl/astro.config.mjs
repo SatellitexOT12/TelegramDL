@@ -52,6 +52,20 @@ export default defineConfig({
 					link: '/listener',
 				},
 				{
+					label: 'Escáner Histórico',
+					translations: {
+						en: 'Historical Scanner',
+					},
+					link: '/scanner',
+				},
+				{
+					label: 'Ajustes y Configuración',
+					translations: {
+						en: 'Settings',
+					},
+					link: '/settings',
+				},
+				{
 					label: 'Acceso Remoto',
 					translations: {
 						en: 'Remote Access',
