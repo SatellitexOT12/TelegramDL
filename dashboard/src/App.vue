@@ -777,7 +777,9 @@ const nowTick = ref(0)
 let countdownPulse
 
 const serverTimeNow = () =>
-  shutdownServerBase.value + (Date.now() / 1000 - shutdownLocalBase.value)
+  shutdownServerBase.value && shutdownLocalBase.value
+    ? shutdownServerBase.value + (Date.now() / 1000 - shutdownLocalBase.value)
+    : Date.now() / 1000
 
 const shutdownCountdown = computed(() => {
   if (
@@ -790,10 +792,24 @@ const shutdownCountdown = computed(() => {
 })
 
 const floodWaitCountdown = computed(() => {
-  if (!floodWaitUntil.value || !shutdownServerBase.value || nowTick.value < 0)
-    return 0
+  if (!floodWaitUntil.value || nowTick.value < 0) return 0
   return Math.max(0, Math.ceil(floodWaitUntil.value - serverTimeNow()))
 })
+
+if (typeof window !== 'undefined') {
+  // Helper expuesto para probar el temporizador de FLOOD_WAIT desde la consola
+  window.simulateFloodWait = (seconds = 45) => {
+    const secs = Number(seconds) || 0
+    if (secs <= 0) {
+      window._simulatedFloodWaitUntil = 0
+      floodWaitUntil.value = 0
+    } else {
+      const future = Date.now() / 1000 + secs
+      window._simulatedFloodWaitUntil = future
+      floodWaitUntil.value = future
+    }
+  }
+}
 
 const onShutdownToggle = (event) => {
   // El checkbox se revierte siempre: el estado es el que manda y solo cambia
@@ -873,7 +889,13 @@ const handleStateUpdate = (data) => {
     shutdownPendingAt.value = data.shutdown_pending_at
   }
   if (typeof data.flood_wait_until === 'number') {
-    floodWaitUntil.value = data.flood_wait_until
+    const sim = window._simulatedFloodWaitUntil || 0
+    const now = Date.now() / 1000
+    if (sim > now && data.flood_wait_until === 0) {
+      floodWaitUntil.value = sim
+    } else {
+      floodWaitUntil.value = data.flood_wait_until
+    }
   }
   if (data.session_stats) {
     const { completed, failed, skipped } = data.session_stats

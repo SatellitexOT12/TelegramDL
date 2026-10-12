@@ -1886,6 +1886,52 @@ html.tema-claro .inline-link:focus-visible {
   outline-color: var(--claro-enlace);
 }
 
+/* --- FLOOD_WAIT Banner y Badges en Temas Claros -------------------------- */
+html.tema-claro .topbar-flood-pill {
+  background: #fff3e0;
+  border-color: #ffe0b2;
+  color: #e65100;
+}
+
+html.tema-claro .flood-alert-banner {
+  background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
+  border-color: #ffe0b2;
+  box-shadow: 0 4px 14px rgba(230, 81, 0, 0.06);
+}
+
+html.tema-claro .flood-alert-icon {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+html.tema-claro .flood-alert-body h3 {
+  color: #bf360c;
+}
+
+html.tema-claro .flood-alert-body p {
+  color: #4e342e;
+}
+
+html.tema-claro .flood-alert-timer {
+  background: #ffffff;
+  border-color: #ffcc80;
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.08);
+}
+
+html.tema-claro .flood-alert-timer span {
+  color: #e65100;
+}
+
+html.tema-claro .flood-alert-timer strong {
+  color: #bf360c;
+}
+
+html.tema-claro .flood-status-pill {
+  background: #fff3e0;
+  border-color: #ffe0b2;
+  color: #e65100;
+}
+
 /* -----------------------------------------------------------------------------
    Silent Cherry (color 19)   ·   tema claro
    Marfil lavanda, rosa de cerezo y verde agua, con luz difusa y pétalos
