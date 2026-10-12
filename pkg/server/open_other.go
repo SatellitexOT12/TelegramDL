@@ -9,7 +9,9 @@ package server
 // interpreta. El caso delicado es Windows, y vive en open_windows.go.
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -18,6 +20,11 @@ func abrirEnElSistema(target string) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return
+	}
+
+	if _, err := os.Stat(target); err != nil {
+		// El archivo ya no existe en la ruta: abrir la carpeta que lo contenía.
+		target = filepath.Dir(target)
 	}
 
 	if runtime.GOOS == "darwin" {

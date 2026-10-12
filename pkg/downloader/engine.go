@@ -492,14 +492,14 @@ func (e *Engine) DeleteDownload(id string, deleteFile bool) error {
 	return nil
 }
 
-// sameFilePath compara rutas de archivo teniendo en cuenta que en Windows el
-// sistema de archivos no distingue mayúsculas de minúsculas.
+// sameFilePath compara rutas de archivo teniendo en cuenta que en Windows y macOS
+// el sistema de archivos no distingue mayúsculas de minúsculas por defecto.
 func sameFilePath(a, b string) bool {
 	ca, cb := filepath.Clean(a), filepath.Clean(b)
 	if ca == cb {
 		return true
 	}
-	return runtime.GOOS == "windows" && strings.EqualFold(ca, cb)
+	return (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && strings.EqualFold(ca, cb)
 }
 
 // chatLabel devuelve el nombre legible de un chat para los mensajes del
