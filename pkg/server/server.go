@@ -873,6 +873,12 @@ func (s *Server) buildStateSnapshot() map[string]any {
 	// cuenta atrás, sin fiarse del reloj del dispositivo que lo mira.
 	snap["shutdown_pending_at"] = shutdownPendingAt
 
+	var floodWaitUntil float64
+	if until := s.downloader.GetFloodWaitUntil(); !until.IsZero() {
+		floodWaitUntil = float64(until.Unix())
+	}
+	snap["flood_wait_until"] = floodWaitUntil
+
 	return snap
 }
 

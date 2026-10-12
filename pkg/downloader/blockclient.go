@@ -73,9 +73,34 @@ const intentosPorFlood = 3
 // Eso es exactamente lo que se ve como «los workers no trabajan todos juntos».
 // Parando todos a la vez, el tiempo se cumple una sola vez y la descarga
 // recupera el ritmo completo de golpe.
-var puertaFlood struct {
-	mu    sync.Mutex
-	hasta time.Time
+var (
+	puertaFlood struct {
+		mu    sync.Mutex
+		hasta time.Time
+	}
+	onFloodStateChange func()
+)
+
+// RegisterFloodNotifier registra la función a llamar cuando se activa o extiende un FLOOD_WAIT.
+func RegisterFloodNotifier(fn func()) {
+	puertaFlood.mu.Lock()
+	defer puertaFlood.mu.Unlock()
+	onFloodStateChange = fn
+}
+
+// GetFloodWaitUntil devuelve el instante hasta el cual Telegram mantendrá el FLOOD_WAIT activo.
+func GetFloodWaitUntil() time.Time {
+	puertaFlood.mu.Lock()
+	defer puertaFlood.mu.Unlock()
+	if time.Now().Before(puertaFlood.hasta) {
+		return puertaFlood.hasta
+	}
+	return time.Time{}
+}
+
+// SetFloodWait activa una pausa global por FLOOD_WAIT desde cualquier punto de la aplicación.
+func SetFloodWait(espera time.Duration) {
+	cerrarPuertaFlood(espera)
 }
 
 // cerrarPuertaFlood deja a todos los workers parados hasta dentro de espera. Si
@@ -83,10 +108,17 @@ var puertaFlood struct {
 func cerrarPuertaFlood(espera time.Duration) {
 	limite := time.Now().Add(espera)
 	puertaFlood.mu.Lock()
+	changed := false
 	if limite.After(puertaFlood.hasta) {
 		puertaFlood.hasta = limite
+		changed = true
 	}
+	notifier := onFloodStateChange
 	puertaFlood.mu.Unlock()
+
+	if changed && notifier != nil {
+		go notifier()
+	}
 }
 
 // esperarPuertaFlood duerme lo que quede de la pausa global, si hay alguna.

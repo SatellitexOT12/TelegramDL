@@ -136,7 +136,14 @@ export default {
     deleteText:
       '¿Estás seguro de que quieres eliminar "{name}" del servidor? Esta acción no se puede deshacer.',
     deleteConfirm: 'Sí, borrar archivo',
-    deletedMsg: 'Archivo borrado'
+    deletedMsg: 'Archivo borrado',
+    floodBannerTitle: 'Límite de velocidad de Telegram (FLOOD_WAIT)',
+    floodBannerText:
+      'Telegram ha limitado temporalmente las peticiones. Las descargas se reanudarán automáticamente al terminar la cuenta atrás.',
+    floodCountdown: 'Tiempo restante:',
+    floodResumingIn: 'Reanudando en {m} min {s} s',
+    floodResumingInSec: 'Reanudando en {s} s',
+    statusFloodWait: 'FLOOD_WAIT ({time})'
   },
 
   listener: {

@@ -33,6 +33,7 @@ import {
   Bell,
   Bot,
   CheckCircle2,
+  Clock3,
   LogOut,
   Menu,
   Power,
@@ -769,6 +770,7 @@ const sidebarToggleTip = (label, on) =>
 // El pulso de 1 s es lo que hace avanzar el texto también en la app de
 // escritorio, donde los snapshots solo llegan cuando algo cambia.
 const shutdownPendingAt = ref(0)
+const floodWaitUntil = ref(0)
 const shutdownServerBase = ref(0)
 const shutdownLocalBase = ref(0)
 const nowTick = ref(0)
@@ -785,6 +787,12 @@ const shutdownCountdown = computed(() => {
   )
     return 0
   return Math.max(0, Math.ceil(shutdownPendingAt.value - serverTimeNow()))
+})
+
+const floodWaitCountdown = computed(() => {
+  if (!floodWaitUntil.value || !shutdownServerBase.value || nowTick.value < 0)
+    return 0
+  return Math.max(0, Math.ceil(floodWaitUntil.value - serverTimeNow()))
 })
 
 const onShutdownToggle = (event) => {
@@ -863,6 +871,9 @@ const handleStateUpdate = (data) => {
   }
   if (typeof data.shutdown_pending_at === 'number') {
     shutdownPendingAt.value = data.shutdown_pending_at
+  }
+  if (typeof data.flood_wait_until === 'number') {
+    floodWaitUntil.value = data.flood_wait_until
   }
   if (data.session_stats) {
     const { completed, failed, skipped } = data.session_stats
@@ -1360,7 +1371,14 @@ onUnmounted(() => {
             <h1>{{ viewTitle }}</h1>
           </div>
           <div class="topbar-meta">
-            {{ t('sidebar.totalSpeed', { speed: totalSpeed }) }}
+            <span
+              v-if="floodWaitCountdown > 0"
+              class="topbar-flood-pill"
+              :title="t('downloads.floodBannerTitle')"
+            >
+              <Clock3 :size="13" /> FLOOD_WAIT ({{ floodWaitCountdown }}s)
+            </span>
+            <span>{{ t('sidebar.totalSpeed', { speed: totalSpeed }) }}</span>
           </div>
         </header>
 
@@ -1377,6 +1395,7 @@ onUnmounted(() => {
             :disk="disk"
             :settings="settings"
             :loading="loading"
+            :flood-wait-countdown="floodWaitCountdown"
             :session-completed="sessionStats.completed"
             :session-skipped="sessionStats.skipped"
             @start-download="startDownload"

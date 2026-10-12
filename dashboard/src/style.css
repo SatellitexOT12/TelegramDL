@@ -1368,6 +1368,114 @@ footer {
   user-select: none;
 }
 
+/* FLOOD_WAIT Banner y Badges */
+.topbar-flood-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  color: #ffb74d;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 11px;
+  animation: floodPulse 2s infinite ease-in-out;
+}
+
+.flood-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 22px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 152, 0, 0.12) 0%,
+    rgba(245, 124, 0, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.flood-alert-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffa726;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.flood-alert-body {
+  flex: 1;
+}
+
+.flood-alert-body h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffe0b2;
+  margin: 0 0 4px 0;
+}
+
+.flood-alert-body p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.flood-alert-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.flood-alert-timer span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #ffb74d;
+}
+
+.flood-alert-timer strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Space Grotesk', monospace;
+}
+
+.flood-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(255, 152, 0, 0.18);
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  color: #ffb74d;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+@keyframes floodPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
 .app-nativo img,
 .app-nativo svg,
 .app-nativo a {

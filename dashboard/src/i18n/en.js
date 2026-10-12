@@ -134,7 +134,14 @@ export default {
     deleteText:
       'Are you sure you want to delete "{name}" from the server? This action cannot be undone.',
     deleteConfirm: 'Yes, delete file',
-    deletedMsg: 'File deleted'
+    deletedMsg: 'File deleted',
+    floodBannerTitle: 'Telegram Rate Limit (FLOOD_WAIT)',
+    floodBannerText:
+      'Telegram has temporarily restricted requests. Downloads will resume automatically when the countdown completes.',
+    floodCountdown: 'Time remaining:',
+    floodResumingIn: 'Resuming in {m} min {s} s',
+    floodResumingInSec: 'Resuming in {s} s',
+    statusFloodWait: 'FLOOD_WAIT ({time})'
   },
 
   listener: {

@@ -133,6 +133,10 @@ func NewEngine(cm *telegram.ClientManager, st *storage.Storage, cfg config.Confi
 		go eng.chunkFlushLoop()
 	}
 
+	RegisterFloodNotifier(func() {
+		eng.notifyState(storage.DownloadItem{})
+	})
+
 	// Cargar descargas previas desde SQLite
 	if st != nil {
 		if saved, err := st.LoadDownloads(""); err == nil {
@@ -263,6 +267,11 @@ func (e *Engine) sendNotification(text string) {
 // SendNotification es el método público para enviar notificaciones desde fuera del Engine.
 func (e *Engine) SendNotification(text string) {
 	e.sendNotification(text)
+}
+
+// GetFloodWaitUntil devuelve el instante hasta el cual Telegram mantendrá la pausa por FLOOD_WAIT.
+func (e *Engine) GetFloodWaitUntil() time.Time {
+	return GetFloodWaitUntil()
 }
 
 func (e *Engine) GetDownloads() []storage.DownloadItem {

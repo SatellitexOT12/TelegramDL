@@ -51,6 +51,10 @@ const props = defineProps({
   sessionSkipped: {
     type: Number,
     default: 0
+  },
+  floodWaitCountdown: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -208,6 +212,19 @@ const irAPagina = (pagina) => {
 const statusText = (status) =>
   has('downloads.status.' + status) ? t('downloads.status.' + status) : status
 
+const formatFloodWaitTime = (seconds) => {
+  if (seconds <= 0) return ''
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  if (m > 0) {
+    return t('downloads.floodResumingIn', {
+      m,
+      s: s < 10 ? `0${s}` : s
+    })
+  }
+  return t('downloads.floodResumingInSec', { s })
+}
+
 const progress = (item) =>
   Math.max(0, Math.min(100, Number(item.progress || 0)))
 
@@ -299,6 +316,19 @@ const allActivePaused = computed(() => {
         </div>
       </div>
     </section>
+
+    <!-- Banner FLOOD_WAIT con Temporizador -->
+    <div v-if="floodWaitCountdown > 0" class="flood-alert-banner">
+      <div class="flood-alert-icon"><Clock3 :size="22" /></div>
+      <div class="flood-alert-body">
+        <h3>{{ t('downloads.floodBannerTitle') }}</h3>
+        <p>{{ t('downloads.floodBannerText') }}</p>
+      </div>
+      <div class="flood-alert-timer">
+        <span>{{ t('downloads.floodCountdown') }}</span>
+        <strong>{{ formatFloodWaitTime(floodWaitCountdown) }}</strong>
+      </div>
+    </div>
 
     <!-- Monitor de Actividad en Tiempo Real -->
     <div class="content-grid-single">
@@ -395,7 +425,16 @@ const allActivePaused = computed(() => {
           </div>
           <div class="row-side">
             <b>{{ progress(item).toFixed(0) }}%</b>
-            <span>{{ statusText(item.status) }}</span>
+            <span
+              v-if="
+                floodWaitCountdown > 0 &&
+                ['downloading', 'queued'].includes(item.status)
+              "
+              class="flood-status-pill"
+            >
+              FLOOD_WAIT ({{ floodWaitCountdown }}s)
+            </span>
+            <span v-else>{{ statusText(item.status) }}</span>
             <button
               v-if="['downloading', 'queued'].includes(item.status)"
               class="pause-action"
@@ -440,9 +479,17 @@ const allActivePaused = computed(() => {
         </span>
         <strong>{{ item.file_name }}</strong>
         <span class="recent-size">{{ item.total_str }}</span>
-        <span class="badge" :class="item.status">{{
-          statusText(item.status)
-        }}</span>
+        <span
+          class="badge"
+          :class="item.status"
+          :title="item.error || undefined"
+        >
+          {{
+            item.error && item.error.includes('FLOOD_WAIT')
+              ? 'FLOOD_WAIT'
+              : statusText(item.status)
+          }}
+        </span>
         <button
           v-if="item.status === 'completed'"
           class="open-button"

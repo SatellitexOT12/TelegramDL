@@ -293,6 +293,7 @@ func (s *ScannerService) Scan(ctx context.Context, req ScanRequest) (*ScanRespon
 		res, err := raw.MessagesGetHistory(ctx, reqBatch)
 		if err != nil {
 			if floodDur, ok := parseFloodWait(err); ok {
+				downloader.SetFloodWait(floodDur)
 				waitSeconds := int(floodDur.Seconds())
 				if waitSeconds > 10 {
 					floodMsg = fmt.Sprintf("Telegram solicitó una pausa de %d segundos (FLOOD_WAIT). Se devuelven los resultados obtenidos hasta el momento.", waitSeconds)
