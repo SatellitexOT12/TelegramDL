@@ -1850,12 +1850,16 @@ html.tema-claro .range-input::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* La flecha del desplegable de velocidad no es un carácter sino dos degradados
-   cruzados en azul acero; sobre fondo claro hay que repintarla. */
-html.tema-claro .speed-row select {
+/* La flecha de los desplegables sobre fondo claro debe usar la tinta suave del tema. */
+html.tema-claro select,
+html.tema-claro .speed-row select,
+html.tema-claro .compact-select,
+html.tema-claro .topic-select,
+html.tema-claro .cat-select,
+html.tema-claro .pager-select {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--claro-tinta-suave) 50%),
-    linear-gradient(135deg, var(--claro-tinta-suave) 50%, transparent 50%);
+    linear-gradient(135deg, var(--claro-tinta-suave) 50%, transparent 50%) !important;
 }
 
 /* El aro interior de las muestras de color de Ajustes es blanco: sobre un

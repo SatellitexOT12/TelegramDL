@@ -407,7 +407,12 @@ const aplicarClaseTema = (colorId) => {
   if (clase) root.classList.add(clase)
   // Number(): el id puede llegar como texto desde el almacenamiento del
   // navegador, y un Set no hace la conversión por su cuenta.
-  if (temasClaros.has(Number(colorId))) root.classList.add('tema-claro')
+  if (temasClaros.has(Number(colorId))) {
+    root.classList.add('tema-claro')
+    root.style.colorScheme = 'light'
+  } else {
+    root.style.colorScheme = 'dark'
+  }
 }
 
 export const applyLoaderTheme = (colorId) => {

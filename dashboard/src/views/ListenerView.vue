@@ -1558,14 +1558,31 @@ onUnmounted(() => {
 }
 .topic-select {
   width: 100%;
-  background: var(--user-surface);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--user-surface);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 52%,
+    calc(100% - 10px) 52%;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
   border: 1px solid var(--user-border-light);
   color: #dbe7f5;
   border-radius: 9px;
-  padding: 9px 10px;
+  padding: 9px 24px 9px 10px;
   outline: none;
   font: inherit;
   font-size: 12px;
+}
+.topic-select option {
+  background-color: var(--user-surface);
+  color: #dbe7f5;
 }
 .topic-picker-actions {
   display: flex;

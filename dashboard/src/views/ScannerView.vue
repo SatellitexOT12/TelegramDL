@@ -851,11 +851,14 @@ const getKindIcon = (kind) => {
 }
 
 .compact-select {
-  background: var(--user-bg-base);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--user-bg-base);
   border: 1px solid var(--user-border-light);
   color: var(--user-text-main, #dbe7f5);
   border-radius: 10px;
-  padding: 5px 8px;
+  padding: 5px 18px 5px 8px;
   font-size: 11px;
   height: 36px;
   outline: none;
@@ -878,8 +881,19 @@ html.tema-claro .scanner-input {
 
 html.tema-claro .compact-select {
   color: #0f172a !important;
-  background: var(--claro-superficie, #ffffff) !important;
+  background-color: var(--claro-superficie, #ffffff) !important;
   border-color: var(--claro-borde, rgba(0, 0, 0, 0.15)) !important;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--claro-tinta-suave, #64748b) 50%
+    ),
+    linear-gradient(
+      135deg,
+      var(--claro-tinta-suave, #64748b) 50%,
+      transparent 50%
+    ) !important;
 }
 
 html.tema-claro .compact-label {
@@ -1054,17 +1068,40 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .compact-select {
-  background: var(--user-bg-base) !important;
-  border: 1px solid var(--user-border-light) !important;
-  color: var(--user-text-main, #dbe7f5) !important;
-  border-radius: 8px !important;
-  padding: 0 6px !important;
-  font-size: 11px !important;
-  height: 32px !important;
-  outline: none !important;
-  box-sizing: border-box !important;
-  margin: 0 !important;
-  cursor: pointer !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--user-bg-base);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 10px) 52%,
+    calc(100% - 6px) 52%;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  border: 1px solid var(--user-border-light);
+  color: var(--user-text-main, #dbe7f5);
+  border-radius: 8px;
+  padding: 0 18px 0 8px;
+  font-size: 11px;
+  height: 32px;
+  outline: none;
+  box-sizing: border-box;
+  margin: 0;
+  cursor: pointer;
+}
+
+.compact-select option {
+  background-color: var(--user-bg-base);
+  color: var(--user-text-main, #dbe7f5);
+}
+
+html.tema-claro .compact-select option {
+  background-color: var(--claro-superficie, #ffffff) !important;
+  color: #0f172a !important;
 }
 
 .scanner-error {

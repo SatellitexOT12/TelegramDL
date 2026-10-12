@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 :root {
   font-family: 'DM Sans', sans-serif;
+  color-scheme: dark;
   color: #dbe7f5;
   background: #07111f;
   font-synthesis: none;
@@ -43,6 +44,16 @@ select {
     border-color 0.2s ease,
     transform 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+select option {
+  background-color: var(--user-bg-base);
+  color: var(--user-text-main, #dbe7f5);
+}
+
+html.tema-claro select option {
+  background-color: var(--claro-superficie, #ffffff);
+  color: #0f172a;
 }
 
 .app-shell {
