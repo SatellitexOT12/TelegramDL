@@ -172,7 +172,7 @@ func TestExtensionFromMimeKnownAndUnknown(t *testing.T) {
 // calculara un índice negativo y reventara el proceso. El nombre lo elige quien
 // sube el archivo a Telegram, y la escucha lo procesa sola, así que bastaba un
 // mensaje para tumbar la aplicación.
-func TestSanitizeFileNameNoPanicaConExtensionLarga(t *testing.T) {
+func TestSanitizeFileNameNoPanicOnLongExtension(t *testing.T) {
 	entradas := []string{
 		"x." + strings.Repeat("y", 250),
 		"." + strings.Repeat("z", 300),
@@ -194,15 +194,15 @@ func TestSanitizeFileNameNoPanicaConExtensionLarga(t *testing.T) {
 	}
 }
 
-// «&», «^» y «%» los interpreta cmd.exe. Aunque abrirEnElSistema ya no pasa por
+// «&», «^» y «%» los interpreta cmd.exe. Aunque openInSystem ya no pasa por
 // el shell, el nombre no debe llevarlos de todas formas.
-func TestSanitizeFileNameQuitaCaracteresDeShell(t *testing.T) {
+func TestSanitizeFileNameRemovesShellChars(t *testing.T) {
 	if got := SanitizeFileName("video&calc.mp4"); strings.ContainsAny(got, "&^%") {
 		t.Fatalf("sobrevivió un carácter que interpreta cmd.exe: %q", got)
 	}
 }
 
-func TestSanitizeFileNameEvitaNombresReservadosDeWindows(t *testing.T) {
+func TestSanitizeFileNameAvoidsReservedWindowsNames(t *testing.T) {
 	for _, entrada := range []string{"NUL.mp4", "con.txt", "COM1.dat", "lpt9"} {
 		if isReservedWindowsName(SanitizeFileName(entrada)) {
 			t.Errorf("%q sigue siendo un nombre reservado", entrada)

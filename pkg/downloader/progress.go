@@ -16,18 +16,18 @@ import (
 // formatETA pasa los segundos que faltan a algo que se lee de un vistazo.
 // El tope de un día es a propósito: con la descarga casi parada la cuenta se
 // dispara a cifras que no dicen nada, y es más honesto decir que no se sabe.
-func formatETA(segundos float64) string {
-	if math.IsNaN(segundos) || math.IsInf(segundos, 0) || segundos < 0 {
+func formatETA(seconds float64) string {
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds < 0 {
 		return ""
 	}
-	if segundos < 1 {
+	if seconds < 1 {
 		return "menos de 1 s"
 	}
-	if segundos >= 24*3600 {
+	if seconds >= 24*3600 {
 		return "más de 1 día"
 	}
 
-	total := int(segundos + 0.5)
+	total := int(seconds + 0.5)
 	horas := total / 3600
 	minutos := (total % 3600) / 60
 	segs := total % 60
@@ -73,13 +73,13 @@ func (e *Engine) throttle(bytesCount int64) {
 	}
 
 	e.throttleMu.Lock()
-	ahora := time.Now()
+	now := time.Now()
 	if e.throttleTime.IsZero() {
-		e.throttleTime = ahora
+		e.throttleTime = now
 		e.bytesSince = 0
 	}
 	e.bytesSince += bytesCount
-	elapsed := ahora.Sub(e.throttleTime).Seconds()
+	elapsed := now.Sub(e.throttleTime).Seconds()
 	expectedTime := float64(e.bytesSince) / limitBps
 
 	if elapsed-expectedTime > maxCreditSec {
@@ -87,7 +87,7 @@ func (e *Engine) throttle(bytesCount int64) {
 		// dejar el crédito justo en el tope, en lugar de reiniciar el contador,
 		// que perdonaría también la deuda pendiente.
 		elapsed = expectedTime + maxCreditSec
-		e.throttleTime = ahora.Add(-time.Duration(elapsed * float64(time.Second)))
+		e.throttleTime = now.Add(-time.Duration(elapsed * float64(time.Second)))
 	}
 
 	sleepSec := expectedTime - elapsed

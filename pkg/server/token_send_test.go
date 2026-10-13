@@ -150,7 +150,7 @@ func TestSendTokenExigeLaCabeceraPropia(t *testing.T) {
 // no necesita una sesión de Telegram para llegar hasta ahí.
 func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
 	s := &Server{
-		tokenSendPorIP: map[string]time.Time{"10.0.0.5": time.Now().Add(5 * time.Minute)},
+		tokenSendByIP: map[string]time.Time{"10.0.0.5": time.Now().Add(5 * time.Minute)},
 	}
 	// El límite global está libre: el que debe frenar es el del origen.
 	s.tokenSendNextAt = time.Time{}
@@ -189,20 +189,20 @@ func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
 // recordTokenSendByIP limpia las entradas caducadas, para que el mapa no crezca
 // sin límite si alguien insiste desde muchas direcciones.
 func TestRecordTokenSendByIPCleansExpired(t *testing.T) {
-	s := &Server{tokenSendPorIP: map[string]time.Time{
+	s := &Server{tokenSendByIP: map[string]time.Time{
 		"1.1.1.1": time.Now().Add(-time.Hour), // caducada
 		"2.2.2.2": time.Now().Add(time.Hour),  // vigente
 	}}
 
 	s.recordTokenSendByIP("3.3.3.3", time.Now().Add(time.Hour))
 
-	if _, hay := s.tokenSendPorIP["1.1.1.1"]; hay {
+	if _, hay := s.tokenSendByIP["1.1.1.1"]; hay {
 		t.Error("la entrada caducada debería haberse borrado")
 	}
-	if _, hay := s.tokenSendPorIP["2.2.2.2"]; !hay {
+	if _, hay := s.tokenSendByIP["2.2.2.2"]; !hay {
 		t.Error("la entrada vigente no debería tocarse")
 	}
-	if _, hay := s.tokenSendPorIP["3.3.3.3"]; !hay {
+	if _, hay := s.tokenSendByIP["3.3.3.3"]; !hay {
 		t.Error("no se registró el origen nuevo")
 	}
 }
@@ -211,7 +211,7 @@ func TestRecordTokenSendByIPCleansExpired(t *testing.T) {
 func TestRecordTokenSendByIPWithNilMap(t *testing.T) {
 	s := &Server{}
 	s.recordTokenSendByIP("10.0.0.1", time.Now().Add(time.Minute))
-	if len(s.tokenSendPorIP) != 1 {
-		t.Fatalf("se esperaba una entrada, hay %d", len(s.tokenSendPorIP))
+	if len(s.tokenSendByIP) != 1 {
+		t.Fatalf("se esperaba una entrada, hay %d", len(s.tokenSendByIP))
 	}
 }

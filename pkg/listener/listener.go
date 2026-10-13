@@ -423,12 +423,12 @@ func dynamicFolder(chatCfg config.ListenerChat) string {
 
 // isNumericOnly indica si el «título» del chat es en realidad su ID, que es lo
 // que se guarda mientras Telegram no nos haya dicho cómo se llama.
-func isNumericOnly(nombre string) bool {
-	nombre = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(nombre), "-"))
-	if nombre == "" {
+func isNumericOnly(name string) bool {
+	name = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(name), "-"))
+	if name == "" {
 		return true
 	}
-	for _, r := range nombre {
+	for _, r := range name {
 		if r < '0' || r > '9' {
 			return false
 		}

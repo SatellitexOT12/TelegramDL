@@ -62,10 +62,10 @@ type Server struct {
 	// tokenSendNextAt es el momento a partir del cual se vuelve a admitir un
 	// envío del token a Telegram (ver tokenSendCooldown).
 	tokenSendNextAt time.Time
-	// tokenSendPorIP limita además por origen. El límite global por sí solo
+	// tokenSendByIP limita además por origen. El límite global por sí solo
 	// dejaba que cualquiera en la red llenase los mensajes guardados del
 	// usuario a razón de uno por minuto, día y noche.
-	tokenSendPorIP map[string]time.Time
+	tokenSendByIP map[string]time.Time
 
 	// Apagado del equipo al terminar la cola (interruptor shutdown_when_done).
 	// hadActiveDownloads recuerda que hubo descargas activas o en cola: solo
@@ -132,7 +132,7 @@ func NewServer(
 		mux:            http.NewServeMux(),
 		stopCh:         make(chan struct{}),
 		broadcastCh:    make(chan struct{}, 1),
-		tokenSendPorIP: make(map[string]time.Time),
+		tokenSendByIP:  make(map[string]time.Time),
 	}
 
 	s.apiToken = s.loadOrCreateToken()
@@ -190,9 +190,9 @@ const (
 	// reintentos sin freno.
 	tokenSendFailureCooldown = 10 * time.Second
 
-	// tokenSendCooldownPorIP es la espera que se aplica a cada origen por
+	// tokenSendCooldownByIP es la espera que se aplica a cada origen por
 	// separado, por encima del límite global.
-	tokenSendCooldownPorIP = 15 * time.Minute
+	tokenSendCooldownByIP = 15 * time.Minute
 
 	// cabeceraPeticionPropia la pone el panel en los endpoints que responden sin
 	// token. No es un secreto: su única función es que el navegador tenga que
@@ -1077,17 +1077,17 @@ func requestOrigin(r *http.Request) string {
 // crezca sin límite si alguien insiste desde muchas direcciones.
 //
 // Debe llamarse con s.mu tomado.
-func (s *Server) recordTokenSendByIP(origin string, hasta time.Time) {
-	if s.tokenSendPorIP == nil {
-		s.tokenSendPorIP = make(map[string]time.Time)
+func (s *Server) recordTokenSendByIP(origin string, until time.Time) {
+	if s.tokenSendByIP == nil {
+		s.tokenSendByIP = make(map[string]time.Time)
 	}
-	ahora := time.Now()
-	for k, v := range s.tokenSendPorIP {
-		if v.Before(ahora) {
-			delete(s.tokenSendPorIP, k)
+	now := time.Now()
+	for k, v := range s.tokenSendByIP {
+		if v.Before(now) {
+			delete(s.tokenSendByIP, k)
 		}
 	}
-	s.tokenSendPorIP[origin] = hasta
+	s.tokenSendByIP[origin] = until
 }
 
 // buildTokenMessage redacta la nota que se deja en los Mensajes guardados. El
@@ -1139,7 +1139,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	now := time.Now()
 
 	s.mu.Lock()
-	if wait := s.tokenSendPorIP[origin].Sub(now); wait > 0 {
+	if wait := s.tokenSendByIP[origin].Sub(now); wait > 0 {
 		s.mu.Unlock()
 		seconds := int(wait.Seconds()) + 1
 		w.Header().Set("Retry-After", strconv.Itoa(seconds))
@@ -1169,7 +1169,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	// El turno se consume antes de enviar: si Telegram tarda, un botón pulsado
 	// con impaciencia no debe convertirse en cinco mensajes.
 	s.tokenSendNextAt = now.Add(tokenSendCooldown)
-	s.recordTokenSendByIP(origin, now.Add(tokenSendCooldownPorIP))
+	s.recordTokenSendByIP(origin, now.Add(tokenSendCooldownByIP))
 	token := s.apiToken
 	s.mu.Unlock()
 
@@ -1187,7 +1187,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 		// El límite por origen también se levanta: si el envío falló, quien lo
 		// pidió debe poder reintentar en cuanto arregle la sesión, igual que con
 		// el límite global.
-		delete(s.tokenSendPorIP, origin)
+		delete(s.tokenSendByIP, origin)
 		s.mu.Unlock()
 
 		logbus.Error(logbus.CatServer, i18n.T("server.tokenSendError"), err.Error())
