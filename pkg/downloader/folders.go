@@ -35,29 +35,39 @@ const (
 	minAlfanumericos = 2
 )
 
-// NombreCarpetaChat devuelve el nombre de carpeta de un chat: su título si se
+// ChatFolderName devuelve el nombre de carpeta de un chat: su título si se
 // puede escribir y leer en cualquier sistema, y «chat_<id>» si no.
-func NombreCarpetaChat(titulo string, id int64) string {
-	if nombre := nombreLegible(titulo); nombre != "" {
+func ChatFolderName(titulo string, id int64) string {
+	if nombre := readableName(titulo); nombre != "" {
 		return nombre
 	}
-	return CarpetaPorID(id)
+	return FolderByID(id)
 }
 
-// CarpetaPorID es el nombre de respaldo. El ID va en positivo: los canales lo
+// NombreCarpetaChat es un alias para ChatFolderName.
+func NombreCarpetaChat(titulo string, id int64) string {
+	return ChatFolderName(titulo, id)
+}
+
+// FolderByID es el nombre de respaldo. El ID va en positivo: los canales lo
 // tienen negativo y un nombre que empieza por «-» se lo comen como una opción
 // más de una herramienta de consola.
-func CarpetaPorID(id int64) string {
+func FolderByID(id int64) string {
 	if id < 0 {
 		id = -id
 	}
 	return "chat_" + strconv.FormatInt(id, 10)
 }
 
-// NombreCarpetaTema es lo mismo para el tema de un grupo, con «tema_<id>» de
+// CarpetaPorID es un alias para FolderByID.
+func CarpetaPorID(id int64) string {
+	return FolderByID(id)
+}
+
+// TopicFolderName es lo mismo para el tema de un grupo, con «tema_<id>» de
 // respaldo mientras Telegram no nos haya dado su título.
-func NombreCarpetaTema(titulo string, topicID int64) string {
-	if nombre := nombreLegible(titulo); nombre != "" {
+func TopicFolderName(titulo string, topicID int64) string {
+	if nombre := readableName(titulo); nombre != "" {
 		return nombre
 	}
 	if topicID < 0 {
@@ -66,34 +76,44 @@ func NombreCarpetaTema(titulo string, topicID int64) string {
 	return "tema_" + strconv.FormatInt(topicID, 10)
 }
 
-// NombreCarpetaConID añade el ID al nombre. Se usa cuando dos chats distintos
+// NombreCarpetaTema es un alias para TopicFolderName.
+func NombreCarpetaTema(titulo string, topicID int64) string {
+	return TopicFolderName(titulo, topicID)
+}
+
+// FolderNameWithID añade el ID al nombre. Se usa cuando dos chats distintos
 // resuelven al mismo nombre de carpeta: el segundo lleva su ID detrás para que
 // no compartan destino.
-func NombreCarpetaConID(nombre string, id int64) string {
+func FolderNameWithID(nombre string, id int64) string {
 	if id < 0 {
 		id = -id
 	}
 	sufijo := " (" + strconv.FormatInt(id, 10) + ")"
 	base := strings.TrimSpace(nombre)
 	if base == "" {
-		return CarpetaPorID(id)
+		return FolderByID(id)
 	}
 	// El recorte va antes de pegar el sufijo: si no, un nombre ya en el límite
 	// dejaría el ID fuera, que es justo lo que distingue a las dos carpetas.
-	base = recortarRunas(base, maxCarpetaRunas-len([]rune(sufijo)))
+	base = truncateRunes(base, maxCarpetaRunas-len([]rune(sufijo)))
 	base = strings.TrimSpace(base)
 	if base == "" {
-		return CarpetaPorID(id)
+		return FolderByID(id)
 	}
 	return SanitizeFileName(base + sufijo)
 }
 
-// RutaRelativaSegura valida la ruta relativa que viaja con una descarga antes
+// NombreCarpetaConID es un alias para FolderNameWithID.
+func NombreCarpetaConID(nombre string, id int64) string {
+	return FolderNameWithID(nombre, id)
+}
+
+// SafeRelativePath valida la ruta relativa que viaja con una descarga antes
 // de pegarla a la carpeta de destino. Aunque la genera el propio programa, sale
 // de un nombre que elige un tercero en Telegram, así que se trata como entrada
 // no confiable: nada de rutas absolutas, nada de «..» y como mucho dos niveles
 // (grupo y tema).
-func RutaRelativaSegura(sub string) string {
+func SafeRelativePath(sub string) string {
 	sub = strings.TrimSpace(sub)
 	if sub == "" {
 		return ""
@@ -140,15 +160,20 @@ func RutaRelativaSegura(sub string) string {
 	return filepath.Join(partes...)
 }
 
-// nombreLegible devuelve el título ya limpio y apto para el disco, o cadena
+// RutaRelativaSegura es un alias para SafeRelativePath.
+func RutaRelativaSegura(sub string) string {
+	return SafeRelativePath(sub)
+}
+
+// readableName devuelve el título ya limpio y apto para el disco, o cadena
 // vacía si de ese título no queda nada que sirva.
-func nombreLegible(titulo string) string {
-	limpio := colapsarEspacios(quitarDecoracion(titulo))
-	if contarAlfanumericos(limpio) < minAlfanumericos {
+func readableName(titulo string) string {
+	limpio := collapseSpaces(removeDecoration(titulo))
+	if countAlphanumerics(limpio) < minAlfanumericos {
 		return ""
 	}
 
-	limpio = strings.TrimSpace(recortarRunas(limpio, maxCarpetaRunas))
+	limpio = strings.TrimSpace(truncateRunes(limpio, maxCarpetaRunas))
 	if limpio == "" {
 		return ""
 	}
@@ -163,14 +188,14 @@ func nombreLegible(titulo string) string {
 	if seguro == "archivo" && !strings.EqualFold(limpio, "archivo") {
 		return ""
 	}
-	if contarAlfanumericos(seguro) < minAlfanumericos {
+	if countAlphanumerics(seguro) < minAlfanumericos {
 		return ""
 	}
 	return seguro
 }
 
-// quitarDecoracion se queda con la parte del título que es texto de verdad.
-func quitarDecoracion(s string) string {
+// removeDecoration se queda con la parte del título que es texto de verdad.
+func removeDecoration(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 
@@ -179,7 +204,7 @@ func quitarDecoracion(s string) string {
 		// Las letras «decorativas» matemáticas (𝓒𝓪𝓷𝓪𝓵, 𝗖𝗮𝗻𝗮𝗹) se convierten a su
 		// letra normal en vez de tirarse: son títulos perfectamente legibles
 		// escritos con un alfabeto raro, y así no acaban en el ID.
-		if letra, ok := letraMatematica(r); ok {
+		if letra, ok := mathLetter(r); ok {
 			b.WriteRune(letra)
 			combinantes = 0
 			continue
@@ -198,7 +223,7 @@ func quitarDecoracion(s string) string {
 				combinantes++
 			}
 
-		case esDecorativo(r):
+		case isDecorative(r):
 			// Se sustituye por un espacio para no pegar dos palabras que solo
 			// estaban separadas por el emoji de en medio.
 			b.WriteRune(' ')
@@ -213,9 +238,9 @@ func quitarDecoracion(s string) string {
 	return b.String()
 }
 
-// esDecorativo distingue lo que no es texto: emojis, pictogramas, símbolos
+// isDecorative distingue lo que no es texto: emojis, pictogramas, símbolos
 // sueltos y los caracteres de control e invisibles.
-func esDecorativo(r rune) bool {
+func isDecorative(r rune) bool {
 	switch {
 	case r < 0x20 || r == 0x7f:
 		return true
@@ -239,11 +264,11 @@ func esDecorativo(r rune) bool {
 	return false
 }
 
-// alfabetosMatematicos son los bloques de letras y números decorativos del
+// mathAlphabets son los bloques de letras y números decorativos del
 // plano 1, cada uno con la letra por la que empieza. Los huecos del bloque
 // (la «h» cursiva vive fuera, en ℎ) no hacen falta: esos caracteres ya son
 // letras normales y pasan el filtro por su cuenta.
-var alfabetosMatematicos = []struct {
+var mathAlphabets = []struct {
 	inicio rune
 	base   rune
 	largo  rune
@@ -266,12 +291,12 @@ var alfabetosMatematicos = []struct {
 	{0x1D7F6, '0', 10}, // cifras monoespaciadas
 }
 
-// letraMatematica traduce una letra decorativa a su equivalente normal.
-func letraMatematica(r rune) (rune, bool) {
+// mathLetter traduce una letra decorativa a su equivalente normal.
+func mathLetter(r rune) (rune, bool) {
 	if r < 0x1D400 || r > 0x1D7FF {
 		return 0, false
 	}
-	for _, bloque := range alfabetosMatematicos {
+	for _, bloque := range mathAlphabets {
 		if r >= bloque.inicio && r < bloque.inicio+bloque.largo {
 			return bloque.base + (r - bloque.inicio), true
 		}
@@ -279,16 +304,16 @@ func letraMatematica(r rune) (rune, bool) {
 	return 0, false
 }
 
-// colapsarEspacios deja un solo espacio entre palabras y quita los de los
+// collapseSpaces deja un solo espacio entre palabras y quita los de los
 // extremos. Después de quitar la decoración suelen quedar huecos dobles.
-func colapsarEspacios(s string) string {
+func collapseSpaces(s string) string {
 	campos := strings.FieldsFunc(s, unicode.IsSpace)
 	return strings.Join(campos, " ")
 }
 
-// contarAlfanumericos cuenta las runas que son letra o número de algún sistema
+// countAlphanumerics cuenta las runas que son letra o número de algún sistema
 // de escritura real. Es la prueba de «esto dice algo».
-func contarAlfanumericos(s string) int {
+func countAlphanumerics(s string) int {
 	total := 0
 	for _, r := range s {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -298,22 +323,10 @@ func contarAlfanumericos(s string) int {
 	return total
 }
 
-// recortarRunas corta a lo sumo limite runas, sin partir ningún carácter.
-func recortarRunas(s string, limite int) string {
-	if limite <= 0 {
-		return ""
-	}
-	runas := []rune(s)
-	if len(runas) <= limite {
-		return s
-	}
-	return string(runas[:limite])
-}
-
-// TextoCarpetaChat es el contenido del archivito que se deja dentro de la
+// ChatFolderText es el contenido del archivito que se deja dentro de la
 // carpeta cuando el nombre no dice de qué chat es. Sirve para reconocerla
 // desde el Explorador sin abrir el programa.
-func TextoCarpetaChat(titulo string, id int64, tema string) string {
+func ChatFolderText(titulo string, id int64, tema string) string {
 	var b strings.Builder
 	b.WriteString("Carpeta creada por TelegramDL\r\n")
 	b.WriteString(fmt.Sprintf("Chat: %s\r\n", strings.TrimSpace(titulo)))
@@ -322,4 +335,9 @@ func TextoCarpetaChat(titulo string, id int64, tema string) string {
 		b.WriteString(fmt.Sprintf("Tema: %s\r\n", tema))
 	}
 	return b.String()
+}
+
+// TextoCarpetaChat es un alias para ChatFolderText.
+func TextoCarpetaChat(titulo string, id int64, tema string) string {
+	return ChatFolderText(titulo, id, tema)
 }

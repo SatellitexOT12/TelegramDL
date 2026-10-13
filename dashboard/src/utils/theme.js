@@ -381,7 +381,7 @@ export const themeMap = {
 
 // Clase que enciende el decorado de cada tema especial. Los colores de Telegram
 // (0-15) no tienen entrada aquí y no pintan nada extra: solo cambian variables.
-const clasesTemaEspecial = {
+const specialThemeClasses = {
   16: 'tema-twilight-comet',
   17: 'tema-edge-runner',
   18: 'tema-rainy-garden',
@@ -395,19 +395,19 @@ const clasesTemaEspecial = {
 // un bloque común de themes-dl.css. El panel tiene más de cien colores
 // de texto fijos escritos para fondo oscuro y hay que pisarlos una sola vez,
 // no una por cada tema claro que se añada.
-const temasClaros = new Set([19])
+const lightThemeIds = new Set([19])
 
-const aplicarClaseTema = (colorId) => {
+const applyThemeClass = (colorId) => {
   const root = document.documentElement
-  Object.values(clasesTemaEspecial).forEach((clase) =>
+  Object.values(specialThemeClasses).forEach((clase) =>
     root.classList.remove(clase)
   )
   root.classList.remove('tema-claro')
-  const clase = clasesTemaEspecial[colorId]
+  const clase = specialThemeClasses[colorId]
   if (clase) root.classList.add(clase)
   // Number(): el id puede llegar como texto desde el almacenamiento del
   // navegador, y un Set no hace la conversión por su cuenta.
-  if (temasClaros.has(Number(colorId))) {
+  if (lightThemeIds.has(Number(colorId))) {
     root.classList.add('tema-claro')
     root.style.colorScheme = 'light'
   } else {
@@ -438,7 +438,7 @@ export const applyTheme = (colorId) => {
   root.style.setProperty('--user-glow', theme.glow)
   root.style.setProperty('--user-text-dim', theme.textDim)
   root.style.setProperty('--user-gradient', theme.gradient)
-  aplicarClaseTema(themeMap[colorId] ? colorId : 5)
+  applyThemeClass(themeMap[colorId] ? colorId : 5)
 
   // Persistir el color en el objeto de usuario para que index.html lo use en el arranque
   try {

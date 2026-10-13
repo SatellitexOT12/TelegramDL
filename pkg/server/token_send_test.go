@@ -186,15 +186,15 @@ func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
 	}
 }
 
-// registrarEnvioPorIP limpia las entradas caducadas, para que el mapa no crezca
+// recordTokenSendByIP limpia las entradas caducadas, para que el mapa no crezca
 // sin límite si alguien insiste desde muchas direcciones.
-func TestRegistrarEnvioPorIPLimpiaLoCaducado(t *testing.T) {
+func TestRecordTokenSendByIPCleansExpired(t *testing.T) {
 	s := &Server{tokenSendPorIP: map[string]time.Time{
 		"1.1.1.1": time.Now().Add(-time.Hour), // caducada
 		"2.2.2.2": time.Now().Add(time.Hour),  // vigente
 	}}
 
-	s.registrarEnvioPorIP("3.3.3.3", time.Now().Add(time.Hour))
+	s.recordTokenSendByIP("3.3.3.3", time.Now().Add(time.Hour))
 
 	if _, hay := s.tokenSendPorIP["1.1.1.1"]; hay {
 		t.Error("la entrada caducada debería haberse borrado")
@@ -208,9 +208,9 @@ func TestRegistrarEnvioPorIPLimpiaLoCaducado(t *testing.T) {
 }
 
 // Un mapa sin inicializar no debe hacer que reviente nada.
-func TestRegistrarEnvioPorIPConMapaNil(t *testing.T) {
+func TestRecordTokenSendByIPWithNilMap(t *testing.T) {
 	s := &Server{}
-	s.registrarEnvioPorIP("10.0.0.1", time.Now().Add(time.Minute))
+	s.recordTokenSendByIP("10.0.0.1", time.Now().Add(time.Minute))
 	if len(s.tokenSendPorIP) != 1 {
 		t.Fatalf("se esperaba una entrada, hay %d", len(s.tokenSendPorIP))
 	}

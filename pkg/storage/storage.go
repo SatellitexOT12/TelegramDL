@@ -384,7 +384,7 @@ func (s *Storage) SaveServerBinding(host string, port int) error {
 func (s *Storage) MigrateLegacyEnv() {
 	values := config.LegacyEnvValues()
 
-	primero := func(names ...string) string {
+	first := func(names ...string) string {
 		for _, n := range names {
 			if v := strings.TrimSpace(values[n]); v != "" {
 				return v
@@ -395,8 +395,8 @@ func (s *Storage) MigrateLegacyEnv() {
 
 	s.mu.Lock()
 
-	var migradas []string
-	guardar := func(key, value string) {
+	var migrated []string
+	save := func(key, value string) {
 		if value == "" || s.getConfigKey(key) != "" {
 			return
 		}
@@ -404,23 +404,23 @@ func (s *Storage) MigrateLegacyEnv() {
 			log.Printf("[STORAGE] %s", i18n.T("storage.envMigrateError", key, err))
 			return
 		}
-		migradas = append(migradas, key)
+		migrated = append(migrated, key)
 	}
 
-	guardar("api_id", primero("TGDL_API_ID", "API_ID"))
-	guardar("api_hash", primero("TGDL_API_HASH", "API_HASH"))
-	guardar("bind_host", primero("TGDL_BIND_HOST", "BIND_HOST"))
-	guardar("server_port", primero("TGDL_PORT", "PORT"))
+	save("api_id", first("TGDL_API_ID", "API_ID"))
+	save("api_hash", first("TGDL_API_HASH", "API_HASH"))
+	save("bind_host", first("TGDL_BIND_HOST", "BIND_HOST"))
+	save("server_port", first("TGDL_PORT", "PORT"))
 
 	// Si nunca hubo una elección de dirección, se deja escrita la de por
 	// defecto. Antes esto lo hacía el .env recién creado; ahora el valor queda
 	// visible en app_config para quien quiera cambiarlo.
-	guardar("bind_host", config.DefaultBindHost)
+	save("bind_host", config.DefaultBindHost)
 
 	s.mu.Unlock()
 
-	if len(migradas) > 0 {
-		log.Printf("[STORAGE] %s", i18n.T("storage.envMigrated", strings.Join(migradas, ", ")))
+	if len(migrated) > 0 {
+		log.Printf("[STORAGE] %s", i18n.T("storage.envMigrated", strings.Join(migrated, ", ")))
 	}
 	config.ArchiveLegacyEnv()
 }

@@ -344,9 +344,9 @@ var extensionesNoEjecutables = map[string]bool{
 	".asc": true, ".sha256": true, ".sha512": true, ".pem": true,
 }
 
-// palabrasDelSistema son los trozos de nombre con los que se publica el archivo
+// systemKeywords son los trozos de nombre con los que se publica el archivo
 // de cada plataforma.
-func palabrasDelSistema() []string {
+func systemKeywords() []string {
 	switch runtime.GOOS {
 	case "windows":
 		return []string{"windows", "win", ".exe"}
@@ -359,9 +359,9 @@ func palabrasDelSistema() []string {
 	}
 }
 
-// palabrasDeArquitectura permite preferir el archivo de la arquitectura correcta
+// archKeywords permite preferir el archivo de la arquitectura correcta
 // cuando la release publica varios para el mismo sistema.
-func palabrasDeArquitectura() []string {
+func archKeywords() []string {
 	switch runtime.GOARCH {
 	case "amd64":
 		return []string{"amd64", "x86_64", "x64"}
@@ -374,7 +374,7 @@ func palabrasDeArquitectura() []string {
 	}
 }
 
-func contieneAlguna(texto string, palabras []string) bool {
+func containsAnyKeyword(texto string, palabras []string) bool {
 	for _, palabra := range palabras {
 		if strings.Contains(texto, palabra) {
 			return true
@@ -387,8 +387,8 @@ func contieneAlguna(texto string, palabras []string) bool {
 // plataforma. Si hay varios del mismo sistema, gana el que además coincide en
 // arquitectura.
 func assetParaEsteSistema(assets []assetGitHub) *ReleaseAsset {
-	sistema := palabrasDelSistema()
-	arquitectura := palabrasDeArquitectura()
+	sistema := systemKeywords()
+	arquitectura := archKeywords()
 
 	var candidato *assetGitHub
 	for i := range assets {
@@ -400,10 +400,10 @@ func assetParaEsteSistema(assets []assetGitHub) *ReleaseAsset {
 		if extensionesNoEjecutables[strings.ToLower(filepath.Ext(nombre))] {
 			continue
 		}
-		if !contieneAlguna(nombre, sistema) {
+		if !containsAnyKeyword(nombre, sistema) {
 			continue
 		}
-		if contieneAlguna(nombre, arquitectura) {
+		if containsAnyKeyword(nombre, arquitectura) {
 			candidato = asset
 			break
 		}

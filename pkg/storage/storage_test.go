@@ -196,7 +196,7 @@ func TestClearFinishedDownloadsKeepsActiveOnes(t *testing.T) {
 	}
 }
 
-func TestListenerChatsRoundTripConTemas(t *testing.T) {
+func TestListenerChatsRoundTripWithTopics(t *testing.T) {
 	st := newTestStorage(t)
 
 	cfg := config.DefaultConfig()
@@ -246,7 +246,7 @@ func TestListenerChatsRoundTripConTemas(t *testing.T) {
 	}
 }
 
-func TestMigracionDesdeEsquemaSinTemas(t *testing.T) {
+func TestMigrationFromSchemaWithoutTopics(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy.sqlite3")
 
 	// Base de datos tal y como la dejaban las versiones anteriores: una sola

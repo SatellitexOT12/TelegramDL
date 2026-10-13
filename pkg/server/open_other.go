@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func abrirEnElSistema(target string) {
+func openInSystem(target string) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return

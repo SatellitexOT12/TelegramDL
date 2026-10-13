@@ -43,7 +43,7 @@ var (
 // depender de ningún paquete externo: esto es solo la stdlib.
 const swShowNormal = 1
 
-func abrirEnElSistema(target string) {
+func openInSystem(target string) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return
@@ -52,7 +52,7 @@ func abrirEnElSistema(target string) {
 	if _, err := os.Stat(target); err != nil {
 		// El archivo ya no está: se abre la carpeta que lo contenía, que es más
 		// útil que no hacer nada.
-		abrirConExplorer(filepath.Dir(target))
+		openWithExplorer(filepath.Dir(target))
 		return
 	}
 
@@ -65,10 +65,10 @@ func abrirEnElSistema(target string) {
 	// Segundo intento. explorer.exe abre un archivo con su aplicación
 	// predeterminada cuando se le pasa la ruta, y tampoco es un intérprete de
 	// comandos, así que sigue sin haber inyección posible.
-	abrirConExplorer(target)
+	openWithExplorer(target)
 }
 
-func abrirConExplorer(ruta string) {
+func openWithExplorer(ruta string) {
 	if strings.TrimSpace(ruta) == "" {
 		return
 	}
@@ -81,26 +81,26 @@ func abrirConExplorer(ruta string) {
 //
 // La función devuelve un valor mayor que 32 cuando ha conseguido lanzar algo;
 // cualquier valor igual o menor es un código de error.
-func shellExecute(verbo, archivo, directorio string) error {
-	verboPtr, err := syscall.UTF16PtrFromString(verbo)
+func shellExecute(verb, file, directory string) error {
+	verbPtr, err := syscall.UTF16PtrFromString(verb)
 	if err != nil {
 		return err
 	}
-	archivoPtr, err := syscall.UTF16PtrFromString(archivo)
+	filePtr, err := syscall.UTF16PtrFromString(file)
 	if err != nil {
 		return err
 	}
-	directorioPtr, err := syscall.UTF16PtrFromString(directorio)
+	directoryPtr, err := syscall.UTF16PtrFromString(directory)
 	if err != nil {
 		return err
 	}
 
 	ret, _, errLlamada := procShellExecute.Call(
 		0, // sin ventana padre
-		uintptr(unsafe.Pointer(verboPtr)),
-		uintptr(unsafe.Pointer(archivoPtr)),
+		uintptr(unsafe.Pointer(verbPtr)),
+		uintptr(unsafe.Pointer(filePtr)),
 		0, // sin argumentos: se abre un archivo, no se ejecuta un programa
-		uintptr(unsafe.Pointer(directorioPtr)),
+		uintptr(unsafe.Pointer(directoryPtr)),
 		uintptr(swShowNormal),
 	)
 

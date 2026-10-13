@@ -53,13 +53,13 @@ func tryAcquireInstanceLock() (func(), bool) {
 
 // notifyAlreadyRunning avisa al usuario cuando intenta abrir una segunda instancia.
 func notifyAlreadyRunning() {
-	mostrarAviso(i18n.T("cli.alreadyRunning"))
+	showNotice(i18n.T("cli.alreadyRunning"))
 }
 
-// mostrarAviso enseña un mensaje sin depender de que exista la ventana de la
+// showNotice enseña un mensaje sin depender de que exista la ventana de la
 // aplicación ni una consola. Hace falta para los fallos de arranque: abierta con
 // doble clic, la aplicación no tiene dónde escribir.
-func mostrarAviso(msg string) {
+func showNotice(msg string) {
 	user32 := syscall.NewLazyDLL("user32.dll")
 	text, _ := syscall.UTF16PtrFromString(msg)
 	title, _ := syscall.UTF16PtrFromString("TelegramDL")

@@ -250,28 +250,28 @@ func TestExtractMediaInfoDCID(t *testing.T) {
 	}
 }
 
-func TestDetectarFileMigrate(t *testing.T) {
+func TestDetectFileMigrate(t *testing.T) {
 	errTg := &tgerr.Error{
 		Code:     303,
 		Type:     "FILE_MIGRATE",
 		Argument: 4,
 	}
-	if dc := detectarFileMigrate(errTg); dc != 4 {
+	if dc := detectFileMigrate(errTg); dc != 4 {
 		t.Fatalf("se esperaba DC 4 desde tgerr, se obtuvo %d", dc)
 	}
 
 	errStr := errors.New("get file: get next chunk: invoke pool: rpcDoRequest: rpc error code 303: FILE_MIGRATE (4)")
-	if dc := detectarFileMigrate(errStr); dc != 4 {
+	if dc := detectFileMigrate(errStr); dc != 4 {
 		t.Fatalf("se esperaba DC 4 desde error formateado, se obtuvo %d", dc)
 	}
 
 	errUnderscore := errors.New("rpc error: FILE_MIGRATE_3")
-	if dc := detectarFileMigrate(errUnderscore); dc != 3 {
+	if dc := detectFileMigrate(errUnderscore); dc != 3 {
 		t.Fatalf("se esperaba DC 3 desde error con guión bajo, se obtuvo %d", dc)
 	}
 
 	errOther := errors.New("connection reset by peer")
-	if dc := detectarFileMigrate(errOther); dc != 0 {
+	if dc := detectFileMigrate(errOther); dc != 0 {
 		t.Fatalf("se esperaba DC 0 para error no relacionado, se obtuvo %d", dc)
 	}
 }

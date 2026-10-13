@@ -58,15 +58,15 @@ func NewApp(assets fs.FS) *App {
 		logbus.Warn(logbus.CatSystem, i18n.T("system.dbOpenError"), err.Error())
 		// Fallback si no se puede abrir tgdown.sqlite3
 		dbPath = filepath.Join(config.DataDir, "tgdown.db")
-		var errRespaldo error
-		st, errRespaldo = storage.NewStorage(dbPath)
-		if errRespaldo != nil {
+		var errBackup error
+		st, errBackup = storage.NewStorage(dbPath)
+		if errBackup != nil {
 			// Antes el error del respaldo se descartaba, así que se seguía con
 			// un puntero nil y la aplicación reventaba en la línea siguiente sin
 			// decir por qué. Sin base de datos no hay nada que arrancar.
 			logbus.Error(logbus.CatSystem,
 				i18n.T("system.dbOpenFatal"),
-				errRespaldo.Error())
+				errBackup.Error())
 			return nil
 		}
 	}

@@ -815,9 +815,9 @@ const onShutdownToggle = (event) => {
   // El checkbox se revierte siempre: el estado es el que manda y solo cambia
   // al desarmar o al confirmar el modal; si no, quedaría marcado en la vista
   // aunque el usuario cancelara.
-  const quiereActivar = event.target.checked
+  const wantsActivate = event.target.checked
   event.target.checked = settings.shutdown_when_done
-  if (!quiereActivar) {
+  if (!wantsActivate) {
     settings.shutdown_when_done = false
     return
   }
@@ -916,9 +916,9 @@ const connectWebSocket = async () => {
   // El token viaja como subprotocolo, no en la URL. Las URL completas quedan
   // registradas en cualquier proxy o túnel por el que pase la conexión, que es
   // justo lo que se usa para el acceso remoto; la cabecera del subprotocolo no.
-  const protocolos = ['tgdl-v1']
+  const protocols = ['tgdl-v1']
   if (token.value) {
-    protocolos.push(token.value)
+    protocols.push(token.value)
   }
 
   const wsUrl =
@@ -927,7 +927,7 @@ const connectWebSocket = async () => {
       : 'ws://127.0.0.1:8000/api/ws'
 
   try {
-    socket = new WebSocket(wsUrl, protocolos)
+    socket = new WebSocket(wsUrl, protocols)
     socket.onopen = () => {
       websocketConnected.value = true
     }

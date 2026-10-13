@@ -382,7 +382,7 @@ func (e *Engine) GetItem(id string) (*storage.DownloadItem, bool) {
 //
 // Antes cada sitio que quitaba una descarga borraba solo algunos de estos
 // mapas, así que las entradas de los demás se quedaban para siempre.
-func (e *Engine) olvidarEstadoDe(id string) {
+func (e *Engine) forgetStateOf(id string) {
 	delete(e.pauseStates, id)
 	delete(e.startTimes, id)
 	delete(e.lastBroadcastTimes, id)
@@ -411,7 +411,7 @@ func (e *Engine) ClearHistory() (int64, error) {
 			key := fmt.Sprintf("%d:%d", item.ChatID, item.MessageID)
 			delete(e.chatMsgMap, key)
 			delete(e.downloads, id)
-			e.olvidarEstadoDe(id)
+			e.forgetStateOf(id)
 		}
 	}
 	e.mu.Unlock()
@@ -468,7 +468,7 @@ func (e *Engine) DeleteDownload(id string, deleteFile bool) error {
 	key := fmt.Sprintf("%d:%d", item.ChatID, item.MessageID)
 	delete(e.chatMsgMap, key)
 	delete(e.downloads, id)
-	e.olvidarEstadoDe(id)
+	e.forgetStateOf(id)
 	e.mu.Unlock()
 
 	if e.storage != nil {
@@ -520,7 +520,7 @@ func (e *Engine) discardDownload(id string) {
 		delete(e.chatMsgMap, key)
 	}
 	delete(e.downloads, id)
-	e.olvidarEstadoDe(id)
+	e.forgetStateOf(id)
 	e.mu.Unlock()
 	// Despertar a la cola: si el job de esta tarea estaba esperando turno, tiene
 	// que ver que ya no existe y salir en vez de seguir dormido hasta que otra

@@ -35,16 +35,16 @@ func tryAcquireInstanceLock() (func(), bool) {
 }
 
 func notifyAlreadyRunning() {
-	mostrarAviso(i18n.T("cli.alreadyRunning"))
+	showNotice(i18n.T("cli.alreadyRunning"))
 }
 
-// mostrarAviso enseña un mensaje sin depender de que exista la ventana de la
+// showNotice enseña un mensaje sin depender de que exista la ventana de la
 // aplicación. En Windows es un MessageBox nativo (ver sys_windows.go), visible
 // aunque el usuario haya abierto la app haciendo doble clic sin consola. Aquí
 // intentamos el aviso equivalente con las herramientas de notificación o diálogo
 // habituales de cada escritorio; si ninguna está disponible, caemos al mensaje
 // por consola (útil al menos cuando se lanza desde una terminal).
-func mostrarAviso(msg string) {
+func showNotice(msg string) {
 	if trySystemNotification(msg) {
 		return
 	}

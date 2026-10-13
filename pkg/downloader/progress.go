@@ -13,10 +13,10 @@ import (
 	"tgdown/pkg/config"
 )
 
-// formatearETA pasa los segundos que faltan a algo que se lee de un vistazo.
+// formatETA pasa los segundos que faltan a algo que se lee de un vistazo.
 // El tope de un día es a propósito: con la descarga casi parada la cuenta se
 // dispara a cifras que no dicen nada, y es más honesto decir que no se sabe.
-func formatearETA(segundos float64) string {
+func formatETA(segundos float64) string {
 	if math.IsNaN(segundos) || math.IsInf(segundos, 0) || segundos < 0 {
 		return ""
 	}
@@ -42,7 +42,7 @@ func formatearETA(segundos float64) string {
 	}
 }
 
-// creditoMaximoSeg limita cuánto crédito puede acumular el limitador de
+// maxCreditSec limita cuánto crédito puede acumular el limitador de
 // velocidad, medido en segundos al límite configurado.
 //
 // El contador (throttleTime/bytesSince) es de toda la vida del motor y no se
@@ -55,7 +55,7 @@ func formatearETA(segundos float64) string {
 //
 // Con el tope, como mucho se permite la ráfaga de un segundo al límite. La
 // deuda, en cambio, sigue sin tope: lo que se pasa de rosca se paga entero.
-const creditoMaximoSeg = 1.0
+const maxCreditSec = 1.0
 
 func (e *Engine) throttle(bytesCount int64) {
 	e.mu.RLock()
@@ -82,11 +82,11 @@ func (e *Engine) throttle(bytesCount int64) {
 	elapsed := ahora.Sub(e.throttleTime).Seconds()
 	expectedTime := float64(e.bytesSince) / limitBps
 
-	if elapsed-expectedTime > creditoMaximoSeg {
+	if elapsed-expectedTime > maxCreditSec {
 		// Vamos muy por delante del reloj: se adelanta la marca de tiempo para
 		// dejar el crédito justo en el tope, en lugar de reiniciar el contador,
 		// que perdonaría también la deuda pendiente.
-		elapsed = expectedTime + creditoMaximoSeg
+		elapsed = expectedTime + maxCreditSec
 		e.throttleTime = ahora.Add(-time.Duration(elapsed * float64(time.Second)))
 	}
 
@@ -177,7 +177,7 @@ func (e *Engine) onProgress(itemID string, bytesWritten int64, totalBytes int64,
 	item.ETA = ""
 	if ritmo := e.itemSpeeds[itemID]; ritmo > 0 && totalBytes > 0 {
 		if restante := totalBytes - item.CurrentBytes; restante > 0 {
-			item.ETA = formatearETA(float64(restante) / ritmo)
+			item.ETA = formatETA(float64(restante) / ritmo)
 		}
 	}
 	if bytesWritten > 0 {

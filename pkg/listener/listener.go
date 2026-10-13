@@ -306,7 +306,7 @@ func entityChatName(entities tg.Entities, peerID, rawChannelID int64) string {
 // La carpeta se calcula una sola vez y se guarda en la configuración del chat.
 // A partir de ahí es fija: si el canal se renombra en Telegram, sus archivos
 // siguen cayendo todos en la misma carpeta en vez de repartirse en dos.
-func (le *ListenerEngine) carpetaDeChat(chatCfg config.ListenerChat) string {
+func (le *ListenerEngine) chatFolder(chatCfg config.ListenerChat) string {
 	le.mu.Lock()
 
 	if !le.config.OrganizeByChat {
@@ -327,20 +327,20 @@ func (le *ListenerEngine) carpetaDeChat(chatCfg config.ListenerChat) string {
 	// llamada: se calcula la carpeta al vuelo y no se guarda nada.
 	if entrada == nil {
 		le.mu.Unlock()
-		return carpetaAlVuelo(chatCfg)
+		return dynamicFolder(chatCfg)
 	}
 
 	cambiado := false
 	if strings.TrimSpace(entrada.Folder) == "" {
-		entrada.Folder = le.carpetaLibreDeGrupo(chatCfg)
+		entrada.Folder = le.freeGroupFolder(chatCfg)
 		cambiado = true
 	}
 	if entrada.HasTopic() && strings.TrimSpace(entrada.TopicFolder) == "" {
-		entrada.TopicFolder = le.carpetaLibreDeTema(*entrada)
+		entrada.TopicFolder = le.freeTopicFolder(*entrada)
 		cambiado = true
 	}
 
-	ruta := entrada.CarpetaRelativa()
+	ruta := entrada.RelativeFolder()
 	if cambiado {
 		le.updateChatMap(le.config)
 	}
@@ -358,9 +358,9 @@ func (le *ListenerEngine) carpetaDeChat(chatCfg config.ListenerChat) string {
 	return ruta
 }
 
-// carpetaLibreDeGrupo elige el nombre de carpeta del grupo. Se llama con le.mu
+// freeGroupFolder elige el nombre de carpeta del grupo. Se llama con le.mu
 // tomado.
-func (le *ListenerEngine) carpetaLibreDeGrupo(chatCfg config.ListenerChat) string {
+func (le *ListenerEngine) freeGroupFolder(chatCfg config.ListenerChat) string {
 	// El grupo entero y cada uno de sus temas son entradas distintas, pero
 	// comparten la carpeta del grupo: si otra entrada del mismo chat ya tiene
 	// una, se reusa.
@@ -371,12 +371,12 @@ func (le *ListenerEngine) carpetaLibreDeGrupo(chatCfg config.ListenerChat) strin
 	}
 
 	nombre := strings.TrimSpace(chatCfg.Name)
-	if esSoloNumero(nombre) {
+	if isNumericOnly(nombre) {
 		// Todavía no sabemos el título del chat: lo que hay es su propio ID.
-		return downloader.CarpetaPorID(chatCfg.ID)
+		return downloader.FolderByID(chatCfg.ID)
 	}
 
-	carpeta := downloader.NombreCarpetaChat(nombre, chatCfg.ID)
+	carpeta := downloader.ChatFolderName(nombre, chatCfg.ID)
 	for _, otro := range le.config.ListenerChats {
 		if otro.ID == chatCfg.ID {
 			continue
@@ -384,46 +384,46 @@ func (le *ListenerEngine) carpetaLibreDeGrupo(chatCfg config.ListenerChat) strin
 		if strings.EqualFold(strings.TrimSpace(otro.Folder), carpeta) {
 			// Dos chats distintos con el mismo título: al segundo se le pone su
 			// ID detrás para que no compartan destino.
-			return downloader.NombreCarpetaConID(carpeta, chatCfg.ID)
+			return downloader.FolderNameWithID(carpeta, chatCfg.ID)
 		}
 	}
 	return carpeta
 }
 
-// carpetaLibreDeTema elige el nombre de la subcarpeta del tema, que cuelga de
+// freeTopicFolder elige el nombre de la subcarpeta del tema, que cuelga de
 // la del grupo. Se llama con le.mu tomado.
-func (le *ListenerEngine) carpetaLibreDeTema(entrada config.ListenerChat) string {
-	carpeta := downloader.NombreCarpetaTema(entrada.TopicLabel(), entrada.Topic())
+func (le *ListenerEngine) freeTopicFolder(entrada config.ListenerChat) string {
+	carpeta := downloader.TopicFolderName(entrada.TopicLabel(), entrada.Topic())
 	for _, otro := range le.config.ListenerChats {
 		if otro.ID != entrada.ID || otro.Topic() == entrada.Topic() {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(otro.TopicFolder), carpeta) {
 			// «tema_<id>» sí es único dentro del grupo.
-			return downloader.NombreCarpetaTema("", entrada.Topic())
+			return downloader.TopicFolderName("", entrada.Topic())
 		}
 	}
 	return carpeta
 }
 
-// carpetaAlVuelo calcula la carpeta sin mirar ni tocar la configuración.
-func carpetaAlVuelo(chatCfg config.ListenerChat) string {
+// dynamicFolder calcula la carpeta sin mirar ni tocar la configuración.
+func dynamicFolder(chatCfg config.ListenerChat) string {
 	nombre := strings.TrimSpace(chatCfg.Name)
 	var carpeta string
-	if esSoloNumero(nombre) {
-		carpeta = downloader.CarpetaPorID(chatCfg.ID)
+	if isNumericOnly(nombre) {
+		carpeta = downloader.FolderByID(chatCfg.ID)
 	} else {
-		carpeta = downloader.NombreCarpetaChat(nombre, chatCfg.ID)
+		carpeta = downloader.ChatFolderName(nombre, chatCfg.ID)
 	}
 	if chatCfg.HasTopic() {
-		return filepath.Join(carpeta, downloader.NombreCarpetaTema(chatCfg.TopicLabel(), chatCfg.Topic()))
+		return filepath.Join(carpeta, downloader.TopicFolderName(chatCfg.TopicLabel(), chatCfg.Topic()))
 	}
 	return carpeta
 }
 
-// esSoloNumero indica si el «título» del chat es en realidad su ID, que es lo
+// isNumericOnly indica si el «título» del chat es en realidad su ID, que es lo
 // que se guarda mientras Telegram no nos haya dicho cómo se llama.
-func esSoloNumero(nombre string) bool {
+func isNumericOnly(nombre string) bool {
 	nombre = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(nombre), "-"))
 	if nombre == "" {
 		return true
@@ -436,10 +436,10 @@ func esSoloNumero(nombre string) bool {
 	return true
 }
 
-// prepararCarpeta crea la carpeta de destino y deja dentro, la primera vez, un
+// prepareFolder crea la carpeta de destino y deja dentro, la primera vez, un
 // «_nombre.txt» con el título real del chat. Es lo que permite reconocer una
 // carpeta «chat_1001234…» desde el Explorador sin abrir el programa.
-func (le *ListenerEngine) prepararCarpeta(sub string, chatCfg config.ListenerChat) {
+func (le *ListenerEngine) prepareFolder(sub string, chatCfg config.ListenerChat) {
 	if strings.TrimSpace(sub) == "" {
 		return
 	}
@@ -707,7 +707,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 
 	// Subcarpeta de destino. Vacía cuando el reparto por chat está apagado, y
 	// entonces el archivo cae en la carpeta de descargas de siempre.
-	subCarpeta := le.carpetaDeChat(chatCfg)
+	subCarpeta := le.chatFolder(chatCfg)
 
 	itemID := fmt.Sprintf("listener:%d:%d", peerID, msg.ID)
 	// Mayor precisión para evitar colisiones cuando llegan varios archivos en
@@ -744,7 +744,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 	if chatCfg.AutoDownload {
 		// La carpeta se crea solo cuando el archivo va a bajarse de verdad: un
 		// mensaje que se queda en la bandeja no deja carpetas vacías por ahí.
-		go le.prepararCarpeta(subCarpeta, chatCfg)
+		go le.prepareFolder(subCarpeta, chatCfg)
 
 		dlItem.Status = "queued"
 		if le.storage != nil {
@@ -802,7 +802,7 @@ func (le *ListenerEngine) DownloadItem(itemID string) error {
 
 		log.Printf("[LISTENER] %s", i18n.T("listener.downloadFromTray", item.FileName))
 
-		go le.prepararCarpeta(item.SubFolder, config.ListenerChat{
+		go le.prepareFolder(item.SubFolder, config.ListenerChat{
 			ID:        item.ChatID,
 			Name:      item.GroupName,
 			TopicID:   config.TopicPointer(item.TopicID),

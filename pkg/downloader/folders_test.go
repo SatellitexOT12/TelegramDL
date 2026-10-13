@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestNombreCarpetaChatTitulosNormales(t *testing.T) {
+func TestChatFolderNameNormalTitles(t *testing.T) {
 	casos := []struct {
 		titulo   string
 		esperado string
@@ -21,13 +21,13 @@ func TestNombreCarpetaChatTitulosNormales(t *testing.T) {
 	}
 
 	for _, caso := range casos {
-		if got := NombreCarpetaChat(caso.titulo, -1001234567890); got != caso.esperado {
-			t.Errorf("NombreCarpetaChat(%q) = %q, se esperaba %q", caso.titulo, got, caso.esperado)
+		if got := ChatFolderName(caso.titulo, -1001234567890); got != caso.esperado {
+			t.Errorf("ChatFolderName(%q) = %q, se esperaba %q", caso.titulo, got, caso.esperado)
 		}
 	}
 }
 
-func TestNombreCarpetaChatQuitaDecoracion(t *testing.T) {
+func TestChatFolderNameRemovesDecoration(t *testing.T) {
 	casos := []struct {
 		titulo   string
 		esperado string
@@ -43,13 +43,13 @@ func TestNombreCarpetaChatQuitaDecoracion(t *testing.T) {
 	}
 
 	for _, caso := range casos {
-		if got := NombreCarpetaChat(caso.titulo, -1001234567890); got != caso.esperado {
-			t.Errorf("NombreCarpetaChat(%q) = %q, se esperaba %q", caso.titulo, got, caso.esperado)
+		if got := ChatFolderName(caso.titulo, -1001234567890); got != caso.esperado {
+			t.Errorf("ChatFolderName(%q) = %q, se esperaba %q", caso.titulo, got, caso.esperado)
 		}
 	}
 }
 
-func TestNombreCarpetaChatCaeAlID(t *testing.T) {
+func TestChatFolderNameFallsBackToID(t *testing.T) {
 	const id = -1001234567890
 	casos := []string{
 		"🔥🔥🔥",
@@ -64,28 +64,28 @@ func TestNombreCarpetaChatCaeAlID(t *testing.T) {
 	}
 
 	for _, titulo := range casos {
-		got := NombreCarpetaChat(titulo, id)
+		got := ChatFolderName(titulo, id)
 		if got != "chat_1001234567890" {
-			t.Errorf("NombreCarpetaChat(%q) = %q, se esperaba el respaldo por ID", titulo, got)
+			t.Errorf("ChatFolderName(%q) = %q, se esperaba el respaldo por ID", titulo, got)
 		}
 	}
 }
 
-func TestNombreCarpetaChatQuitaMarcasInvisibles(t *testing.T) {
+func TestChatFolderNameRemovesInvisibleMarks(t *testing.T) {
 	// U+202E le da la vuelta al texto en el Explorador: es el truco clásico
 	// para disfrazar un ejecutable. Tiene que desaparecer.
-	got := NombreCarpetaChat("Fotos\u202egpj.exe", 123)
+	got := ChatFolderName("Fotos\u202egpj.exe", 123)
 	if strings.ContainsRune(got, '\u202e') {
 		t.Fatalf("la marca RLO sobrevivió en %q", got)
 	}
-	if strings.ContainsRune(NombreCarpetaChat("Ca\u200bnal Serio", 123), '\u200b') {
+	if strings.ContainsRune(ChatFolderName("Ca\u200bnal Serio", 123), '\u200b') {
 		t.Error("el espacio de ancho cero sobrevivió")
 	}
 }
 
-func TestNombreCarpetaChatLimitaZalgo(t *testing.T) {
+func TestChatFolderNameLimitsZalgo(t *testing.T) {
 	titulo := "C" + strings.Repeat("\u0301", 40) + "anal"
-	got := NombreCarpetaChat(titulo, 123)
+	got := ChatFolderName(titulo, 123)
 	tildes := strings.Count(got, "\u0301")
 	if tildes > 1 {
 		t.Errorf("quedaron %d marcas combinantes en %q, se esperaba una como mucho", tildes, got)
@@ -95,39 +95,39 @@ func TestNombreCarpetaChatLimitaZalgo(t *testing.T) {
 	}
 }
 
-func TestNombreCarpetaChatRespetaLosLimitesDelDisco(t *testing.T) {
+func TestChatFolderNameRespectsDiskLimits(t *testing.T) {
 	largo := strings.Repeat("Canal muy largo ", 20)
-	got := NombreCarpetaChat(largo, 123)
+	got := ChatFolderName(largo, 123)
 	if n := len([]rune(got)); n > maxCarpetaRunas {
 		t.Errorf("el nombre tiene %d runas, el tope es %d", n, maxCarpetaRunas)
 	}
 
 	// Caracteres que rompen una ruta y nombres reservados de Windows.
-	if got := NombreCarpetaChat(`Canal/Serie\Temporada`, 123); strings.ContainsAny(got, `/\`) {
+	if got := ChatFolderName(`Canal/Serie\Temporada`, 123); strings.ContainsAny(got, `/\`) {
 		t.Errorf("quedaron separadores de ruta en %q", got)
 	}
-	if got := NombreCarpetaChat("NUL", 123); got == "NUL" {
+	if got := ChatFolderName("NUL", 123); got == "NUL" {
 		t.Error("NUL se dejó tal cual, y en Windows es el dispositivo nulo")
 	}
-	if got := NombreCarpetaChat("Canal Oficial.", 123); strings.HasSuffix(got, ".") {
+	if got := ChatFolderName("Canal Oficial.", 123); strings.HasSuffix(got, ".") {
 		t.Errorf("%q termina en punto, Windows no lo admite", got)
 	}
 }
 
-func TestNombreCarpetaTema(t *testing.T) {
-	if got := NombreCarpetaTema("Capítulos nuevos", 42); got != "Capítulos nuevos" {
+func TestTopicFolderName(t *testing.T) {
+	if got := TopicFolderName("Capítulos nuevos", 42); got != "Capítulos nuevos" {
 		t.Errorf("= %q", got)
 	}
-	if got := NombreCarpetaTema("", 42); got != "tema_42" {
+	if got := TopicFolderName("", 42); got != "tema_42" {
 		t.Errorf("= %q, se esperaba tema_42", got)
 	}
-	if got := NombreCarpetaTema("🔥", 7); got != "tema_7" {
+	if got := TopicFolderName("🔥", 7); got != "tema_7" {
 		t.Errorf("= %q, se esperaba tema_7", got)
 	}
 }
 
-func TestNombreCarpetaConID(t *testing.T) {
-	got := NombreCarpetaConID("Noticias", -1009876543210)
+func TestFolderNameWithID(t *testing.T) {
+	got := FolderNameWithID("Noticias", -1009876543210)
 	if got != "Noticias (1009876543210)" {
 		t.Errorf("= %q", got)
 	}
@@ -135,7 +135,7 @@ func TestNombreCarpetaConID(t *testing.T) {
 	// Un nombre ya en el límite tiene que dejar sitio al ID: es lo único que
 	// distingue una carpeta de la otra.
 	largo := strings.Repeat("a", 80)
-	got = NombreCarpetaConID(largo, 55)
+	got = FolderNameWithID(largo, 55)
 	if n := len([]rune(got)); n > maxCarpetaRunas {
 		t.Errorf("el nombre con ID tiene %d runas, el tope es %d", n, maxCarpetaRunas)
 	}
@@ -144,7 +144,7 @@ func TestNombreCarpetaConID(t *testing.T) {
 	}
 }
 
-func TestRutaRelativaSegura(t *testing.T) {
+func TestSafeRelativePath(t *testing.T) {
 	casos := []struct {
 		entrada  string
 		esperado string
@@ -167,28 +167,28 @@ func TestRutaRelativaSegura(t *testing.T) {
 	}
 
 	for _, caso := range casos {
-		if got := RutaRelativaSegura(caso.entrada); got != caso.esperado {
-			t.Errorf("RutaRelativaSegura(%q) = %q, se esperaba %q", caso.entrada, got, caso.esperado)
+		if got := SafeRelativePath(caso.entrada); got != caso.esperado {
+			t.Errorf("SafeRelativePath(%q) = %q, se esperaba %q", caso.entrada, got, caso.esperado)
 		}
 	}
 
 	// Sea cual sea la entrada, el resultado nunca puede ser absoluto ni
 	// contener un salto hacia arriba.
 	for _, entrada := range []string{"../x", "/x", `C:\Windows\System32`, "..\\..\\x", "x/../../y"} {
-		got := RutaRelativaSegura(entrada)
+		got := SafeRelativePath(entrada)
 		if filepath.IsAbs(got) {
-			t.Errorf("RutaRelativaSegura(%q) devolvió una ruta absoluta: %q", entrada, got)
+			t.Errorf("SafeRelativePath(%q) devolvió una ruta absoluta: %q", entrada, got)
 		}
 		for _, parte := range strings.Split(filepath.ToSlash(got), "/") {
 			if parte == ".." {
-				t.Errorf("RutaRelativaSegura(%q) dejó pasar un «..»: %q", entrada, got)
+				t.Errorf("SafeRelativePath(%q) dejó pasar un «..»: %q", entrada, got)
 			}
 		}
 	}
 }
 
-func TestTextoCarpetaChat(t *testing.T) {
-	texto := TextoCarpetaChat("🔥🔥🔥", -1001234567890, "Capítulos")
+func TestChatFolderText(t *testing.T) {
+	texto := ChatFolderText("🔥🔥🔥", -1001234567890, "Capítulos")
 	if !strings.Contains(texto, "-1001234567890") {
 		t.Error("falta el ID en el archivito de la carpeta")
 	}

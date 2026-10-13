@@ -213,7 +213,7 @@ func runDesktopMode() {
 		// NewApp solo devuelve nil cuando no consigue abrir ninguna base de
 		// datos. Abierta con doble clic no hay consola donde leer el motivo, así
 		// que el aviso tiene que ser una ventana del sistema.
-		mostrarAviso(i18n.T("cli.dbOpenAviso", config.DataDir))
+		showNotice(i18n.T("cli.dbOpenAviso", config.DataDir))
 		return
 	}
 

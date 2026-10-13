@@ -13,32 +13,32 @@ import (
 
 const downloadPartSize int64 = 512 * 1024
 
-// intentosPorBloque es cuántas veces se reintenta un bloque antes de dar la
+// attemptsPerBlock es cuántas veces se reintenta un bloque antes de dar la
 // descarga entera por perdida.
-const intentosPorBloque = 5
+const attemptsPerBlock = 5
 
-// esperaMaximaFlood es el tope de lo que se espera cuando Telegram pide una
+// maxFloodWait es el tope de lo que se espera cuando Telegram pide una
 // pausa. Más allá de eso se prefiere fallar y que el usuario reintente, en
 // lugar de dejar una tarea colgada media hora.
-const esperaMaximaFlood = 5 * time.Minute
+const maxFloodWait = 5 * time.Minute
 
-// esperaPorFlood lee cuánto pide esperar Telegram cuando responde
+// floodWaitDuration lee cuánto pide esperar Telegram cuando responde
 // FLOOD_WAIT_x.
 //
 // Se saca del texto del error a propósito: así no hace falta importar nada
 // nuevo, y funciona igual cuando el error viene envuelto por capas de arriba.
 // El código de Telegram es estable y no va a cambiar de nombre.
-func esperaPorFlood(err error) (time.Duration, bool) {
+func floodWaitDuration(err error) (time.Duration, bool) {
 	if err == nil {
 		return 0, false
 	}
-	const marca = "FLOOD_WAIT_"
+	const prefix = "FLOOD_WAIT_"
 	texto := err.Error()
-	pos := strings.Index(texto, marca)
+	pos := strings.Index(texto, prefix)
 	if pos < 0 {
 		return 0, false
 	}
-	resto := texto[pos+len(marca):]
+	resto := texto[pos+len(prefix):]
 	fin := 0
 	for fin < len(resto) && resto[fin] >= '0' && resto[fin] <= '9' {
 		fin++
@@ -51,7 +51,7 @@ func esperaPorFlood(err error) (time.Duration, bool) {
 		return 0, false
 	}
 	espera := time.Duration(segundos) * time.Second
-	if espera > esperaMaximaFlood {
+	if espera > maxFloodWait {
 		return 0, false
 	}
 	return espera, true
@@ -107,7 +107,7 @@ func downloadMissingParts(
 
 			var data []byte
 			var err error
-			for attempt := 0; attempt < intentosPorBloque; attempt++ {
+			for attempt := 0; attempt < attemptsPerBlock; attempt++ {
 				if workCtx.Err() != nil {
 					return
 				}
@@ -130,14 +130,14 @@ func downloadMissingParts(
 				if requestErr == nil {
 					// Limpiar el error del intento anterior es imprescindible:
 					// sin esto, un fallo pasajero seguido de un reintento
-					// correcto salía del bucle con err distinto de nil y la
+					// correcto salía del bucle with err distinto de nil y la
 					// comprobación de abajo mataba la descarga entera aunque el
 					// bloque se hubiera traído bien.
 					err = nil
 					break
 				}
 				err = requestErr
-				if attempt == intentosPorBloque-1 {
+				if attempt == attemptsPerBlock-1 {
 					break
 				}
 

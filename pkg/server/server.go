@@ -125,7 +125,7 @@ func NewServer(
 			// admite.
 			CheckOrigin: func(r *http.Request) bool {
 				origin := r.Header.Get("Origin")
-				return origin == "" || origenPermitido(origin, r)
+				return origin == "" || isOriginAllowed(origin, r)
 			},
 		},
 		exitCallback:   exitCb,
@@ -357,7 +357,7 @@ func (s *Server) Stop() {
 // «Origin: http://192.168.1.40:8000», no coincidía con nada, y el WebSocket se
 // rechazaba con un 403. El panel cargaba pero no recibía estado nunca y se
 // quedaba reintentando la conexión cada dos segundos.
-func origenPermitido(origin string, r *http.Request) bool {
+func isOriginAllowed(origin string, r *http.Request) bool {
 	if strings.TrimSpace(origin) == "" {
 		return false
 	}
@@ -374,11 +374,11 @@ func origenPermitido(origin string, r *http.Request) bool {
 		return true
 	}
 
-	return esEquipoLocal(parsed.Host)
+	return isLocalHost(parsed.Host)
 }
 
-// esEquipoLocal indica si el host de una URL apunta a esta misma máquina.
-func esEquipoLocal(hostPuerto string) bool {
+// isLocalHost indica si el host de una URL apunta a esta misma máquina.
+func isLocalHost(hostPuerto string) bool {
 	host := hostPuerto
 	if h, _, err := net.SplitHostPort(hostPuerto); err == nil {
 		host = h
@@ -397,7 +397,7 @@ func esEquipoLocal(hostPuerto string) bool {
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origenPermitido(origin, r) {
+		if isOriginAllowed(origin, r) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
@@ -431,8 +431,8 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 // cliente ofrece dos: este y, como segundo, el token.
 const wsSubprotocol = "tgdl-v1"
 
-// tokenDelSubprotocolo saca el token de la cabecera Sec-WebSocket-Protocol.
-func tokenDelSubprotocolo(r *http.Request) string {
+// subprotocolToken saca el token de la cabecera Sec-WebSocket-Protocol.
+func subprotocolToken(r *http.Request) string {
 	for _, cabecera := range r.Header.Values("Sec-WebSocket-Protocol") {
 		for _, parte := range strings.Split(cabecera, ",") {
 			parte = strings.TrimSpace(parte)
@@ -461,7 +461,7 @@ func (s *Server) checkAuth(r *http.Request) bool {
 		// aceptaba el token como parámetro de la URL, y las URL completas
 		// quedan registradas en cualquier proxy o túnel por el que pase la
 		// conexión: justo lo que se usa para el acceso remoto.
-		provided = tokenDelSubprotocolo(r)
+		provided = subprotocolToken(r)
 	}
 	if provided == "" {
 		return false
@@ -653,12 +653,12 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Si el cliente ofreció subprotocolos hay que devolverle uno, o el navegador
 	// rechaza la conexión. Se responde siempre el nuestro, nunca el token.
-	var cabeceras http.Header
+	var headers http.Header
 	if r.Header.Get("Sec-WebSocket-Protocol") != "" {
-		cabeceras = http.Header{"Sec-WebSocket-Protocol": []string{wsSubprotocol}}
+		headers = http.Header{"Sec-WebSocket-Protocol": []string{wsSubprotocol}}
 	}
 
-	conn, err := s.upgrader.Upgrade(w, r, cabeceras)
+	conn, err := s.upgrader.Upgrade(w, r, headers)
 	if err != nil {
 		return
 	}
@@ -1072,12 +1072,12 @@ func requestOrigin(r *http.Request) string {
 	return "origen desconocido"
 }
 
-// registrarEnvioPorIP anota cuándo puede volver a pedir el token este origen y
+// recordTokenSendByIP anota cuándo puede volver a pedir el token este origen y
 // aprovecha para limpiar las entradas ya caducadas, de modo que el mapa no
 // crezca sin límite si alguien insiste desde muchas direcciones.
 //
 // Debe llamarse con s.mu tomado.
-func (s *Server) registrarEnvioPorIP(origin string, hasta time.Time) {
+func (s *Server) recordTokenSendByIP(origin string, hasta time.Time) {
 	if s.tokenSendPorIP == nil {
 		s.tokenSendPorIP = make(map[string]time.Time)
 	}
@@ -1169,7 +1169,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	// El turno se consume antes de enviar: si Telegram tarda, un botón pulsado
 	// con impaciencia no debe convertirse en cinco mensajes.
 	s.tokenSendNextAt = now.Add(tokenSendCooldown)
-	s.registrarEnvioPorIP(origin, now.Add(tokenSendCooldownPorIP))
+	s.recordTokenSendByIP(origin, now.Add(tokenSendCooldownPorIP))
 	token := s.apiToken
 	s.mu.Unlock()
 
@@ -1498,7 +1498,7 @@ func (s *Server) handleOpenDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go abrirEnElSistema(item.FilePath)
+	go openInSystem(item.FilePath)
 
 	s.jsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -1614,7 +1614,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 				// panel, así que se conserva la que ya había: si no, guardar
 				// desde Ajustes dejaría los archivos del mismo chat repartidos
 				// entre la carpeta vieja y una nueva.
-				cfg.ListenerChats = config.PreservarCarpetas(cfg.ListenerChats, parsedChats)
+				cfg.ListenerChats = config.PreserveFolders(cfg.ListenerChats, parsedChats)
 			}
 		}
 	}
@@ -1881,7 +1881,7 @@ func (s *Server) handleListenerSettings(w http.ResponseWriter, r *http.Request) 
 				// Igual que en /api/settings: la carpeta ya asignada se conserva
 				// aunque quien llame no la mande (la importación de escucha
 				// reconstruye cada chat campo a campo).
-				cfg.ListenerChats = config.PreservarCarpetas(cfg.ListenerChats, parsedChats)
+				cfg.ListenerChats = config.PreserveFolders(cfg.ListenerChats, parsedChats)
 			}
 		}
 	} else {

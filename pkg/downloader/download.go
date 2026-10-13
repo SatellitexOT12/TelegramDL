@@ -364,7 +364,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	if clienteDatos == nil {
 		clienteDatos = rawClient
 	}
-	cliente := envolverCliente(clienteDatos, e.clientMgr)
+	cliente := wrapClient(clienteDatos, e.clientMgr)
 
 	logbus.Debug(logbus.CatDownloads,
 		i18n.T("downloads.downloadingWorkers", finalName, threads, maxThreads),

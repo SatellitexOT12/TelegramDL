@@ -72,9 +72,9 @@ type ListenerChat struct {
 	NameMode string `json:"name_mode,omitempty"`
 }
 
-// CarpetaRelativa es la ruta, relativa a la carpeta de descargas, donde van los
+// RelativeFolder es la ruta, relativa a la carpeta de descargas, donde van los
 // archivos de esta entrada. Vacía significa que todavía no se le asignó una.
-func (c ListenerChat) CarpetaRelativa() string {
+func (c ListenerChat) RelativeFolder() string {
 	base := strings.TrimSpace(c.Folder)
 	if base == "" {
 		return ""
@@ -364,11 +364,11 @@ func ValidateDownloadFolder(folder string) error {
 
 	limpia := filepath.Clean(folder)
 
-	for _, prohibida := range carpetasProhibidas() {
+	for _, prohibida := range forbiddenFolders() {
 		if prohibida == "" {
 			continue
 		}
-		if rutaDentroDe(prohibida, limpia) {
+		if isPathInside(prohibida, limpia) {
 			return fmt.Errorf("esa carpeta está reservada por el sistema o por la propia aplicación; elige otra")
 		}
 	}
@@ -376,31 +376,31 @@ func ValidateDownloadFolder(folder string) error {
 	return nil
 }
 
-// rutaDentroDe indica si hijo es padre o está por debajo de él, comparando sin
+// isPathInside indica si child es parent o está por debajo de él, comparando sin
 // distinguir mayúsculas en Windows y macOS, donde el sistema de archivos
 // tampoco las distingue.
-func rutaDentroDe(padre, hijo string) bool {
-	padre = filepath.Clean(padre)
-	hijo = filepath.Clean(hijo)
+func isPathInside(parent, child string) bool {
+	parent = filepath.Clean(parent)
+	child = filepath.Clean(child)
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		padre = strings.ToLower(padre)
-		hijo = strings.ToLower(hijo)
+		parent = strings.ToLower(parent)
+		child = strings.ToLower(child)
 	}
 
-	if padre == hijo {
+	if parent == child {
 		return true
 	}
-	return strings.HasPrefix(hijo, padre+string(filepath.Separator))
+	return strings.HasPrefix(child, parent+string(filepath.Separator))
 }
 
-func carpetasProhibidas() []string {
+func forbiddenFolders() []string {
 	// La carpeta de datos de la aplicación: ahí viven la sesión de Telegram, las
 	// credenciales y la base de datos.
-	prohibidas := []string{DataDir}
+	forbidden := []string{DataDir}
 
 	home, _ := os.UserHomeDir()
-	unir := func(base string, partes ...string) string {
+	join := func(base string, partes ...string) string {
 		if base == "" {
 			return ""
 		}
@@ -409,28 +409,28 @@ func carpetasProhibidas() []string {
 
 	switch runtime.GOOS {
 	case "windows":
-		prohibidas = append(prohibidas,
+		forbidden = append(forbidden,
 			os.Getenv("SystemRoot"),
 			os.Getenv("ProgramFiles"),
 			os.Getenv("ProgramFiles(x86)"),
-			unir(os.Getenv("AppData"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup"),
-			unir(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu", "Programs", "StartUp"),
+			join(os.Getenv("AppData"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup"),
+			join(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu", "Programs", "StartUp"),
 		)
 	case "darwin":
-		prohibidas = append(prohibidas,
+		forbidden = append(forbidden,
 			"/System", "/Library/LaunchAgents", "/Library/LaunchDaemons", "/Applications",
-			unir(home, "Library", "LaunchAgents"),
+			join(home, "Library", "LaunchAgents"),
 		)
 	default:
-		prohibidas = append(prohibidas,
+		forbidden = append(forbidden,
 			"/etc", "/bin", "/sbin", "/usr", "/boot", "/lib",
-			unir(home, ".config", "autostart"),
-			unir(home, ".local", "share", "systemd"),
-			unir(home, ".config", "systemd"),
+			join(home, ".config", "autostart"),
+			join(home, ".local", "share", "systemd"),
+			join(home, ".config", "systemd"),
 		)
 	}
 
-	return prohibidas
+	return forbidden
 }
 
 func GetDefaultDownloadFolder() string {
@@ -640,39 +640,39 @@ func NormalizeConfig(raw Config) Config {
 	return raw
 }
 
-// PreservarCarpetas devuelve las entradas nuevas con la carpeta que ya tenían
+// PreserveFolders devuelve las entradas nuevas con la carpeta que ya tenían
 // las viejas. El panel manda la lista de chats sin el campo «folder» (la vista
 // de Ajustes reconstruye cada chat campo a campo al importar la escucha), y sin
 // esto un guardado desde allí borraría el reparto en carpetas y los archivos
 // del mismo chat acabarían en dos sitios distintos.
 // También preserva NameMode por el mismo motivo.
-func PreservarCarpetas(previas, nuevas []ListenerChat) []ListenerChat {
-	if len(previas) == 0 || len(nuevas) == 0 {
-		return nuevas
+func PreserveFolders(previous, current []ListenerChat) []ListenerChat {
+	if len(previous) == 0 || len(current) == 0 {
+		return current
 	}
 
-	porClave := make(map[string]ListenerChat, len(previas))
-	for _, vieja := range previas {
+	porClave := make(map[string]ListenerChat, len(previous))
+	for _, vieja := range previous {
 		porClave[vieja.Key()] = vieja
 	}
 
-	for i := range nuevas {
-		vieja, ok := porClave[nuevas[i].Key()]
+	for i := range current {
+		vieja, ok := porClave[current[i].Key()]
 		if !ok {
 			continue
 		}
-		if strings.TrimSpace(nuevas[i].Folder) == "" {
-			nuevas[i].Folder = vieja.Folder
+		if strings.TrimSpace(current[i].Folder) == "" {
+			current[i].Folder = vieja.Folder
 		}
-		if strings.TrimSpace(nuevas[i].TopicFolder) == "" {
-			nuevas[i].TopicFolder = vieja.TopicFolder
+		if strings.TrimSpace(current[i].TopicFolder) == "" {
+			current[i].TopicFolder = vieja.TopicFolder
 		}
-		if strings.TrimSpace(nuevas[i].NameMode) == "" {
-			nuevas[i].NameMode = vieja.NameMode
+		if strings.TrimSpace(current[i].NameMode) == "" {
+			current[i].NameMode = vieja.NameMode
 		}
 	}
 
-	return nuevas
+	return current
 }
 
 func FormatBytes(size float64) string {

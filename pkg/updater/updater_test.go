@@ -43,8 +43,8 @@ func TestCompararVersiones(t *testing.T) {
 // assetParaEsteSistema tiene que quedarse con el archivo de esta plataforma y,
 // sobre todo, no confundir el checksums.txt con la aplicación.
 func TestAssetParaEsteSistemaIgnoraLosArchivosQueNoSonLaApp(t *testing.T) {
-	sistema := palabrasDelSistema()[0]
-	arquitectura := palabrasDeArquitectura()[0]
+	sistema := systemKeywords()[0]
+	arquitectura := archKeywords()[0]
 
 	assets := []assetGitHub{
 		{Name: "checksums.txt", URL: "https://example.test/checksums.txt", Size: 200},
@@ -63,8 +63,8 @@ func TestAssetParaEsteSistemaIgnoraLosArchivosQueNoSonLaApp(t *testing.T) {
 
 // Con varios archivos del mismo sistema gana el de esta arquitectura.
 func TestAssetParaEsteSistemaPrefiereLaArquitecturaCorrecta(t *testing.T) {
-	sistema := palabrasDelSistema()[0]
-	arquitectura := palabrasDeArquitectura()[0]
+	sistema := systemKeywords()[0]
+	arquitectura := archKeywords()[0]
 
 	otraArquitectura := "arm64"
 	if arquitectura == "arm64" || arquitectura == "aarch64" {

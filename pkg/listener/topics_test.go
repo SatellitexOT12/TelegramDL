@@ -53,7 +53,7 @@ func TestMessageTopicIDReadsForumHeader(t *testing.T) {
 	}
 }
 
-func TestMessageTopicIDIgnoresRepliesFueraDeTemas(t *testing.T) {
+func TestMessageTopicIDIgnoresNonForumReplies(t *testing.T) {
 	// Una respuesta normal en un grupo sin temas NO debe interpretarse como
 	// tema: si no, cualquier respuesta parecería pertenecer a un tema.
 	header := &tg.MessageReplyHeader{}
@@ -65,7 +65,7 @@ func TestMessageTopicIDIgnoresRepliesFueraDeTemas(t *testing.T) {
 	}
 }
 
-func TestMatchChatSoloAceptaElTemaVigilado(t *testing.T) {
+func TestMatchChatOnlyAcceptsMonitoredTopic(t *testing.T) {
 	le := newEngineWithChats(config.ListenerChat{
 		ID:        -1002121902112,
 		TopicID:   config.TopicPointer(57),
@@ -84,7 +84,7 @@ func TestMatchChatSoloAceptaElTemaVigilado(t *testing.T) {
 	}
 }
 
-func TestMatchChatGrupoEnteroAceptaCualquierTema(t *testing.T) {
+func TestMatchChatEntireGroupAcceptsAnyTopic(t *testing.T) {
 	le := newEngineWithChats(config.ListenerChat{ID: -1002121902112, Name: "Mi Grupo"})
 
 	for _, topic := range []int64{0, 1, 57, 99} {
@@ -94,7 +94,7 @@ func TestMatchChatGrupoEnteroAceptaCualquierTema(t *testing.T) {
 	}
 }
 
-func TestMatchChatPrefiereLaEntradaDelTema(t *testing.T) {
+func TestMatchChatPrefersSpecificTopicEntry(t *testing.T) {
 	le := newEngineWithChats(
 		config.ListenerChat{ID: -1001, Name: "Grupo", AutoDownload: false},
 		config.ListenerChat{ID: -1001, TopicID: config.TopicPointer(57), TopicName: "Pelis", Name: "Grupo", AutoDownload: true},
@@ -117,7 +117,7 @@ func TestMatchChatPrefiereLaEntradaDelTema(t *testing.T) {
 	}
 }
 
-func TestMatchChatTemaGeneral(t *testing.T) {
+func TestMatchChatGeneralTopic(t *testing.T) {
 	// Telegram no marca los mensajes del tema «General», llegan sin tema (0).
 	le := newEngineWithChats(config.ListenerChat{
 		ID:      -1001,
@@ -133,7 +133,7 @@ func TestMatchChatTemaGeneral(t *testing.T) {
 	}
 }
 
-func TestMatchChatIDsAlternativos(t *testing.T) {
+func TestMatchChatAlternativeIDs(t *testing.T) {
 	// El chat puede estar configurado con el ID interno del canal en vez del
 	// canónico con prefijo -100.
 	le := newEngineWithChats(config.ListenerChat{ID: 2121902112, Name: "Grupo"})
@@ -143,7 +143,7 @@ func TestMatchChatIDsAlternativos(t *testing.T) {
 	}
 }
 
-func TestMatchChatChatNoVigilado(t *testing.T) {
+func TestMatchChatUnmonitoredChat(t *testing.T) {
 	le := newEngineWithChats(config.ListenerChat{ID: -1001, Name: "Grupo"})
 
 	if _, ok := le.matchChat(-1009, 0, 0); ok {
