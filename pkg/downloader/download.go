@@ -35,7 +35,7 @@ func (e *Engine) resolveItemMetadata(itemID string) {
 	// Copia bajo el mutex: fuera de él, el elemento del mapa lo escriben otras
 	// goroutines (el progreso de la descarga, una pausa, el propio motor), así
 	// que leer sus campos sin el candado es una carrera de datos.
-	datos := *item
+	itemData := *item
 	e.mu.RUnlock()
 
 	// Si ya tiene nombre real y tamaño, no hacer nada.
@@ -43,20 +43,20 @@ func (e *Engine) resolveItemMetadata(itemID string) {
 	// La comprobación va ANTES del semáforo. Antes iba después, así que un rango
 	// de 500 mensajes dejaba 500 goroutines haciendo cola por un turno que la
 	// mayoría ni necesitaba, cada una con un temporizador de un minuto vivo. De
-	// `datos` solo se usan ChatID y MessageID más abajo, y esos no cambian
+	// `itemData` solo se usan ChatID y MessageID más abajo, y esos no cambian
 	// nunca, así que leerlo aquí es igual de válido que leerlo después.
-	if datos.FileName != "" && !strings.HasPrefix(strings.ToLower(datos.FileName), "mensaje_") && datos.TotalBytes > 0 {
+	if itemData.FileName != "" && !strings.HasPrefix(strings.ToLower(itemData.FileName), "mensaje_") && itemData.TotalBytes > 0 {
 		return
 	}
 
 	// Limitar concurrencia de resolución de metadatos. El temporizador se para
 	// al salir; con time.After quedaban vivos hasta cumplir el minuto.
-	espera := time.NewTimer(1 * time.Minute)
-	defer espera.Stop()
+	waitTimer := time.NewTimer(1 * time.Minute)
+	defer waitTimer.Stop()
 	select {
 	case e.metadataSem <- struct{}{}:
 		defer func() { <-e.metadataSem }()
-	case <-espera.C:
+	case <-waitTimer.C:
 		return
 	}
 
@@ -67,17 +67,17 @@ func (e *Engine) resolveItemMetadata(itemID string) {
 		return
 	}
 
-	msg, err := e.fetchMessage(ctx, datos.ChatID, int(datos.MessageID))
+	msg, err := e.fetchMessage(ctx, itemData.ChatID, int(itemData.MessageID))
 	if err != nil {
 		// Aquí es donde se descubre, mientras la tarea todavía espera turno en
 		// la cola, que ese ID del rango no existe. Se descarta ya, en vez de
 		// dejarla en la lista ocupando sitio hasta que le toque descargar para
 		// entonces darse cuenta de lo mismo.
-		if errors.Is(err, errMensajeInexistente) {
+		if errors.Is(err, errMissingMessage) {
 			logbus.Warn(logbus.CatDownloads,
-				i18n.T("downloads.msgMissing", datos.MessageID),
+				i18n.T("downloads.msgMissing", itemData.MessageID),
 				i18n.T("downloads.msgMissingDetail",
-					e.chatLabel(datos.ChatID)))
+					e.chatLabel(itemData.ChatID)))
 			e.discardDownload(itemID)
 		}
 		return
@@ -124,21 +124,21 @@ func (e *Engine) resolveItemMetadata(itemID string) {
 
 func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	e.mu.RLock()
-	item, existe := e.downloads[itemID]
-	var datos storage.DownloadItem
-	if existe {
+	item, exists := e.downloads[itemID]
+	var itemData storage.DownloadItem
+	if exists {
 		// Igual que en resolveItemMetadata: se trabaja sobre una copia y cada
 		// escritura vuelve a tomar el mutex y a buscar el elemento en el mapa.
 		// Guardarse el puntero y seguir leyéndolo sin candado era una carrera
 		// con la goroutine que resuelve los metadatos y con la del progreso.
-		datos = *item
+		itemData = *item
 	}
 	downloadFolder := e.config.DownloadFolder
 	parallelChunks := e.config.ParallelChunks
 	chunkWorkers := e.config.ChunkWorkers
 	allowDuplicate := e.forceDuplicate[itemID]
 	e.mu.RUnlock()
-	if !existe {
+	if !exists {
 		return errors.New("descarga no encontrada")
 	}
 
@@ -157,12 +157,12 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	// vigilado y el reparto por chat está encendido, su subcarpeta. La ruta se
 	// valida antes de pegarla: la genera el programa, pero sale de un nombre
 	// que elige un tercero en Telegram.
-	destino := downloadFolder
-	if sub := RutaRelativaSegura(datos.SubFolder); sub != "" {
-		destino = filepath.Join(downloadFolder, sub)
+	destination := downloadFolder
+	if sub := SafeRelativePath(itemData.SubFolder); sub != "" {
+		destination = filepath.Join(downloadFolder, sub)
 	}
 
-	_ = os.MkdirAll(destino, 0755)
+	_ = os.MkdirAll(destination, 0755)
 
 	e.mu.Lock()
 	cachedMsg := e.messageCache[itemID]
@@ -174,18 +174,18 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 		logbus.Debug(logbus.CatDownloads,
 			i18n.T("downloads.reuseMsg", itemID), "")
 	} else {
-		log.Printf("[DOWNLOAD] %s", i18n.T("downloads.fetchingMsg", datos.MessageID, datos.ChatID))
+		log.Printf("[DOWNLOAD] %s", i18n.T("downloads.fetchingMsg", itemData.MessageID, itemData.ChatID))
 		var err error
-		msg, err = e.fetchMessage(ctx, datos.ChatID, int(datos.MessageID))
+		msg, err = e.fetchMessage(ctx, itemData.ChatID, int(itemData.MessageID))
 		if err != nil {
-			log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.fetchMsgError", datos.MessageID, err))
+			log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.fetchMsgError", itemData.MessageID, err))
 			return fmt.Errorf("error al obtener mensaje: %w", err)
 		}
 	}
 
 	mediaInfo := ExtractMediaInfo(msg)
 	if mediaInfo == nil {
-		log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.noMedia", datos.MessageID))
+		log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.noMedia", itemData.MessageID))
 		return errors.New("el mensaje no contiene multimedia descargable")
 	}
 
@@ -193,7 +193,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 		i18n.T("downloads.mediaExtracted", mediaInfo.FileName, mediaInfo.Kind, mediaInfo.FileSize), "")
 
 	e.mu.Lock()
-	currentFileName := datos.FileName
+	currentFileName := itemData.FileName
 	// Si el nombre actual es un placeholder, lo actualizamos al nombre real extraído
 	if strings.HasPrefix(strings.ToLower(currentFileName), "mensaje_") || currentFileName == "" {
 		currentFileName = mediaInfo.FileName
@@ -204,7 +204,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	e.mu.Unlock()
 
 	finalPath, finalName, alreadyExists := e.reservations.ReservePath(
-		destino, currentFileName, datos.MessageID, mediaInfo.FileSize, allowDuplicate,
+		destination, currentFileName, itemData.MessageID, mediaInfo.FileSize, allowDuplicate,
 	)
 	defer e.reservations.ReleasePath(finalPath)
 
@@ -337,7 +337,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	// quedan haciendo cola esperando ranura. Con el límite actual de bloques
 	// (ConexionesDescarga * 8 = 64), permitimos hasta la mitad del límite global
 	// por descarga para que con pocas descargas trabajen a pleno rendimiento.
-	maxThreads := telegram.ConexionesDescarga * 4
+	maxThreads := telegram.DownloadConnections * 4
 	if threads > maxThreads {
 		threads = maxThreads
 	}
@@ -346,25 +346,25 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	// (el mensaje, el nombre, el tamaño) siguen yendo por la conexión principal
 	// y así dejan de competir con ellos. El envoltorio es el que limita cuántas
 	// peticiones van en vuelo y el que aguanta las pausas de Telegram, para los
-	var clienteDatos *tg.Client
+	var downloadClient *tg.Client
 	if mediaInfo.DCID > 0 {
-		var errDC error
-		clienteDatos, errDC = e.clientMgr.DownloadClientForDC(ctx, mediaInfo.DCID)
-		if errDC != nil {
+		var dcErr error
+		downloadClient, dcErr = e.clientMgr.DownloadClientForDC(ctx, mediaInfo.DCID)
+		if dcErr != nil {
 			logbus.Warn(logbus.CatDownloads,
-				fmt.Sprintf("No se pudo conectar a DC %d por adelantado: %v. Usando cliente por defecto.", mediaInfo.DCID, errDC), "")
+				fmt.Sprintf("No se pudo conectar a DC %d por adelantado: %v. Usando cliente por defecto.", mediaInfo.DCID, dcErr), "")
 		} else {
 			logbus.Debug(logbus.CatDownloads,
 				fmt.Sprintf("Descarga usando conexión dedicada a DC %d", mediaInfo.DCID), "")
 		}
 	}
-	if clienteDatos == nil {
-		clienteDatos = e.clientMgr.DownloadClient()
+	if downloadClient == nil {
+		downloadClient = e.clientMgr.DownloadClient()
 	}
-	if clienteDatos == nil {
-		clienteDatos = rawClient
+	if downloadClient == nil {
+		downloadClient = rawClient
 	}
-	cliente := wrapClient(clienteDatos, e.clientMgr)
+	client := wrapClient(downloadClient, e.clientMgr)
 
 	logbus.Debug(logbus.CatDownloads,
 		i18n.T("downloads.downloadingWorkers", finalName, threads, maxThreads),
@@ -378,10 +378,10 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	}
 
 	if len(resumeChunks) > 0 {
-		err = downloadMissingParts(ctx, cliente, mediaInfo.Location, writer, mediaInfo.FileSize, threads, resumeChunks)
+		err = downloadMissingParts(ctx, client, mediaInfo.Location, writer, mediaInfo.FileSize, threads, resumeChunks)
 	} else {
 		dl := tdDownloader.NewDownloader().WithPartSize(int(downloadPartSize))
-		builder := dl.Download(cliente, mediaInfo.Location).WithThreads(threads)
+		builder := dl.Download(client, mediaInfo.Location).WithThreads(threads)
 		_, err = builder.Parallel(ctx, writer)
 	}
 
@@ -546,7 +546,7 @@ func (e *Engine) fetchMessage(ctx context.Context, chatID int64, msgID int) (*tg
 	}
 
 	if len(messages) == 0 {
-		return nil, errMensajeInexistente
+		return nil, errMissingMessage
 	}
 
 	for _, m := range messages {
@@ -559,7 +559,7 @@ func (e *Engine) fetchMessage(ctx context.Context, chatID int64, msgID int) (*tg
 	// para un mensaje borrado manda un MessageEmpty, y para un aviso del chat un
 	// MessageService. En los dos casos no hay nada que descargar y nunca lo
 	// habrá, así que va por el mismo camino que un ID inexistente.
-	return nil, fmt.Errorf("el mensaje fue eliminado en Telegram o no contiene datos válidos: %w", errMensajeInexistente)
+	return nil, fmt.Errorf("el mensaje fue eliminado en Telegram o no contiene datos válidos: %w", errMissingMessage)
 }
 
 func copyFile(src, dst string) error {

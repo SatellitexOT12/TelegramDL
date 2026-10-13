@@ -58,7 +58,7 @@ func SanitizeFileName(name string) string {
 	// Windows no admite que un nombre termine en punto o espacio.
 	clean = strings.Trim(clean, ". ")
 	if clean == "" {
-		return "archivo"
+		return "file"
 	}
 
 	clean = truncateFileName(clean)
@@ -66,7 +66,7 @@ func SanitizeFileName(name string) string {
 	// El truncado puede dejar otra vez un punto o un espacio al final.
 	clean = strings.Trim(clean, ". ")
 	if clean == "" {
-		return "archivo"
+		return "file"
 	}
 
 	if isReservedWindowsName(clean) {

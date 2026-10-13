@@ -33,7 +33,7 @@ type DownloadStateListener func(item storage.DownloadItem)
 
 var errDownloadAlreadyExists = errors.New("el archivo ya existe")
 
-// errMensajeInexistente marca los mensajes que Telegram no va a entregar nunca:
+// errMissingMessage marca los mensajes que Telegram no va a entregar nunca:
 // borrados, IDs que jamás existieron, o entradas que no son un mensaje de
 // usuario (avisos de servicio del chat, por ejemplo).
 //
@@ -46,7 +46,7 @@ var errDownloadAlreadyExists = errors.New("el archivo ya existe")
 // otro (el que se da precisamente cuando el mensaje está borrado) se escapaba y
 // acababa en "fallido". Con un error centinela y errors.Is ya no depende de
 // cómo esté redactado el mensaje.
-var errMensajeInexistente = errors.New("mensaje no encontrado en Telegram")
+var errMissingMessage = errors.New("mensaje no encontrado en Telegram")
 
 type Engine struct {
 	clientMgr    *telegram.ClientManager

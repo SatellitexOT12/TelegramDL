@@ -69,71 +69,71 @@ import {
 
 // Grosor de línea del juego. HugeIcons no fija ninguno por defecto y sus trazos
 // quedan bastante finos; 1.8 se acerca al peso que tenía el panel con lucide.
-const GROSOR = 1.8
+const STROKE_WIDTH = 1.8
 
 // Envuelve un icono para que se use igual que los de lucide:
 // <Download :size="16" class="lo-que-sea" />. Con inheritAttrs desactivado los
 // atributos se pasan una sola vez y acaban en el <svg>.
-const icono = (glifo) => ({
+const icon = (glyph) => ({
   inheritAttrs: false,
   setup(_, { attrs }) {
     return () =>
-      h(HugeiconsIcon, { icon: glifo, strokeWidth: GROSOR, ...attrs })
+      h(HugeiconsIcon, { icon: glyph, strokeWidth: STROKE_WIDTH, ...attrs })
   }
 })
 
-export const Activity = icono(Activity03Icon) // panel de descargas activas
-export const AlertCircle = icono(AlertCircleIcon) // avisos y modales de peligro
-export const ArrowDownToLine = icono(Download04Icon) // entrada "Descargas" del menú
-export const ArrowLeft = icono(ArrowLeft02Icon) // volver en el explorador de carpetas
-export const ArrowRight = icono(ArrowRight02Icon) // continuar en el asistente de acceso
-export const ArrowUpRight = icono(ArrowUpRight01Icon) // abrir algo fuera de la app
-export const Bell = icono(Notification01Icon) // notificación sonora al terminar descargas
-export const Bot = icono(Robot01Icon) // avisos que envía el bot de Telegram
-export const Check = icono(Tick02Icon) // confirmar la carpeta elegida
-export const CheckCircle2 = icono(CheckmarkCircle02Icon) // aviso de operación correcta
-export const ChevronRight = icono(ArrowRight01Icon) // entrar en una carpeta o chat
-export const Clock3 = icono(Clock01Icon) // descarga en cola
-export const Copy = icono(Copy01Icon) // copiar token y registro
-export const Download = icono(Download01Icon) // descargar un archivo
-export const ExternalLink = icono(LinkSquare02Icon) // abrir el archivo descargado
-export const Eye = icono(ViewIcon) // mostrar el token
-export const EyeOff = icono(ViewOffIcon) // ocultar el token
-export const FileCheck = icono(FileValidationIcon) // descargas completadas
-export const FileDown = icono(FileDownloadIcon) // descargas en curso
-export const FileText = icono(File02Icon) // documento genérico
-export const Filter = icono(FilterIcon) // filtro de archivos
-export const Folder = icono(Folder01Icon) // carpeta de descargas
-export const Gauge = icono(DashboardSpeed02Icon) // velocidad
-export const HardDrive = icono(HardDriveIcon) // unidades de disco
-export const HelpCircle = icono(HelpCircleIcon) // modal de confirmación
-export const Image = icono(Image02Icon) // foto
-export const Inbox = icono(InboxIcon) // bandeja de la escucha
-export const Info = icono(InformationCircleIcon) // nota informativa
-export const KeyRound = icono(Key02Icon) // credenciales y token
-export const Languages = icono(LanguagesIcon) // selector de idioma en ajustes
-export const Loader2 = icono(Loading03Icon) // espera en curso
-export const LogOut = icono(Logout03Icon) // cerrar sesión de Telegram
-export const Menu = icono(Menu01Icon) // menú en pantalla pequeña
-export const MessageCircle = icono(Message02Icon) // chat vigilado
-export const Music = icono(MusicNote01Icon) // audio
-export const Pause = icono(PauseIcon) // pausar
-export const Phone = icono(SmartPhone01Icon) // número de teléfono
-export const Play = icono(PlayIcon) // reanudar
-export const Plus = icono(PlusSignIcon) // añadir chat
-export const Power = icono(PowerIcon) // apagar el equipo al terminar la cola
-export const Radio = icono(RadioTowerIcon) // entrada "Escucha" del menú
-export const RefreshCw = icono(Refresh01Icon) // regenerar o recargar
-export const RotateCcw = icono(ArrowReloadHorizontalIcon) // reintentar una descarga
-export const Save = icono(FloppyDiskIcon) // guardar ajustes
-export const ScrollText = icono(Pulse01Icon) // entrada "Logs" del menú
-export const Search = icono(Search01Icon) // buscar dentro del registro
-export const Send = icono(DeliverySent02Icon) // enviar el token a Telegram
-export const Settings2 = icono(Settings02Icon) // entrada "Ajustes" del menú
-export const ShieldCheck = icono(ShieldCheckIcon) // verificación en dos pasos
-export const Trash2 = icono(Delete02Icon) // eliminar
-export const Upload = icono(Upload01Icon) // subida
-export const UserCheck = icono(UserCheck01Icon) // usuario con sesión iniciada
-export const Video = icono(Video01Icon) // vídeo
-export const X = icono(Cancel01Icon) // cerrar
-export const Zap = icono(FlashIcon) // actualización disponible
+export const Activity = icon(Activity03Icon) // panel de descargas activas
+export const AlertCircle = icon(AlertCircleIcon) // avisos y modales de peligro
+export const ArrowDownToLine = icon(Download04Icon) // entrada "Descargas" del menú
+export const ArrowLeft = icon(ArrowLeft02Icon) // volver en el explorador de carpetas
+export const ArrowRight = icon(ArrowRight02Icon) // continuar en el asistente de acceso
+export const ArrowUpRight = icon(ArrowUpRight01Icon) // abrir algo fuera de la app
+export const Bell = icon(Notification01Icon) // notificación sonora al terminar descargas
+export const Bot = icon(Robot01Icon) // avisos que envía el bot de Telegram
+export const Check = icon(Tick02Icon) // confirmar la carpeta elegida
+export const CheckCircle2 = icon(CheckmarkCircle02Icon) // aviso de operación correcta
+export const ChevronRight = icon(ArrowRight01Icon) // entrar en una carpeta o chat
+export const Clock3 = icon(Clock01Icon) // descarga en cola
+export const Copy = icon(Copy01Icon) // copiar token y registro
+export const Download = icon(Download01Icon) // descargar un archivo
+export const ExternalLink = icon(LinkSquare02Icon) // abrir el archivo descargado
+export const Eye = icon(ViewIcon) // mostrar el token
+export const EyeOff = icon(ViewOffIcon) // ocultar el token
+export const FileCheck = icon(FileValidationIcon) // descargas completadas
+export const FileDown = icon(FileDownloadIcon) // descargas en curso
+export const FileText = icon(File02Icon) // documento genérico
+export const Filter = icon(FilterIcon) // filtro de archivos
+export const Folder = icon(Folder01Icon) // carpeta de descargas
+export const Gauge = icon(DashboardSpeed02Icon) // velocidad
+export const HardDrive = icon(HardDriveIcon) // unidades de disco
+export const HelpCircle = icon(HelpCircleIcon) // modal de confirmación
+export const Image = icon(Image02Icon) // foto
+export const Inbox = icon(InboxIcon) // bandeja de la escucha
+export const Info = icon(InformationCircleIcon) // nota informativa
+export const KeyRound = icon(Key02Icon) // credenciales y token
+export const Languages = icon(LanguagesIcon) // selector de idioma en ajustes
+export const Loader2 = icon(Loading03Icon) // espera en curso
+export const LogOut = icon(Logout03Icon) // cerrar sesión de Telegram
+export const Menu = icon(Menu01Icon) // menú en pantalla pequeña
+export const MessageCircle = icon(Message02Icon) // chat vigilado
+export const Music = icon(MusicNote01Icon) // audio
+export const Pause = icon(PauseIcon) // pausar
+export const Phone = icon(SmartPhone01Icon) // número de teléfono
+export const Play = icon(PlayIcon) // reanudar
+export const Plus = icon(PlusSignIcon) // añadir chat
+export const Power = icon(PowerIcon) // apagar el equipo al terminar la cola
+export const Radio = icon(RadioTowerIcon) // entrada "Escucha" del menú
+export const RefreshCw = icon(Refresh01Icon) // regenerar o recargar
+export const RotateCcw = icon(ArrowReloadHorizontalIcon) // reintentar una descarga
+export const Save = icon(FloppyDiskIcon) // guardar ajustes
+export const ScrollText = icon(Pulse01Icon) // entrada "Logs" del menú
+export const Search = icon(Search01Icon) // buscar dentro del registro
+export const Send = icon(DeliverySent02Icon) // enviar el token a Telegram
+export const Settings2 = icon(Settings02Icon) // entrada "Ajustes" del menú
+export const ShieldCheck = icon(ShieldCheckIcon) // verificación en dos pasos
+export const Trash2 = icon(Delete02Icon) // eliminar
+export const Upload = icon(Upload01Icon) // subida
+export const UserCheck = icon(UserCheck01Icon) // usuario con sesión iniciada
+export const Video = icon(Video01Icon) // vídeo
+export const X = icon(Cancel01Icon) // cerrar
+export const Zap = icon(FlashIcon) // actualización disponible

@@ -42,7 +42,7 @@ func isRetryableDownloadError(err error) bool {
 	// Un mensaje borrado o inexistente no mejora reintentando: se descarta
 	// arriba, y hasta ahora se le daba una segunda vuelta para nada porque el
 	// texto del error no coincidía con ninguna de las cadenas de abajo.
-	if errors.Is(err, errMensajeInexistente) {
+	if errors.Is(err, errMissingMessage) {
 		return false
 	}
 	message := strings.ToLower(err.Error())

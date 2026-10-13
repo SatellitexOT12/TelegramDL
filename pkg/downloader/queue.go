@@ -227,7 +227,7 @@ func (e *Engine) startDownloadJob(itemID string) (relaunch bool) {
 
 	err := e.executeDownloadWithRetry(ctx, itemID)
 	logbus.Debug(logbus.CatDownloads, i18n.T("downloads.taskFinished", itemID, err), "")
-	if errors.Is(err, errMensajeInexistente) {
+	if errors.Is(err, errMissingMessage) {
 		// Caso típico al descargar un rango: algunos IDs del intervalo no
 		// corresponden a ningún mensaje descargable (borrados, inexistentes o
 		// avisos de servicio del chat). Se descartan en silencio en vez de

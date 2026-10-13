@@ -39,7 +39,7 @@ import (
 // Ocho por conexión permite que las descargas con pocos workers trabajen a
 // pleno rendimiento mientras se mantiene un límite razonable cuando se usan
 // muchas descargas a la vez.
-var maxInFlightBlocks = telegram.ConexionesDescarga * 8
+var maxInFlightBlocks = telegram.DownloadConnections * 8
 
 // inFlightBlocks reparte esas ranuras entre todos los workers del programa.
 var inFlightBlocks = make(chan struct{}, maxInFlightBlocks)
@@ -76,7 +76,7 @@ const maxFloodAttempts = 3
 var (
 	floodGate struct {
 		mu    sync.Mutex
-		hasta time.Time
+		until time.Time
 	}
 	onFloodStateChange func()
 )
@@ -92,25 +92,25 @@ func RegisterFloodNotifier(fn func()) {
 func GetFloodWaitUntil() time.Time {
 	floodGate.mu.Lock()
 	defer floodGate.mu.Unlock()
-	if time.Now().Before(floodGate.hasta) {
-		return floodGate.hasta
+	if time.Now().Before(floodGate.until) {
+		return floodGate.until
 	}
 	return time.Time{}
 }
 
 // SetFloodWait activa una pausa global por FLOOD_WAIT desde cualquier punto de la aplicación.
-func SetFloodWait(espera time.Duration) {
-	closeFloodGate(espera)
+func SetFloodWait(wait time.Duration) {
+	closeFloodGate(wait)
 }
 
 // closeFloodGate deja a todos los workers parados hasta dentro de espera. Si
 // ya había una pausa en curso más larga, se respeta la más larga.
-func closeFloodGate(espera time.Duration) {
-	limite := time.Now().Add(espera)
+func closeFloodGate(wait time.Duration) {
+	limit := time.Now().Add(wait)
 	floodGate.mu.Lock()
 	changed := false
-	if limite.After(floodGate.hasta) {
-		floodGate.hasta = limite
+	if limit.After(floodGate.until) {
+		floodGate.until = limit
 		changed = true
 	}
 	notifier := onFloodStateChange
@@ -125,23 +125,23 @@ func closeFloodGate(espera time.Duration) {
 func waitFloodGate(ctx context.Context) error {
 	for {
 		floodGate.mu.Lock()
-		hasta := floodGate.hasta
+		until := floodGate.until
 		floodGate.mu.Unlock()
 
-		restante := time.Until(hasta)
-		if restante <= 0 {
+		remaining := time.Until(until)
+		if remaining <= 0 {
 			return nil
 		}
-		if restante > maxFloodWait {
-			restante = maxFloodWait
+		if remaining > maxFloodWait {
+			remaining = maxFloodWait
 		}
 
-		temporizador := time.NewTimer(restante)
+		timer := time.NewTimer(remaining)
 		select {
 		case <-ctx.Done():
-			temporizador.Stop()
+			timer.Stop()
 			return ctx.Err()
-		case <-temporizador.C:
+		case <-timer.C:
 		}
 	}
 }
@@ -165,16 +165,16 @@ type blockClient struct {
 
 // wrapClient prepara el cliente de bloques. Devuelve el original sin
 // envolver si no hay cliente, para no esconder un nil detrás de un struct.
-func wrapClient(cliente *tg.Client, cm *telegram.ClientManager) blockClient {
-	if cliente == nil {
+func wrapClient(client *tg.Client, cm *telegram.ClientManager) blockClient {
+	if client == nil {
 		return blockClient{}
 	}
 	state := &blockClientState{
-		client:    cliente,
+		client:    client,
 		clientMgr: cm,
 	}
 	return blockClient{
-		Client: cliente,
+		Client: client,
 		state:  state,
 	}
 }

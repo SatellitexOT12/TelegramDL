@@ -85,7 +85,7 @@ func registerConsoleCtrlHandler(sigCh chan os.Signal) {
 	// directo con --server, una tarea programada, el servicio arrancando al
 	// inicio— ese primer Read falla en el acto, así que el servidor se apagaba
 	// solo un instante después de arrancar.
-	if !hayConsola() {
+	if !hasConsole() {
 		return
 	}
 
@@ -108,19 +108,19 @@ func registerConsoleCtrlHandler(sigCh chan os.Signal) {
 	}()
 }
 
-// hayConsola comprueba que Stdin sea una consola de verdad. GetConsoleMode solo
+// hasConsole comprueba que Stdin sea una consola de verdad. GetConsoleMode solo
 // funciona con un manejador de consola: con una entrada redirigida, cerrada o
 // inexistente devuelve error, que es exactamente lo que hay que distinguir.
-func hayConsola() bool {
+func hasConsole() bool {
 	handle, err := syscall.GetStdHandle(syscall.STD_INPUT_HANDLE)
 	if err != nil || handle == 0 || handle == syscall.InvalidHandle {
 		return false
 	}
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	var modo uint32
+	var mode uint32
 	ret, _, _ := kernel32.NewProc("GetConsoleMode").Call(
 		uintptr(handle),
-		uintptr(unsafe.Pointer(&modo)),
+		uintptr(unsafe.Pointer(&mode)),
 	)
 	return ret != 0
 }

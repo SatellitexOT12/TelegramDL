@@ -53,7 +53,7 @@ func main() {
 	if hasArgument("--download") {
 		url := getArgumentValue("--download")
 		if url == "" {
-			fmt.Println("Error: --download requiere una URL")
+			fmt.Println(i18n.T("cli.downloadUrlRequired"))
 			printUsage()
 			os.Exit(1)
 		}
@@ -171,7 +171,7 @@ func sendURLToActiveInstance(url string) int {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Error al enviar la URL: status %d\n", resp.StatusCode)
+		fmt.Fprintf(os.Stderr, i18n.T("cli.ipcStatusError"), resp.StatusCode)
 		return 1
 	}
 

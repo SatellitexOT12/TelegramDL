@@ -399,12 +399,12 @@ const lightThemeIds = new Set([19])
 
 const applyThemeClass = (colorId) => {
   const root = document.documentElement
-  Object.values(specialThemeClasses).forEach((clase) =>
-    root.classList.remove(clase)
+  Object.values(specialThemeClasses).forEach((cls) =>
+    root.classList.remove(cls)
   )
   root.classList.remove('tema-claro')
-  const clase = specialThemeClasses[colorId]
-  if (clase) root.classList.add(clase)
+  const cls = specialThemeClasses[colorId]
+  if (cls) root.classList.add(cls)
   // Number(): el id puede llegar como texto desde el almacenamiento del
   // navegador, y un Set no hace la conversión por su cuenta.
   if (lightThemeIds.has(Number(colorId))) {

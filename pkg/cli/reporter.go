@@ -81,7 +81,7 @@ func (r *CLIProgressReporter) printProgress(item storage.DownloadItem) {
 	filled := int(progress * float64(barWidth) / 100)
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 
-	fmt.Printf("\r⬇️ %s [%s] %.1f%% %s/s",
+	fmt.Printf("\r %s [%s] %.1f%% %s/s",
 		truncate(item.FileName, 30),
 		bar,
 		progress,

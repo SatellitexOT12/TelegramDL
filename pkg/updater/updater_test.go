@@ -11,10 +11,10 @@ import (
 // La comparación de versiones sustituye a la que traía go-selfupdate, así que
 // conviene que quede fijada: de ella depende que la aplicación no se ofrezca a
 // sí misma una actualización, ni se salte una real.
-func TestCompararVersiones(t *testing.T) {
-	casos := []struct {
+func TestCompareVersions(t *testing.T) {
+	cases := []struct {
 		a, b     string
-		esperado int
+		expected int
 	}{
 		{"2.4.2", "2.4.2", 0},
 		{"v2.4.2", "2.4.2", 0},
@@ -33,97 +33,97 @@ func TestCompararVersiones(t *testing.T) {
 		{"2.4.2a", "2.4.2", 0},       // basura al final: se ignora en vez de romper
 	}
 
-	for _, caso := range casos {
-		if got := compararVersiones(caso.a, caso.b); got != caso.esperado {
-			t.Errorf("compararVersiones(%q, %q) = %d, se esperaba %d", caso.a, caso.b, got, caso.esperado)
+	for _, c := range cases {
+		if got := compareVersions(c.a, c.b); got != c.expected {
+			t.Errorf("compareVersions(%q, %q) = %d, expected %d", c.a, c.b, got, c.expected)
 		}
 	}
 }
 
-// assetParaEsteSistema tiene que quedarse con el archivo de esta plataforma y,
+// assetForThisSystem tiene que quedarse con el archivo de esta plataforma y,
 // sobre todo, no confundir el checksums.txt con la aplicación.
-func TestAssetParaEsteSistemaIgnoraLosArchivosQueNoSonLaApp(t *testing.T) {
-	sistema := systemKeywords()[0]
-	arquitectura := archKeywords()[0]
+func TestAssetForThisSystemIgnoresNonAppFiles(t *testing.T) {
+	system := systemKeywords()[0]
+	architecture := archKeywords()[0]
 
 	assets := []assetGitHub{
 		{Name: "checksums.txt", URL: "https://example.test/checksums.txt", Size: 200},
-		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip.sig", sistema, arquitectura), URL: "https://example.test/sig", Size: 100},
-		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", sistema, arquitectura), URL: "https://example.test/app", Size: 1000},
+		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip.sig", system, architecture), URL: "https://example.test/sig", Size: 100},
+		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", system, architecture), URL: "https://example.test/app", Size: 1000},
 	}
 
-	elegido := assetParaEsteSistema(assets)
-	if elegido == nil {
+	chosen := assetForThisSystem(assets)
+	if chosen == nil {
 		t.Fatalf("no se eligió ningún archivo para %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
-	if elegido.DownloadURL != "https://example.test/app" {
-		t.Fatalf("se eligió %q en vez del ejecutable", elegido.Name)
+	if chosen.DownloadURL != "https://example.test/app" {
+		t.Fatalf("se eligió %q en vez del ejecutable", chosen.Name)
 	}
 }
 
 // Con varios archivos del mismo sistema gana el de esta arquitectura.
-func TestAssetParaEsteSistemaPrefiereLaArquitecturaCorrecta(t *testing.T) {
-	sistema := systemKeywords()[0]
-	arquitectura := archKeywords()[0]
+func TestAssetForThisSystemPrefersCorrectArch(t *testing.T) {
+	system := systemKeywords()[0]
+	architecture := archKeywords()[0]
 
-	otraArquitectura := "arm64"
-	if arquitectura == "arm64" || arquitectura == "aarch64" {
-		otraArquitectura = "amd64"
+	otherArchitecture := "arm64"
+	if architecture == "arm64" || architecture == "aarch64" {
+		otherArchitecture = "amd64"
 	}
 
 	assets := []assetGitHub{
-		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", sistema, otraArquitectura), URL: "https://example.test/otra", Size: 1000},
-		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", sistema, arquitectura), URL: "https://example.test/mia", Size: 1000},
+		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", system, otherArchitecture), URL: "https://example.test/otra", Size: 1000},
+		{Name: fmt.Sprintf("TelegramDL_%s_%s.zip", system, architecture), URL: "https://example.test/mia", Size: 1000},
 	}
 
-	elegido := assetParaEsteSistema(assets)
-	if elegido == nil || elegido.DownloadURL != "https://example.test/mia" {
-		t.Fatalf("se esperaba el archivo de %s, se eligió %+v", arquitectura, elegido)
+	chosen := assetForThisSystem(assets)
+	if chosen == nil || chosen.DownloadURL != "https://example.test/mia" {
+		t.Fatalf("se esperaba el archivo de %s, se eligió %+v", architecture, chosen)
 	}
 }
 
-func TestAssetParaEsteSistemaSinNadaCompatible(t *testing.T) {
+func TestAssetForThisSystemNoCompatibleAsset(t *testing.T) {
 	assets := []assetGitHub{
 		{Name: "TelegramDL_plan9_mips.tar.gz", URL: "https://example.test/nada", Size: 10},
 	}
 	if runtime.GOOS == "plan9" {
 		t.Skip("el caso de prueba usa plan9 como sistema imposible")
 	}
-	if elegido := assetParaEsteSistema(assets); elegido != nil {
-		t.Fatalf("no debería haber elegido nada, eligió %q", elegido.Name)
+	if chosen := assetForThisSystem(assets); chosen != nil {
+		t.Fatalf("no debería haber elegido nada, eligió %q", chosen.Name)
 	}
 }
 
-// aplicarBinario es el reemplazo de selfupdate.Apply: tiene que dejar la nueva
+// applyBinary es el reemplazo de selfupdate.Apply: tiene que dejar la nueva
 // versión en su sitio y no perder la anterior si algo sale mal.
-func TestAplicarBinarioSustituyeElEjecutable(t *testing.T) {
+func TestApplyBinarySubstitutesExecutable(t *testing.T) {
 	dir := t.TempDir()
-	destino := filepath.Join(dir, "TelegramDL")
-	origen := filepath.Join(dir, "descargado")
+	target := filepath.Join(dir, "TelegramDL")
+	source := filepath.Join(dir, "descargado")
 
-	if err := os.WriteFile(destino, []byte("version vieja"), 0o755); err != nil {
+	if err := os.WriteFile(target, []byte("version vieja"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(origen, []byte("version nueva"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("version nueva"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := aplicarBinario(origen, destino); err != nil {
-		t.Fatalf("aplicarBinario devolvió error: %v", err)
+	if err := applyBinary(source, target); err != nil {
+		t.Fatalf("applyBinary devolvió error: %v", err)
 	}
 
-	contenido, err := os.ReadFile(destino)
+	content, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(contenido) != "version nueva" {
-		t.Fatalf("el ejecutable no se sustituyó: %q", contenido)
+	if string(content) != "version nueva" {
+		t.Fatalf("el ejecutable no se sustituyó: %q", content)
 	}
 
 	// El binario nuevo tiene que quedar ejecutable aunque el descargado no lo
 	// fuera (en Windows el modo no significa nada y la comprobación se salta).
 	if runtime.GOOS != "windows" {
-		fi, err := os.Stat(destino)
+		fi, err := os.Stat(target)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,44 +133,44 @@ func TestAplicarBinarioSustituyeElEjecutable(t *testing.T) {
 	}
 
 	// No debe quedar ningún temporal suelto en la carpeta.
-	entradas, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entrada := range entradas {
-		if len(entrada.Name()) > 0 && entrada.Name()[0] == '.' {
-			t.Fatalf("quedó un archivo temporal sin limpiar: %s", entrada.Name())
+	for _, entry := range entries {
+		if len(entry.Name()) > 0 && entry.Name()[0] == '.' {
+			t.Fatalf("quedó un archivo temporal sin limpiar: %s", entry.Name())
 		}
 	}
 }
 
-func TestAplicarBinarioSinOrigenNoTocaElDestino(t *testing.T) {
+func TestApplyBinaryNoSourceDoesNotTouchTarget(t *testing.T) {
 	dir := t.TempDir()
-	destino := filepath.Join(dir, "TelegramDL")
-	if err := os.WriteFile(destino, []byte("version vieja"), 0o755); err != nil {
+	target := filepath.Join(dir, "TelegramDL")
+	if err := os.WriteFile(target, []byte("version vieja"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := aplicarBinario(filepath.Join(dir, "no-existe"), destino); err == nil {
+	if err := applyBinary(filepath.Join(dir, "no-existe"), target); err == nil {
 		t.Fatal("se esperaba un error al no encontrar la nueva versión")
 	}
 
-	contenido, err := os.ReadFile(destino)
+	content, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatalf("el ejecutable original desapareció: %v", err)
 	}
-	if string(contenido) != "version vieja" {
-		t.Fatalf("el ejecutable original cambió: %q", contenido)
+	if string(content) != "version vieja" {
+		t.Fatalf("el ejecutable original cambió: %q", content)
 	}
 }
 
-func TestUrlDelChecksum(t *testing.T) {
-	got, err := urlDelChecksum("https://github.com/infinityxgame/tgdown/releases/download/v2.5.0/TelegramDL_windows_amd64.zip?token=x")
+func TestChecksumURL(t *testing.T) {
+	got, err := checksumURL("https://github.com/infinityxgame/tgdown/releases/download/v2.5.0/TelegramDL_windows_amd64.zip?token=x")
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "https://github.com/infinityxgame/tgdown/releases/download/v2.5.0/checksums.txt"
 	if got != want {
-		t.Fatalf("urlDelChecksum = %q, se esperaba %q", got, want)
+		t.Fatalf("checksumURL = %q, se esperaba %q", got, want)
 	}
 }

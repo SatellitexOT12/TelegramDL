@@ -122,7 +122,7 @@ func NewApp(assets fs.FS) *App {
 	// servidor solo atiende esta llamada desde el propio equipo.
 	srv.SetFolderPicker(func() (string, error) {
 		if app.context() == nil {
-			return "", fmt.Errorf("la ventana de la aplicación todavía no está lista")
+			return "", fmt.Errorf("%s", i18n.T("app.windowNotReady"))
 		}
 		return app.SelectDirectory()
 	})
@@ -210,10 +210,10 @@ func (a *App) Handler() http.Handler {
 func (a *App) SelectDirectory() (string, error) {
 	ctx := a.context()
 	if ctx == nil {
-		return "", fmt.Errorf("la ventana de la aplicación todavía no está lista")
+		return "", fmt.Errorf("%s", i18n.T("app.windowNotReady"))
 	}
 	selected, err := wailsRuntime.OpenDirectoryDialog(ctx, wailsRuntime.OpenDialogOptions{
-		Title:            "Seleccionar carpeta de descargas",
+		Title:            i18n.T("settings.selectFolderTitle"),
 		DefaultDirectory: a.config.DownloadFolder,
 	})
 	if err != nil {

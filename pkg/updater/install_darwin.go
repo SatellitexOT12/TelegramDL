@@ -202,7 +202,7 @@ func extractForMac(archivePath, dest string) error {
 		}
 		return nil
 	case strings.HasSuffix(lower, ".tar.gz"), strings.HasSuffix(lower, ".tgz"):
-		return untarGz(archivePath, dest)
+		return untarGzip(archivePath, dest)
 	default:
 		return fmt.Errorf(i18n.T("updater.darwinUnsupportedFormat"), filepath.Base(archivePath))
 	}

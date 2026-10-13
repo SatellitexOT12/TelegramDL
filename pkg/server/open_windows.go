@@ -68,13 +68,13 @@ func openInSystem(target string) {
 	openWithExplorer(target)
 }
 
-func openWithExplorer(ruta string) {
-	if strings.TrimSpace(ruta) == "" {
+func openWithExplorer(path string) {
+	if strings.TrimSpace(path) == "" {
 		return
 	}
 	// explorer.exe devuelve código 1 incluso cuando funciona, así que su error
 	// no dice nada y no se comprueba.
-	_ = exec.Command("explorer.exe", ruta).Start()
+	_ = exec.Command("explorer.exe", path).Start()
 }
 
 // shellExecute llama a ShellExecuteW de shell32.dll.

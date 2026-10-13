@@ -87,7 +87,7 @@ type ClientManager struct {
 // barato) para dejar sitio a la nueva.
 const maxAccessHashEntries = 20000
 
-// ConexionesDescarga es cuántas conexiones MTProto se abren, además de la
+// DownloadConnections es cuántas conexiones MTProto se abren, además de la
 // principal, solo para pedir bloques de archivo.
 //
 // Es el arreglo de fondo del problema de «los workers no suman»: MTProto
@@ -101,31 +101,31 @@ const maxAccessHashEntries = 20000
 // bloques de 512 KB y 100 ms de ida y vuelta el techo teórico queda muy por
 // encima de cualquier conexión doméstica. Subirlo más no acelera y sí acerca el
 // límite de Telegram.
-const ConexionesDescarga = 8
+const DownloadConnections = 8
 
-// abrirPoolDescargas levanta el grupo de conexiones de descarga. Se llama con
+// openDownloadPool levanta el grupo de conexiones de descarga. Se llama con
 // el cliente ya conectado, porque el grupo se crea contra el centro de datos de
 // la sesión. Si falla, no pasa nada: las descargas siguen saliendo por la
 // conexión principal, como antes.
-func (cm *ClientManager) abrirPoolDescargas() {
+func (cm *ClientManager) openDownloadPool() {
 	cm.mu.RLock()
 	client := cm.client
-	yaAbierto := cm.downloadPool != nil
+	alreadyOpened := cm.downloadPool != nil
 	cm.mu.RUnlock()
 
-	if client == nil || yaAbierto {
+	if client == nil || alreadyOpened {
 		return
 	}
 
-	pool, err := client.Pool(int64(ConexionesDescarga))
+	pool, err := client.Pool(int64(DownloadConnections))
 	if err != nil {
 		// El aviso sale una sola vez: DownloadClient reintenta abrirlo en cada
 		// descarga y no tiene sentido llenar el registro con lo mismo.
 		cm.mu.Lock()
-		avisar := !cm.downloadPoolAviso
+		shouldWarn := !cm.downloadPoolAviso
 		cm.downloadPoolAviso = true
 		cm.mu.Unlock()
-		if avisar {
+		if shouldWarn {
 			log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolError", err))
 		}
 		return
@@ -137,11 +137,11 @@ func (cm *ClientManager) abrirPoolDescargas() {
 	cm.downloadPoolAviso = false
 	cm.mu.Unlock()
 
-	log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolOpened", ConexionesDescarga))
+	log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolOpened", DownloadConnections))
 }
 
-// cerrarPoolDescargas cierra el grupo al caerse la conexión. Es idempotente.
-func (cm *ClientManager) cerrarPoolDescargas() {
+// closeDownloadPool cierra el grupo al caerse la conexión. Es idempotente.
+func (cm *ClientManager) closeDownloadPool() {
 	cm.mu.Lock()
 	pool := cm.downloadPool
 	cm.downloadPool = nil
@@ -159,7 +159,7 @@ func (cm *ClientManager) cerrarPoolDescargas() {
 	for dcID, p := range dcPools {
 		if p != nil {
 			if err := p.Close(); err != nil {
-				log.Printf("[TG CLIENT] Error cerrando pool DC %d: %v", dcID, err)
+				log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolCloseDCErr", dcID, err))
 			}
 		}
 	}
@@ -184,7 +184,7 @@ func (cm *ClientManager) DownloadClient() *tg.Client {
 	// El grupo se abre al conectar, pero si en ese momento todavía no había
 	// sesión iniciada pudo fallar. Aquí se reintenta, así que la primera
 	// descarga después de iniciar sesión ya lo levanta.
-	cm.abrirPoolDescargas()
+	cm.openDownloadPool()
 
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -249,9 +249,9 @@ func (cm *ClientManager) DownloadClientForDC(ctx context.Context, dc int) (*tg.C
 		return dlClient, nil
 	}
 
-	pool, err := client.DC(ctx, dc, int64(ConexionesDescarga))
+	pool, err := client.DC(ctx, dc, int64(DownloadConnections))
 	if err != nil {
-		log.Printf("[TG CLIENT] Error abriendo pool para DC %d: %v", dc, err)
+		log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolOpenDCErr", dc, err))
 		return nil, fmt.Errorf("error al conectar a DC %d: %w", dc, err)
 	}
 
@@ -262,7 +262,7 @@ func (cm *ClientManager) DownloadClientForDC(ctx context.Context, dc int) (*tg.C
 	}
 	cm.dcPools[dc] = pool
 	cm.dcClients[dc] = dlClient
-	log.Printf("[TG CLIENT] Pool de descargas para DC %d abierto (%d conexiones)", dc, ConexionesDescarga)
+	log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolDCOpened", dc, DownloadConnections))
 	return dlClient, nil
 }
 
@@ -812,8 +812,8 @@ func (cm *ClientManager) InitClient(apiIDStr, apiHash string) error {
 			// Los bloques de archivo salen por su propio grupo de conexiones.
 			// Se abre aquí, con la sesión ya conectada, y se cierra al salir de
 			// Run, que es cuando se cae la conexión o se cierra el programa.
-			cm.abrirPoolDescargas()
-			defer cm.cerrarPoolDescargas()
+			cm.openDownloadPool()
+			defer cm.closeDownloadPool()
 
 			// Bucle de espera de autenticación para iniciar el manejador de actualizaciones (gaps)
 			for {

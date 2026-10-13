@@ -51,6 +51,9 @@ Este archivo define la arquitectura del proyecto `tgdown` y establece las reglas
 ### 9. Fuente Completa de Convenciones
 - La guía completa para contribuidores humanos vive en `CONTRIBUTING.md`; estas reglas son el subconjunto de obligado cumplimiento para asistentes de IA.
 
+### 10. Uso de emojis
+- No uses emojis en ninguna implementación del programa, consola o interfaz, si es necesario un ícono en el dashboard usa la librería instalada y en consola no pongas íconos ni emojis porque puede dar error.
+
 ---
 
 ## 🛠️ ARQUITECTURA DEL PROYECTO

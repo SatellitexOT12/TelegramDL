@@ -315,32 +315,32 @@ func (le *ListenerEngine) chatFolder(chatCfg config.ListenerChat) string {
 	}
 
 	clave := chatCfg.Key()
-	var entrada *config.ListenerChat
+	var entry *config.ListenerChat
 	for i := range le.config.ListenerChats {
 		if le.config.ListenerChats[i].Key() == clave {
-			entrada = &le.config.ListenerChats[i]
+			entry = &le.config.ListenerChats[i]
 			break
 		}
 	}
 
 	// El chat dejó de estar configurado entre que llegó el mensaje y esta
 	// llamada: se calcula la carpeta al vuelo y no se guarda nada.
-	if entrada == nil {
+	if entry == nil {
 		le.mu.Unlock()
 		return dynamicFolder(chatCfg)
 	}
 
 	cambiado := false
-	if strings.TrimSpace(entrada.Folder) == "" {
-		entrada.Folder = le.freeGroupFolder(chatCfg)
+	if strings.TrimSpace(entry.Folder) == "" {
+		entry.Folder = le.freeGroupFolder(chatCfg)
 		cambiado = true
 	}
-	if entrada.HasTopic() && strings.TrimSpace(entrada.TopicFolder) == "" {
-		entrada.TopicFolder = le.freeTopicFolder(*entrada)
+	if entry.HasTopic() && strings.TrimSpace(entry.TopicFolder) == "" {
+		entry.TopicFolder = le.freeTopicFolder(*entry)
 		cambiado = true
 	}
 
-	ruta := entrada.RelativeFolder()
+	ruta := entry.RelativeFolder()
 	if cambiado {
 		le.updateChatMap(le.config)
 	}
@@ -364,61 +364,61 @@ func (le *ListenerEngine) freeGroupFolder(chatCfg config.ListenerChat) string {
 	// El grupo entero y cada uno de sus temas son entradas distintas, pero
 	// comparten la carpeta del grupo: si otra entrada del mismo chat ya tiene
 	// una, se reusa.
-	for _, otro := range le.config.ListenerChats {
-		if otro.ID == chatCfg.ID && strings.TrimSpace(otro.Folder) != "" {
-			return otro.Folder
+	for _, other := range le.config.ListenerChats {
+		if other.ID == chatCfg.ID && strings.TrimSpace(other.Folder) != "" {
+			return other.Folder
 		}
 	}
 
-	nombre := strings.TrimSpace(chatCfg.Name)
-	if isNumericOnly(nombre) {
+	name := strings.TrimSpace(chatCfg.Name)
+	if isNumericOnly(name) {
 		// Todavía no sabemos el título del chat: lo que hay es su propio ID.
 		return downloader.FolderByID(chatCfg.ID)
 	}
 
-	carpeta := downloader.ChatFolderName(nombre, chatCfg.ID)
-	for _, otro := range le.config.ListenerChats {
-		if otro.ID == chatCfg.ID {
+	folder := downloader.ChatFolderName(name, chatCfg.ID)
+	for _, other := range le.config.ListenerChats {
+		if other.ID == chatCfg.ID {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(otro.Folder), carpeta) {
+		if strings.EqualFold(strings.TrimSpace(other.Folder), folder) {
 			// Dos chats distintos con el mismo título: al segundo se le pone su
 			// ID detrás para que no compartan destino.
-			return downloader.FolderNameWithID(carpeta, chatCfg.ID)
+			return downloader.FolderNameWithID(folder, chatCfg.ID)
 		}
 	}
-	return carpeta
+	return folder
 }
 
 // freeTopicFolder elige el nombre de la subcarpeta del tema, que cuelga de
 // la del grupo. Se llama con le.mu tomado.
-func (le *ListenerEngine) freeTopicFolder(entrada config.ListenerChat) string {
-	carpeta := downloader.TopicFolderName(entrada.TopicLabel(), entrada.Topic())
-	for _, otro := range le.config.ListenerChats {
-		if otro.ID != entrada.ID || otro.Topic() == entrada.Topic() {
+func (le *ListenerEngine) freeTopicFolder(entry config.ListenerChat) string {
+	folder := downloader.TopicFolderName(entry.TopicLabel(), entry.Topic())
+	for _, other := range le.config.ListenerChats {
+		if other.ID != entry.ID || other.Topic() == entry.Topic() {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(otro.TopicFolder), carpeta) {
+		if strings.EqualFold(strings.TrimSpace(other.TopicFolder), folder) {
 			// «tema_<id>» sí es único dentro del grupo.
-			return downloader.TopicFolderName("", entrada.Topic())
+			return downloader.TopicFolderName("", entry.Topic())
 		}
 	}
-	return carpeta
+	return folder
 }
 
 // dynamicFolder calcula la carpeta sin mirar ni tocar la configuración.
 func dynamicFolder(chatCfg config.ListenerChat) string {
-	nombre := strings.TrimSpace(chatCfg.Name)
-	var carpeta string
-	if isNumericOnly(nombre) {
-		carpeta = downloader.FolderByID(chatCfg.ID)
+	name := strings.TrimSpace(chatCfg.Name)
+	var folder string
+	if isNumericOnly(name) {
+		folder = downloader.FolderByID(chatCfg.ID)
 	} else {
-		carpeta = downloader.ChatFolderName(nombre, chatCfg.ID)
+		folder = downloader.ChatFolderName(name, chatCfg.ID)
 	}
 	if chatCfg.HasTopic() {
-		return filepath.Join(carpeta, downloader.TopicFolderName(chatCfg.TopicLabel(), chatCfg.Topic()))
+		return filepath.Join(folder, downloader.TopicFolderName(chatCfg.TopicLabel(), chatCfg.Topic()))
 	}
-	return carpeta
+	return folder
 }
 
 // isNumericOnly indica si el «título» del chat es en realidad su ID, que es lo
@@ -451,24 +451,24 @@ func (le *ListenerEngine) prepareFolder(sub string, chatCfg config.ListenerChat)
 		return
 	}
 
-	sub = downloader.RutaRelativaSegura(sub)
+	sub = downloader.SafeRelativePath(sub)
 	if sub == "" {
 		return
 	}
 
-	ruta := filepath.Join(base, sub)
-	if err := os.MkdirAll(ruta, 0o755); err != nil {
-		log.Printf("[LISTENER] %s", i18n.T("listener.mkdirError", ruta, err))
+	fullPath := filepath.Join(base, sub)
+	if err := os.MkdirAll(fullPath, 0o755); err != nil {
+		log.Printf("[LISTENER] %s", i18n.T("listener.mkdirError", fullPath, err))
 		return
 	}
 
-	aviso := filepath.Join(ruta, "_nombre.txt")
-	if _, err := os.Stat(aviso); err == nil {
+	notice := filepath.Join(fullPath, "_nombre.txt")
+	if _, err := os.Stat(notice); err == nil {
 		return
 	}
-	contenido := downloader.TextoCarpetaChat(chatCfg.GroupName(), chatCfg.ID, chatCfg.TopicLabel())
-	if err := os.WriteFile(aviso, []byte(contenido), 0o644); err != nil {
-		log.Printf("[LISTENER] %s", i18n.T("listener.writeFileError", aviso, err))
+	content := downloader.ChatFolderText(chatCfg.GroupName(), chatCfg.ID, chatCfg.TopicLabel())
+	if err := os.WriteFile(notice, []byte(content), 0o644); err != nil {
+		log.Printf("[LISTENER] %s", i18n.T("listener.writeFileError", notice, err))
 	}
 }
 

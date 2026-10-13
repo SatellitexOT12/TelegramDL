@@ -82,24 +82,24 @@ type AppUpdater struct {
 	rateLimitUntil time.Time
 }
 
-// errCuotaAgotada distingue el "GitHub no nos deja preguntar ahora mismo" de un
+// errRateLimited distingue el "GitHub no nos deja preguntar ahora mismo" de un
 // fallo de verdad, para no llenar el registro de avisos por algo que se arregla
 // solo con el tiempo.
-var errCuotaAgotada = errors.New("GitHub limitó las peticiones de actualización")
+var errRateLimited = errors.New("GitHub limitó las peticiones de actualización")
 
 const (
 	githubAPI = "https://api.github.com"
 
-	// esperaSinDatos es cuánto se tolera que una descarga no reciba un solo
+	// noDataTimeout es cuánto se tolera que una descarga no reciba un solo
 	// byte antes de darla por colgada. Sin esto, una conexión que se queda a
 	// medias dejaba la actualización en "descargando" para siempre.
-	esperaSinDatos = 60 * time.Second
+	noDataTimeout = 60 * time.Second
 )
 
-// transporteActualizador acota cada fase de la conexión por separado. Un
+// updaterTransport acota cada fase de la conexión por separado. Un
 // Timeout global del cliente no sirve para la descarga del instalador: cortaría
 // un archivo grande por una línea lenta aunque estuviera avanzando bien.
-var transporteActualizador = &http.Transport{
+var updaterTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
 		Timeout:   15 * time.Second,
@@ -111,19 +111,19 @@ var transporteActualizador = &http.Transport{
 	ForceAttemptHTTP2:     true,
 }
 
-// clienteAPI es para las consultas cortas (la release y el checksums.txt).
-var clienteAPI = &http.Client{
-	Transport: transporteActualizador,
+// apiClient es para las consultas cortas (la release y el checksums.txt).
+var apiClient = &http.Client{
+	Transport: updaterTransport,
 	Timeout:   30 * time.Second,
 }
 
-// clienteDescarga no lleva Timeout global: la descarga se vigila por
+// downloadClient no lleva Timeout global: la descarga se vigila por
 // inactividad dentro de downloadWithProgress.
-var clienteDescarga = &http.Client{Transport: transporteActualizador}
+var downloadClient = &http.Client{Transport: updaterTransport}
 
-// agenteDeUsuario identifica a la aplicación. La API de GitHub rechaza con 403
+// userAgent identifica a la aplicación. La API de GitHub rechaza con 403
 // cualquier petición que no lo lleve.
-func agenteDeUsuario() string {
+func userAgent() string {
 	return "TelegramDL/" + config.AppVersion + " (+https://github.com/" + config.GithubRepo + ")"
 }
 
@@ -257,10 +257,10 @@ type assetGitHub struct {
 	Size int64  `json:"size"`
 }
 
-// anotarLimiteDeCuota apunta hasta cuándo no merece la pena volver a preguntar
+// recordRateLimit apunta hasta cuándo no merece la pena volver a preguntar
 // cuando GitHub responde que se agotó la cuota de peticiones por hora. El propio
 // GitHub lo dice en las cabeceras, así que no hay que adivinar nada.
-func (u *AppUpdater) anotarLimiteDeCuota(resp *http.Response) bool {
+func (u *AppUpdater) recordRateLimit(resp *http.Response) bool {
 	reintentar := resp.Header.Get("Retry-After")
 	agotada := resp.Header.Get("X-RateLimit-Remaining") == "0"
 	if !agotada && reintentar == "" {
@@ -291,24 +291,24 @@ func (u *AppUpdater) anotarLimiteDeCuota(resp *http.Response) bool {
 	return true
 }
 
-// consultarUltimaRelease pide a GitHub la última versión publicada. Devuelve
+// fetchLatestRelease pide a GitHub la última versión publicada. Devuelve
 // (nil, nil) cuando el repositorio todavía no tiene ninguna.
-func (u *AppUpdater) consultarUltimaRelease(ctx context.Context) (*releaseGitHub, error) {
+func (u *AppUpdater) fetchLatestRelease(ctx context.Context) (*releaseGitHub, error) {
 	slug := strings.Trim(strings.TrimSpace(u.repoURL), "/")
 	if slug == "" || !strings.Contains(slug, "/") {
 		return nil, fmt.Errorf(i18n.T("updater.repoMisconfigured"), u.repoURL)
 	}
 
-	peticion, err := http.NewRequestWithContext(ctx, http.MethodGet,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		fmt.Sprintf("%s/repos/%s/releases/latest", githubAPI, slug), nil)
 	if err != nil {
 		return nil, err
 	}
-	peticion.Header.Set("Accept", "application/vnd.github+json")
-	peticion.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	peticion.Header.Set("User-Agent", agenteDeUsuario())
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("User-Agent", userAgent())
 
-	resp, err := clienteAPI.Do(peticion)
+	resp, err := apiClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -320,8 +320,8 @@ func (u *AppUpdater) consultarUltimaRelease(ctx context.Context) (*releaseGitHub
 		// El repositorio existe pero no ha publicado ninguna versión.
 		return nil, nil
 	case http.StatusForbidden, http.StatusTooManyRequests:
-		if u.anotarLimiteDeCuota(resp) {
-			return nil, errCuotaAgotada
+		if u.recordRateLimit(resp) {
+			return nil, errRateLimited
 		}
 		return nil, fmt.Errorf(i18n.T("updater.githubRejected"), resp.StatusCode)
 	default:
@@ -337,9 +337,9 @@ func (u *AppUpdater) consultarUltimaRelease(ctx context.Context) (*releaseGitHub
 	return &rel, nil
 }
 
-// extensionesNoEjecutables son archivos que acompañan a la release pero no son
+// nonExecutableExtensions son archivos que acompañan a la release pero no son
 // la aplicación: sumas de verificación, firmas y notas.
-var extensionesNoEjecutables = map[string]bool{
+var nonExecutableExtensions = map[string]bool{
 	".txt": true, ".md": true, ".sig": true, ".minisig": true,
 	".asc": true, ".sha256": true, ".sha512": true, ".pem": true,
 }
@@ -383,42 +383,42 @@ func containsAnyKeyword(texto string, palabras []string) bool {
 	return false
 }
 
-// assetParaEsteSistema elige de la release el archivo que corresponde a esta
+// assetForThisSystem elige de la release el archivo que corresponde a esta
 // plataforma. Si hay varios del mismo sistema, gana el que además coincide en
 // arquitectura.
-func assetParaEsteSistema(assets []assetGitHub) *ReleaseAsset {
-	sistema := systemKeywords()
-	arquitectura := archKeywords()
+func assetForThisSystem(assets []assetGitHub) *ReleaseAsset {
+	system := systemKeywords()
+	architecture := archKeywords()
 
-	var candidato *assetGitHub
+	var candidate *assetGitHub
 	for i := range assets {
 		asset := &assets[i]
 		if asset.URL == "" {
 			continue
 		}
-		nombre := strings.ToLower(asset.Name)
-		if extensionesNoEjecutables[strings.ToLower(filepath.Ext(nombre))] {
+		name := strings.ToLower(asset.Name)
+		if nonExecutableExtensions[strings.ToLower(filepath.Ext(name))] {
 			continue
 		}
-		if !containsAnyKeyword(nombre, sistema) {
+		if !containsAnyKeyword(name, system) {
 			continue
 		}
-		if containsAnyKeyword(nombre, arquitectura) {
-			candidato = asset
+		if containsAnyKeyword(name, architecture) {
+			candidate = asset
 			break
 		}
-		if candidato == nil {
-			candidato = asset
+		if candidate == nil {
+			candidate = asset
 		}
 	}
 
-	if candidato == nil {
+	if candidate == nil {
 		return nil
 	}
 	return &ReleaseAsset{
-		Name:        candidato.Name,
-		DownloadURL: candidato.URL,
-		Size:        candidato.Size,
+		Name:        candidate.Name,
+		DownloadURL: candidate.URL,
+		Size:        candidate.Size,
 	}
 }
 
@@ -430,9 +430,9 @@ func assetParaEsteSistema(assets []assetGitHub) *ReleaseAsset {
 // falta una librería para eso.
 // ---------------------------------------------------------------------------
 
-// prefijoNumerico devuelve los dígitos del principio de una cadena, para que un
+// numericPrefix devuelve los dígitos del principio de una cadena, para que un
 // "4a" o un "3 " no tumben la comparación entera.
-func prefijoNumerico(s string) int {
+func numericPrefix(s string) int {
 	fin := 0
 	for fin < len(s) && s[fin] >= '0' && s[fin] <= '9' {
 		fin++
@@ -447,8 +447,8 @@ func prefijoNumerico(s string) int {
 	return n
 }
 
-// normalizarVersion parte "v2.5.0-rc1+build" en [2 5 0] y "rc1".
-func normalizarVersion(v string) (numeros [3]int, prueba string) {
+// normalizeVersion parte "v2.5.0-rc1+build" en [2 5 0] y "rc1".
+func normalizeVersion(v string) (numeros [3]int, prueba string) {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")
 	v = strings.TrimPrefix(v, "V")
@@ -462,16 +462,16 @@ func normalizarVersion(v string) (numeros [3]int, prueba string) {
 	}
 
 	for i, parte := range strings.SplitN(v, ".", 3) {
-		numeros[i] = prefijoNumerico(strings.TrimSpace(parte))
+		numeros[i] = numericPrefix(strings.TrimSpace(parte))
 	}
 	return numeros, prueba
 }
 
-// compararVersiones devuelve -1 si a es anterior a b, 1 si es posterior y 0 si
+// compareVersions devuelve -1 si a es anterior a b, 1 si es posterior y 0 si
 // son la misma.
-func compararVersiones(a, b string) int {
-	na, pruebaA := normalizarVersion(a)
-	nb, pruebaB := normalizarVersion(b)
+func compareVersions(a, b string) int {
+	na, pruebaA := normalizeVersion(a)
+	nb, pruebaB := normalizeVersion(b)
 
 	for i := 0; i < len(na); i++ {
 		if na[i] != nb[i] {
@@ -520,11 +520,11 @@ func (u *AppUpdater) CheckForUpdate() (*ReleaseInfo, *ReleaseAsset, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	rel, err := u.consultarUltimaRelease(ctx)
+	rel, err := u.fetchLatestRelease(ctx)
 	if err != nil {
-		// El aviso de cuota agotada ya lo dio anotarLimiteDeCuota; repetirlo
+		// El aviso de cuota agotada ya lo dio recordRateLimit; repetirlo
 		// aquí solo duplicaría la línea en el registro.
-		if !errors.Is(err, errCuotaAgotada) {
+		if !errors.Is(err, errRateLimited) {
 			u.checkErrorLog(first, i18n.T("updater.checkError"), err)
 		}
 		return nil, nil, err
@@ -534,7 +534,7 @@ func (u *AppUpdater) CheckForUpdate() (*ReleaseInfo, *ReleaseAsset, error) {
 		return nil, nil, nil
 	}
 
-	asset := assetParaEsteSistema(rel.Assets)
+	asset := assetForThisSystem(rel.Assets)
 	if asset == nil {
 		u.routineLog(first, i18n.T("updater.noAsset"),
 			i18n.T("updater.noAssetDetail", rel.TagName, len(rel.Assets)))
@@ -544,7 +544,7 @@ func (u *AppUpdater) CheckForUpdate() (*ReleaseInfo, *ReleaseAsset, error) {
 	u.routineLog(first, i18n.T("updater.latestRelease", rel.TagName),
 		i18n.T("updater.latestReleaseDetail", asset.Name))
 
-	if compararVersiones(rel.TagName, u.currentVersion) <= 0 {
+	if compareVersions(rel.TagName, u.currentVersion) <= 0 {
 		u.routineLog(first, i18n.T("updater.upToDate", u.currentVersion), "")
 		return nil, nil, nil
 	}
@@ -639,7 +639,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 				return
 			}
 		} else if strings.HasSuffix(lowerArch, ".tar.gz") || strings.HasSuffix(lowerArch, ".tgz") {
-			if err := untarGz(archivePath, extractPath); err != nil {
+			if err := untarGzip(archivePath, extractPath); err != nil {
 				u.setProgress("error: fallo al descomprimir tar.gz: "+err.Error(), 0, 0, 0)
 				return
 			}
@@ -664,7 +664,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 		}
 
 		log.Printf("[UPDATER] %s", i18n.T("updater.applying", exePath))
-		if err := aplicarBinario(newBinaryPath, exePath); err != nil {
+		if err := applyBinary(newBinaryPath, exePath); err != nil {
 			u.setProgress("error: fallo al aplicar actualización: "+err.Error(), 0, 0, 0)
 			logbus.Error(logbus.CatUpdater, i18n.T("updater.applyError"), err.Error())
 			return
@@ -680,7 +680,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 	return nil
 }
 
-// aplicarBinario sustituye el ejecutable en marcha por el recién descargado.
+// applyBinary sustituye el ejecutable en marcha por el recién descargado.
 //
 // Esto es lo que hacía github.com/minio/selfupdate. El mecanismo es el mismo que
 // usa cualquier actualizador en Windows: un ejecutable en ejecución no se puede
@@ -690,28 +690,28 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 //
 // Si algo falla a mitad se deshace el cambio: el usuario se queda con la versión
 // que tenía, nunca sin aplicación.
-func aplicarBinario(origen, destino string) error {
+func applyBinary(source, target string) error {
 	// Los permisos del ejecutable actual se conservan. En Windows esto no
 	// significa nada (mandan las ACL), pero en Linux y macOS sí.
 	permisos := os.FileMode(0o755)
-	if fi, err := os.Stat(destino); err == nil {
+	if fi, err := os.Stat(target); err == nil {
 		if p := fi.Mode().Perm(); p&0o100 != 0 {
 			permisos = p
 		}
 	}
 
-	entrada, err := os.Open(origen)
+	sourceFile, err := os.Open(source)
 	if err != nil {
 		return fmt.Errorf(i18n.T("updater.readNewVersionError"), err)
 	}
-	defer entrada.Close()
+	defer sourceFile.Close()
 
 	// El temporal se crea en la MISMA carpeta que el destino: renombrar entre
 	// volúmenes distintos falla, y todo esto depende de que el último cambio de
 	// nombre sea atómico.
-	temporal, err := os.CreateTemp(filepath.Dir(destino), ".tgdown-nuevo-*")
+	temporal, err := os.CreateTemp(filepath.Dir(target), ".tgdown-nuevo-*")
 	if err != nil {
-		return fmt.Errorf(i18n.T("updater.writeError"), filepath.Dir(destino), err)
+		return fmt.Errorf(i18n.T("updater.writeError"), filepath.Dir(target), err)
 	}
 	rutaTemporal := temporal.Name()
 	limpiarTemporal := true
@@ -721,7 +721,7 @@ func aplicarBinario(origen, destino string) error {
 		}
 	}()
 
-	if _, err := io.Copy(temporal, entrada); err != nil {
+	if _, err := io.Copy(temporal, sourceFile); err != nil {
 		_ = temporal.Close()
 		return fmt.Errorf(i18n.T("updater.copyError"), err)
 	}
@@ -735,15 +735,15 @@ func aplicarBinario(origen, destino string) error {
 		return fmt.Errorf(i18n.T("updater.chmodError"), err)
 	}
 
-	antiguo := destino + ".old"
+	antiguo := target + ".old"
 	_ = os.Remove(antiguo)
-	if err := os.Rename(destino, antiguo); err != nil {
-		return fmt.Errorf(i18n.T("updater.moveOldError"), destino, err)
+	if err := os.Rename(target, antiguo); err != nil {
+		return fmt.Errorf(i18n.T("updater.moveOldError"), target, err)
 	}
 
-	if err := os.Rename(rutaTemporal, destino); err != nil {
+	if err := os.Rename(rutaTemporal, target); err != nil {
 		// Deshacer.
-		if errVuelta := os.Rename(antiguo, destino); errVuelta != nil {
+		if errVuelta := os.Rename(antiguo, target); errVuelta != nil {
 			return fmt.Errorf(i18n.T("updater.rollbackFailed"), err, antiguo, errVuelta)
 		}
 		return fmt.Errorf(i18n.T("updater.putNewError"), err)
@@ -762,20 +762,20 @@ func (u *AppUpdater) downloadWithProgress(descarga, dest string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Vigilante de inactividad: si no llega un solo byte en esperaSinDatos, se
+	// Vigilante de inactividad: si no llega un solo byte en noDataTimeout, se
 	// corta la conexión. El cliente no lleva Timeout global a propósito, para no
 	// abortar una descarga grande que va lenta pero avanza.
-	vigilante := time.AfterFunc(esperaSinDatos, cancel)
-	defer vigilante.Stop()
+	watchdog := time.AfterFunc(noDataTimeout, cancel)
+	defer watchdog.Stop()
 
-	peticion, err := http.NewRequestWithContext(ctx, http.MethodGet, descarga, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, descarga, nil)
 	if err != nil {
 		return err
 	}
-	peticion.Header.Set("User-Agent", agenteDeUsuario())
-	peticion.Header.Set("Accept", "application/octet-stream")
+	req.Header.Set("User-Agent", userAgent())
+	req.Header.Set("Accept", "application/octet-stream")
 
-	resp, err := clienteDescarga.Do(peticion)
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -798,7 +798,7 @@ func (u *AppUpdater) downloadWithProgress(descarga, dest string) error {
 	for {
 		n, err := resp.Body.Read(buffer)
 		if n > 0 {
-			vigilante.Reset(esperaSinDatos)
+			watchdog.Reset(noDataTimeout)
 			if _, werr := out.Write(buffer[:n]); werr != nil {
 				return werr
 			}
@@ -814,7 +814,7 @@ func (u *AppUpdater) downloadWithProgress(descarga, dest string) error {
 		}
 		if err != nil {
 			if ctx.Err() != nil {
-				return fmt.Errorf(i18n.T("updater.downloadTimeout"), esperaSinDatos)
+				return fmt.Errorf(i18n.T("updater.downloadTimeout"), noDataTimeout)
 			}
 			return err
 		}
@@ -890,10 +890,10 @@ func (u *AppUpdater) restartApp(exePath string) {
 	os.Exit(0)
 }
 
-// dentroDe comprueba que una ruta extraída no se escapa del directorio de
+// isWithin comprueba que una ruta extraída no se escapa del directorio de
 // destino. Es la defensa contra las entradas con «..» dentro de un archivo
 // comprimido, conocido como Zip Slip.
-func dentroDe(dest, target string) bool {
+func isWithin(dest, target string) bool {
 	destAbs, err := filepath.Abs(dest)
 	if err != nil {
 		return false
@@ -908,9 +908,9 @@ func dentroDe(dest, target string) bool {
 	return strings.HasPrefix(targetAbs, destAbs+string(os.PathSeparator))
 }
 
-// modoSeguro se queda con los permisos del archivo comprimido pero descarta
+// safeMode se queda con los permisos del archivo comprimido pero descarta
 // setuid, setgid y sticky, que en un archivo bajado de internet no pintan nada.
-func modoSeguro(mode int64) os.FileMode {
+func safeMode(mode int64) os.FileMode {
 	perm := os.FileMode(mode).Perm()
 	if perm == 0 {
 		perm = 0o644
@@ -937,25 +937,25 @@ func modoSeguro(mode int64) os.FileMode {
 const checksumsFileName = "checksums.txt"
 
 func verifyChecksum(archivePath, assetURL, assetName string) error {
-	esperado, err := descargarChecksum(assetURL, assetName)
+	expected, err := downloadChecksum(assetURL, assetName)
 	if err != nil {
 		return err
 	}
 
-	real, err := sha256DeArchivo(archivePath)
+	actual, err := sha256OfFile(archivePath)
 	if err != nil {
 		return fmt.Errorf(i18n.T("updater.signatureError"), err)
 	}
 
-	if !strings.EqualFold(real, esperado) {
-		return fmt.Errorf(i18n.T("updater.signatureMismatch"), esperado, real)
+	if !strings.EqualFold(actual, expected) {
+		return fmt.Errorf(i18n.T("updater.signatureMismatch"), expected, actual)
 	}
 
 	logbus.Info(logbus.CatUpdater, i18n.T("updater.verified"), assetName)
 	return nil
 }
 
-func sha256DeArchivo(path string) (string, error) {
+func sha256OfFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -969,21 +969,21 @@ func sha256DeArchivo(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// descargarChecksum busca el checksums.txt junto al asset y devuelve la suma
+// downloadChecksum busca el checksums.txt junto al asset y devuelve la suma
 // que corresponde a assetName.
-func descargarChecksum(assetURL, assetName string) (string, error) {
-	checksumURL, err := urlDelChecksum(assetURL)
+func downloadChecksum(assetURL, assetName string) (string, error) {
+	checksumURL, err := checksumURL(assetURL)
 	if err != nil {
 		return "", err
 	}
 
-	peticion, err := http.NewRequest(http.MethodGet, checksumURL, nil)
+	req, err := http.NewRequest(http.MethodGet, checksumURL, nil)
 	if err != nil {
 		return "", err
 	}
-	peticion.Header.Set("User-Agent", agenteDeUsuario())
+	req.Header.Set("User-Agent", userAgent())
 
-	resp, err := clienteAPI.Do(peticion)
+	resp, err := apiClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf(i18n.T("updater.checksumDownloadError"), checksumsFileName, err)
 	}
@@ -997,14 +997,14 @@ func descargarChecksum(assetURL, assetName string) (string, error) {
 	// que una respuesta enorme agote la memoria.
 	scanner := bufio.NewScanner(io.LimitReader(resp.Body, 1<<20))
 	for scanner.Scan() {
-		campos := strings.Fields(scanner.Text())
-		if len(campos) < 2 {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 2 {
 			continue
 		}
 		// sha256sum antepone «*» al nombre en modo binario.
-		nombre := strings.TrimPrefix(campos[len(campos)-1], "*")
-		if filepath.Base(nombre) == filepath.Base(assetName) {
-			return campos[0], nil
+		name := strings.TrimPrefix(fields[len(fields)-1], "*")
+		if filepath.Base(name) == filepath.Base(assetName) {
+			return fields[0], nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -1014,9 +1014,9 @@ func descargarChecksum(assetURL, assetName string) (string, error) {
 	return "", fmt.Errorf(i18n.T("updater.checksumMissingEntry"), checksumsFileName, assetName)
 }
 
-// urlDelChecksum cambia el nombre del archivo al final de la URL del asset por
+// checksumURL cambia el nombre del archivo al final de la URL del asset por
 // checksums.txt, que es donde lo deja el flujo de publicación.
-func urlDelChecksum(assetURL string) (string, error) {
+func checksumURL(assetURL string) (string, error) {
 	u, err := url.Parse(assetURL)
 	if err != nil {
 		return "", fmt.Errorf(i18n.T("updater.invalidDownloadURL"), err)
@@ -1041,7 +1041,7 @@ func unzip(src, dest string) error {
 
 	for _, f := range r.File {
 		fpath := filepath.Join(dest, f.Name)
-		if !dentroDe(dest, fpath) {
+		if !isWithin(dest, fpath) {
 			continue
 		}
 		if f.FileInfo().IsDir() {
@@ -1051,7 +1051,7 @@ func unzip(src, dest string) error {
 		if err = os.MkdirAll(filepath.Dir(fpath), 0o755); err != nil {
 			return err
 		}
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, modoSeguro(int64(f.Mode())))
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, safeMode(int64(f.Mode())))
 		if err != nil {
 			return err
 		}
@@ -1070,7 +1070,7 @@ func unzip(src, dest string) error {
 	return nil
 }
 
-func untarGz(src, dest string) error {
+func untarGzip(src, dest string) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return err
@@ -1096,7 +1096,7 @@ func untarGz(src, dest string) error {
 		target := filepath.Join(dest, header.Name)
 		// Una entrada con «..» en el nombre escribiría fuera del directorio de
 		// destino. unzip ya lo comprobaba; esto faltaba aquí.
-		if !dentroDe(dest, target) {
+		if !isWithin(dest, target) {
 			continue
 		}
 		switch header.Typeflag {
@@ -1104,7 +1104,7 @@ func untarGz(src, dest string) error {
 			_ = os.MkdirAll(target, 0o755)
 		case tar.TypeReg:
 			_ = os.MkdirAll(filepath.Dir(target), 0o755)
-			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, modoSeguro(header.Mode))
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, safeMode(header.Mode))
 			if err != nil {
 				return err
 			}

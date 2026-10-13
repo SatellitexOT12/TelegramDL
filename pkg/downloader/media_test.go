@@ -18,10 +18,10 @@ func TestSanitizeFileNameReplacesInvalidChars(t *testing.T) {
 }
 
 func TestSanitizeFileNameEmptyFallsBackToDefault(t *testing.T) {
-	if got := SanitizeFileName(""); got != "archivo" {
-		t.Fatalf("se esperaba 'archivo', got %q", got)
+	if got := SanitizeFileName(""); got != "file" {
+		t.Fatalf("se esperaba 'file', got %q", got)
 	}
-	if got := SanitizeFileName("   "); got != "archivo" {
+	if got := SanitizeFileName("   "); got != "file" {
 		t.Fatalf("un nombre de solo espacios debería caer al valor por defecto, got %q", got)
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"tgdown/pkg/config"
 	"tgdown/pkg/downloader"
+	"tgdown/pkg/i18n"
 	"tgdown/pkg/storage"
 	"tgdown/pkg/telegram"
 )
@@ -433,7 +434,7 @@ func (s *ScannerService) QueueItems(items []ScanItem) int {
 
 		if s.storage != nil {
 			if err := s.storage.SaveDownload(dlItem); err != nil {
-				log.Printf("[SCANNER] Error guardando descarga en storage: %v", err)
+				log.Printf("[SCANNER] %s", i18n.T("scanner.saveDownloadErr", err))
 			}
 		}
 		if s.engine != nil {
@@ -448,24 +449,24 @@ func parseFloodWait(err error) (time.Duration, bool) {
 	if err == nil {
 		return 0, false
 	}
-	texto := err.Error()
-	const marca = "FLOOD_WAIT_"
-	pos := strings.Index(texto, marca)
+	text := err.Error()
+	const prefix = "FLOOD_WAIT_"
+	pos := strings.Index(text, prefix)
 	if pos < 0 {
 		return 0, false
 	}
-	resto := texto[pos+len(marca):]
-	fin := 0
-	for fin < len(resto) && resto[fin] >= '0' && resto[fin] <= '9' {
-		fin++
+	rest := text[pos+len(prefix):]
+	end := 0
+	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
+		end++
 	}
-	if fin == 0 {
+	if end == 0 {
 		return 0, false
 	}
-	segundos, convErr := strconv.Atoi(resto[:fin])
-	if convErr != nil || segundos <= 0 {
+	seconds, convErr := strconv.Atoi(rest[:end])
+	if convErr != nil || seconds <= 0 {
 		return 0, false
 	}
-	return time.Duration(segundos) * time.Second, true
+	return time.Duration(seconds) * time.Second, true
 }
 

@@ -37,16 +37,16 @@ const (
 
 // ChatFolderName devuelve el nombre de carpeta de un chat: su título si se
 // puede escribir y leer en cualquier sistema, y «chat_<id>» si no.
-func ChatFolderName(titulo string, id int64) string {
-	if nombre := readableName(titulo); nombre != "" {
-		return nombre
+func ChatFolderName(title string, id int64) string {
+	if name := readableName(title); name != "" {
+		return name
 	}
 	return FolderByID(id)
 }
 
 // NombreCarpetaChat es un alias para ChatFolderName.
-func NombreCarpetaChat(titulo string, id int64) string {
-	return ChatFolderName(titulo, id)
+func NombreCarpetaChat(title string, id int64) string {
+	return ChatFolderName(title, id)
 }
 
 // FolderByID es el nombre de respaldo. El ID va en positivo: los canales lo
@@ -66,9 +66,9 @@ func CarpetaPorID(id int64) string {
 
 // TopicFolderName es lo mismo para el tema de un grupo, con «tema_<id>» de
 // respaldo mientras Telegram no nos haya dado su título.
-func TopicFolderName(titulo string, topicID int64) string {
-	if nombre := readableName(titulo); nombre != "" {
-		return nombre
+func TopicFolderName(title string, topicID int64) string {
+	if name := readableName(title); name != "" {
+		return name
 	}
 	if topicID < 0 {
 		topicID = -topicID
@@ -77,35 +77,35 @@ func TopicFolderName(titulo string, topicID int64) string {
 }
 
 // NombreCarpetaTema es un alias para TopicFolderName.
-func NombreCarpetaTema(titulo string, topicID int64) string {
-	return TopicFolderName(titulo, topicID)
+func NombreCarpetaTema(title string, topicID int64) string {
+	return TopicFolderName(title, topicID)
 }
 
 // FolderNameWithID añade el ID al nombre. Se usa cuando dos chats distintos
 // resuelven al mismo nombre de carpeta: el segundo lleva su ID detrás para que
 // no compartan destino.
-func FolderNameWithID(nombre string, id int64) string {
+func FolderNameWithID(name string, id int64) string {
 	if id < 0 {
 		id = -id
 	}
-	sufijo := " (" + strconv.FormatInt(id, 10) + ")"
-	base := strings.TrimSpace(nombre)
+	suffix := " (" + strconv.FormatInt(id, 10) + ")"
+	base := strings.TrimSpace(name)
 	if base == "" {
 		return FolderByID(id)
 	}
 	// El recorte va antes de pegar el sufijo: si no, un nombre ya en el límite
 	// dejaría el ID fuera, que es justo lo que distingue a las dos carpetas.
-	base = truncateRunes(base, maxCarpetaRunas-len([]rune(sufijo)))
+	base = truncateRunes(base, maxCarpetaRunas-len([]rune(suffix)))
 	base = strings.TrimSpace(base)
 	if base == "" {
 		return FolderByID(id)
 	}
-	return SanitizeFileName(base + sufijo)
+	return SanitizeFileName(base + suffix)
 }
 
 // NombreCarpetaConID es un alias para FolderNameWithID.
-func NombreCarpetaConID(nombre string, id int64) string {
-	return FolderNameWithID(nombre, id)
+func NombreCarpetaConID(name string, id int64) string {
+	return FolderNameWithID(name, id)
 }
 
 // SafeRelativePath valida la ruta relativa que viaja con una descarga antes
@@ -133,31 +133,31 @@ func SafeRelativePath(sub string) string {
 		return ""
 	}
 
-	partes := make([]string, 0, 2)
-	for _, parte := range strings.Split(sub, "/") {
-		parte = strings.TrimSpace(parte)
-		if parte == "" || parte == "." {
+	parts := make([]string, 0, 2)
+	for _, part := range strings.Split(sub, "/") {
+		part = strings.TrimSpace(part)
+		if part == "" || part == "." {
 			continue
 		}
 		// Un «..» no se salta: significa que la ruta viene mal, y lo seguro es
 		// quedarse sin subcarpeta y bajar a la raíz de descargas.
-		if parte == ".." {
+		if part == ".." {
 			return ""
 		}
-		parte = SanitizeFileName(parte)
-		if parte == "" {
+		part = SanitizeFileName(part)
+		if part == "" {
 			continue
 		}
-		partes = append(partes, parte)
-		if len(partes) == 2 {
+		parts = append(parts, part)
+		if len(parts) == 2 {
 			break
 		}
 	}
 
-	if len(partes) == 0 {
+	if len(parts) == 0 {
 		return ""
 	}
-	return filepath.Join(partes...)
+	return filepath.Join(parts...)
 }
 
 // RutaRelativaSegura es un alias para SafeRelativePath.
@@ -167,31 +167,31 @@ func RutaRelativaSegura(sub string) string {
 
 // readableName devuelve el título ya limpio y apto para el disco, o cadena
 // vacía si de ese título no queda nada que sirva.
-func readableName(titulo string) string {
-	limpio := collapseSpaces(removeDecoration(titulo))
-	if countAlphanumerics(limpio) < minAlfanumericos {
+func readableName(title string) string {
+	clean := collapseSpaces(removeDecoration(title))
+	if countAlphanumerics(clean) < minAlfanumericos {
 		return ""
 	}
 
-	limpio = strings.TrimSpace(truncateRunes(limpio, maxCarpetaRunas))
-	if limpio == "" {
+	clean = strings.TrimSpace(truncateRunes(clean, maxCarpetaRunas))
+	if clean == "" {
 		return ""
 	}
 
 	// SanitizeFileName es la misma limpieza que se aplica a los archivos:
 	// caracteres que no admite la ruta, nombres reservados de Windows y nada
 	// de punto o espacio al final.
-	seguro := SanitizeFileName(limpio)
+	safe := SanitizeFileName(clean)
 
-	// «archivo» es el comodín que devuelve SanitizeFileName cuando no queda
+	// «file» es el comodín que devuelve SanitizeFileName cuando no queda
 	// nada; como nombre de carpeta de un chat no dice nada, mejor el ID.
-	if seguro == "archivo" && !strings.EqualFold(limpio, "archivo") {
+	if safe == "file" && !strings.EqualFold(clean, "file") {
 		return ""
 	}
-	if countAlphanumerics(seguro) < minAlfanumericos {
+	if countAlphanumerics(safe) < minAlfanumericos {
 		return ""
 	}
-	return seguro
+	return safe
 }
 
 // removeDecoration se queda con la parte del título que es texto de verdad.
@@ -199,39 +199,39 @@ func removeDecoration(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 
-	combinantes := 0
+	combining := 0
 	for _, r := range s {
-		// Las letras «decorativas» matemáticas (𝓒𝓪𝓷𝓪𝓵, 𝗖𝗮𝗻𝗮𝗹) se convierten a su
+		// Las letras «decorativas» matemáticas (𝓒𝓪𝓷𝓪𝓵, 𝗖𝗮𝗻𝗮𝓵) se convierten a su
 		// letra normal en vez de tirarse: son títulos perfectamente legibles
 		// escritos con un alfabeto raro, y así no acaban en el ID.
-		if letra, ok := mathLetter(r); ok {
-			b.WriteRune(letra)
-			combinantes = 0
+		if letter, ok := mathLetter(r); ok {
+			b.WriteRune(letter)
+			combining = 0
 			continue
 		}
 
 		switch {
 		case r == '\n' || r == '\r' || r == '\t':
 			b.WriteRune(' ')
-			combinantes = 0
+			combining = 0
 
 		case unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Me, r):
 			// Marcas combinantes: una por letra base. Más de una es el truco
 			// del «Zalgo», texto sepultado bajo cientos de tildes.
-			if combinantes < 1 {
+			if combining < 1 {
 				b.WriteRune(r)
-				combinantes++
+				combining++
 			}
 
 		case isDecorative(r):
 			// Se sustituye por un espacio para no pegar dos palabras que solo
 			// estaban separadas por el emoji de en medio.
 			b.WriteRune(' ')
-			combinantes = 0
+			combining = 0
 
 		default:
 			b.WriteRune(r)
-			combinantes = 0
+			combining = 0
 		}
 	}
 
@@ -269,9 +269,9 @@ func isDecorative(r rune) bool {
 // (la «h» cursiva vive fuera, en ℎ) no hacen falta: esos caracteres ya son
 // letras normales y pasan el filtro por su cuenta.
 var mathAlphabets = []struct {
-	inicio rune
+	start  rune
 	base   rune
-	largo  rune
+	length rune
 }{
 	{0x1D400, 'A', 26}, {0x1D41A, 'a', 26}, // negrita
 	{0x1D434, 'A', 26}, {0x1D44E, 'a', 26}, // cursiva
@@ -296,9 +296,9 @@ func mathLetter(r rune) (rune, bool) {
 	if r < 0x1D400 || r > 0x1D7FF {
 		return 0, false
 	}
-	for _, bloque := range mathAlphabets {
-		if r >= bloque.inicio && r < bloque.inicio+bloque.largo {
-			return bloque.base + (r - bloque.inicio), true
+	for _, block := range mathAlphabets {
+		if r >= block.start && r < block.start+block.length {
+			return block.base + (r - block.start), true
 		}
 	}
 	return 0, false
@@ -307,8 +307,8 @@ func mathLetter(r rune) (rune, bool) {
 // collapseSpaces deja un solo espacio entre palabras y quita los de los
 // extremos. Después de quitar la decoración suelen quedar huecos dobles.
 func collapseSpaces(s string) string {
-	campos := strings.FieldsFunc(s, unicode.IsSpace)
-	return strings.Join(campos, " ")
+	fields := strings.FieldsFunc(s, unicode.IsSpace)
+	return strings.Join(fields, " ")
 }
 
 // countAlphanumerics cuenta las runas que son letra o número de algún sistema
@@ -326,18 +326,18 @@ func countAlphanumerics(s string) int {
 // ChatFolderText es el contenido del archivito que se deja dentro de la
 // carpeta cuando el nombre no dice de qué chat es. Sirve para reconocerla
 // desde el Explorador sin abrir el programa.
-func ChatFolderText(titulo string, id int64, tema string) string {
+func ChatFolderText(title string, id int64, topic string) string {
 	var b strings.Builder
 	b.WriteString("Carpeta creada por TelegramDL\r\n")
-	b.WriteString(fmt.Sprintf("Chat: %s\r\n", strings.TrimSpace(titulo)))
+	b.WriteString(fmt.Sprintf("Chat: %s\r\n", strings.TrimSpace(title)))
 	b.WriteString(fmt.Sprintf("ID: %d\r\n", id))
-	if tema = strings.TrimSpace(tema); tema != "" {
-		b.WriteString(fmt.Sprintf("Tema: %s\r\n", tema))
+	if topic = strings.TrimSpace(topic); topic != "" {
+		b.WriteString(fmt.Sprintf("Tema: %s\r\n", topic))
 	}
 	return b.String()
 }
 
 // TextoCarpetaChat es un alias para ChatFolderText.
-func TextoCarpetaChat(titulo string, id int64, tema string) string {
-	return ChatFolderText(titulo, id, tema)
+func TextoCarpetaChat(title string, id int64, topic string) string {
+	return ChatFolderText(title, id, topic)
 }

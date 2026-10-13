@@ -420,7 +420,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.checkAuth(r) {
-			s.errorResponse(w, http.StatusUnauthorized, "Token de acceso inválido o ausente")
+			s.errorResponse(w, http.StatusUnauthorized, i18n.T("server.invalidToken"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -931,7 +931,7 @@ func (s *Server) handleAuthCredentials(w http.ResponseWriter, r *http.Request) {
 		APIHash string `json:"api_hash"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -941,13 +941,13 @@ func (s *Server) handleAuthCredentials(w http.ResponseWriter, r *http.Request) {
 	// recuperarlas, así que ahora sí se corta aquí.
 	if err := s.storage.SaveCredentials(body.APIID, body.APIHash); err != nil {
 		log.Printf("[SERVER] %s", i18n.T("server.saveCredsError", err))
-		s.errorResponse(w, http.StatusInternalServerError, "Error guardando credenciales")
+		s.errorResponse(w, http.StatusInternalServerError, i18n.T("server.saveCredsErrorMsg"))
 		return
 	}
 
 	if err := s.clientMgr.InitClient(body.APIID, body.APIHash); err != nil {
 		log.Printf("[SERVER] %s", i18n.T("server.tgInitError", err))
-		s.errorResponse(w, http.StatusInternalServerError, "Error inicializando cliente Telegram")
+		s.errorResponse(w, http.StatusInternalServerError, i18n.T("server.tgInitErrorMsg"))
 		return
 	}
 
@@ -965,7 +965,7 @@ func (s *Server) handleAuthSendCode(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phone_number"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 	phone := strings.TrimSpace(body.Phone)
@@ -973,7 +973,7 @@ func (s *Server) handleAuthSendCode(w http.ResponseWriter, r *http.Request) {
 		phone = strings.TrimSpace(body.PhoneNumber)
 	}
 	if phone == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Teléfono requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.phoneRequired"))
 		return
 	}
 
@@ -994,7 +994,7 @@ func (s *Server) handleAuthVerifyCode(w http.ResponseWriter, r *http.Request) {
 		PhoneCodeHash string `json:"phone_code_hash"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 	phone := strings.TrimSpace(body.Phone)
@@ -1003,7 +1003,7 @@ func (s *Server) handleAuthVerifyCode(w http.ResponseWriter, r *http.Request) {
 	}
 	code := strings.TrimSpace(body.Code)
 	if code == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Código requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.codeRequired"))
 		return
 	}
 
@@ -1036,7 +1036,7 @@ func (s *Server) handleAuthVerify2FA(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Password == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Contraseña requerida")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.passwordRequired"))
 		return
 	}
 
@@ -1121,7 +1121,7 @@ func buildTokenMessage(token string) string {
 // frecuencia.
 func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1131,7 +1131,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	// navegador manda sin consultar antes con CORS. Exigir una cabecera propia
 	// obliga al navegador a hacer el preflight, que CORS rechaza.
 	if r.Header.Get(cabeceraPeticionPropia) == "" {
-		s.errorResponse(w, http.StatusForbidden, "Petición no válida")
+		s.errorResponse(w, http.StatusForbidden, i18n.T("server.invalidRequest"))
 		return
 	}
 
@@ -1174,7 +1174,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	s.mu.Unlock()
 
 	if token == "" {
-		s.errorResponse(w, http.StatusServiceUnavailable, "Todavía no hay ningún token de acceso generado")
+		s.errorResponse(w, http.StatusServiceUnavailable, i18n.T("server.noTokenGenerated"))
 		return
 	}
 
@@ -1191,7 +1191,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 		s.mu.Unlock()
 
 		logbus.Error(logbus.CatServer, i18n.T("server.tokenSendError"), err.Error())
-		s.errorResponse(w, http.StatusBadGateway, fmt.Sprintf("No se pudo enviar el token a Telegram: %s", err.Error()))
+		s.errorResponse(w, http.StatusBadGateway, fmt.Sprintf(i18n.T("server.tokenSendErrorPrefix"), err.Error()))
 		return
 	}
 
@@ -1211,7 +1211,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 // reconfigurarse con el nuevo valor devuelto aquí.
 func (s *Server) handleRegenerateToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 	newToken := s.RegenerateToken()
@@ -1277,7 +1277,7 @@ func (s *Server) handleStartDownload(w http.ResponseWriter, r *http.Request) {
 		URL string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.URL) == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "URL requerida")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.urlRequired"))
 		return
 	}
 
@@ -1303,7 +1303,7 @@ func (s *Server) handleCancelDownload(w http.ResponseWriter, r *http.Request) {
 		id = strings.TrimSpace(body.ItemID)
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1322,7 +1322,7 @@ func (s *Server) handlePauseDownload(w http.ResponseWriter, r *http.Request) {
 		id = strings.TrimSpace(body.ItemID)
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1344,7 +1344,7 @@ func (s *Server) handleResumeDownload(w http.ResponseWriter, r *http.Request) {
 		id = strings.TrimSpace(body.ItemID)
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1381,7 +1381,7 @@ func (s *Server) handleRetryDownload(w http.ResponseWriter, r *http.Request) {
 		id = strings.TrimSpace(body.ItemID)
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1401,7 +1401,7 @@ func (s *Server) handleDownloadsRoute(w http.ResponseWriter, r *http.Request) {
 			s.handleGetDownloads(w, r)
 			return
 		}
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1410,7 +1410,7 @@ func (s *Server) handleDownloadsRoute(w http.ResponseWriter, r *http.Request) {
 			s.handleClearHistory(w, r)
 			return
 		}
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1419,7 +1419,7 @@ func (s *Server) handleDownloadsRoute(w http.ResponseWriter, r *http.Request) {
 			s.handleOpenDownload(w, r)
 			return
 		}
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1440,7 +1440,7 @@ func (s *Server) handleDownloadsRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.errorResponse(w, http.StatusNotFound, "Ruta no encontrada")
+	s.errorResponse(w, http.StatusNotFound, i18n.T("server.notFound"))
 }
 
 func (s *Server) handleDeleteDownload(w http.ResponseWriter, r *http.Request) {
@@ -1458,7 +1458,7 @@ func (s *Server) handleDeleteDownload(w http.ResponseWriter, r *http.Request) {
 		id = r.URL.Query().Get("id")
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1494,7 +1494,7 @@ func (s *Server) handleOpenDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	item, ok := s.downloader.GetItem(id)
 	if !ok || item.FilePath == "" {
-		s.errorResponse(w, http.StatusNotFound, "Archivo no encontrado")
+		s.errorResponse(w, http.StatusNotFound, i18n.T("server.fileNotFound"))
 		return
 	}
 
@@ -1521,7 +1521,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	var raw map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Configuración inválida")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidConfig"))
 		return
 	}
 
@@ -1965,7 +1965,7 @@ func (s *Server) handleListenerDownload(w http.ResponseWriter, r *http.Request) 
 		id = strings.TrimSpace(body.ItemID)
 	}
 	if id == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "ID requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.idRequired"))
 		return
 	}
 
@@ -1986,14 +1986,14 @@ func (s *Server) handleListenerClear(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListenerReorder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 	var body struct {
 		IDs []string `json:"ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "JSON inválido")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.invalidJson"))
 		return
 	}
 	s.listener.ReorderItems(body.IDs)
@@ -2029,7 +2029,7 @@ func (s *Server) handleListenerDeleteItemPath(w http.ResponseWriter, r *http.Req
 
 func (s *Server) handleListenerUpdateFilename(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -2038,14 +2038,14 @@ func (s *Server) handleListenerUpdateFilename(w http.ResponseWriter, r *http.Req
 		FileName string `json:"file_name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "JSON inválido")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.invalidJson"))
 		return
 	}
 
 	id := strings.TrimSpace(body.ID)
 	newFileName := strings.TrimSpace(body.FileName)
 	if id == "" || newFileName == "" {
-		s.errorResponse(w, http.StatusBadRequest, "ID y nombre de archivo requeridos")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.idAndFileNameRequired"))
 		return
 	}
 
@@ -2109,7 +2109,7 @@ func (s *Server) handleListenerResolveChat(w http.ResponseWriter, r *http.Reques
 	chatIDStr := r.URL.Query().Get("chat_id")
 	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
 	if err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "chat_id inválido")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.invalidChatID"))
 		return
 	}
 
@@ -2122,14 +2122,14 @@ func (s *Server) handleListenerResolveChat(w http.ResponseWriter, r *http.Reques
 func (s *Server) handleListenerResolveChatPath(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(parts) < 4 {
-		s.errorResponse(w, http.StatusBadRequest, "chat_id requerido en la ruta")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.chatIdRequiredInPath"))
 		return
 	}
 
 	chatIDStr := parts[3]
 	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
 	if err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "chat_id inválido")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.invalidChatID"))
 		return
 	}
 
@@ -2162,7 +2162,7 @@ func (s *Server) handleListenerTopics(w http.ResponseWriter, r *http.Request) {
 
 	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
 	if err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "chat_id inválido")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.invalidChatID"))
 		return
 	}
 
@@ -2187,7 +2187,7 @@ func (s *Server) handleListenerTopics(w http.ResponseWriter, r *http.Request) {
 // no dice nada de la cuenta ni de las descargas. Solo lectura, sin efectos.
 func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -2258,11 +2258,11 @@ func isLocalRequest(r *http.Request) bool {
 // desde un dispositivo remoto nunca se abre una ventana en el ordenador.
 func (s *Server) handleFSPick(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 	if !isLocalRequest(r) {
-		s.errorResponse(w, http.StatusForbidden, "El selector del sistema solo está disponible en el propio equipo")
+		s.errorResponse(w, http.StatusForbidden, i18n.T("server.systemPickerLocalOnly"))
 		return
 	}
 
@@ -2271,7 +2271,7 @@ func (s *Server) handleFSPick(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	if pick == nil {
-		s.errorResponse(w, http.StatusNotImplemented, "No hay ventana de la aplicación para abrir el selector")
+		s.errorResponse(w, http.StatusNotImplemented, i18n.T("server.noAppWindowForPicker"))
 		return
 	}
 
@@ -2319,7 +2319,7 @@ func (s *Server) handleFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := os.ReadDir(cleanPath)
 	if err != nil {
-		s.errorResponse(w, http.StatusBadRequest, "No se puede leer el directorio")
+		s.errorResponse(w, http.StatusBadRequest, i18n.T("server.cannotReadDirectory"))
 		return
 	}
 
@@ -2380,13 +2380,13 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 // Handlers del Escáner / Histórico
 func (s *Server) handleScannerSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
 	var req scanner.ScanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Cuerpo de petición no válido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -2401,7 +2401,7 @@ func (s *Server) handleScannerSearch(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleScannerDownload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -2409,7 +2409,7 @@ func (s *Server) handleScannerDownload(w http.ResponseWriter, r *http.Request) {
 		Items []scanner.ScanItem `json:"items"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Items) == 0 {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Se requiere al menos un elemento")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.atLeastOneItem"))
 		return
 	}
 
@@ -2429,7 +2429,7 @@ func (s *Server) handleScannerResolveTarget(w http.ResponseWriter, r *http.Reque
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	if strings.TrimSpace(body.Target) == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Objetivo requerido")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.targetRequired"))
 		return
 	}
 
@@ -2487,7 +2487,7 @@ func (s *Server) handleInstallUpdate(w http.ResponseWriter, r *http.Request) {
 	if rel == nil {
 		rel, _, err = s.updater.CheckForUpdate()
 		if err != nil || rel == nil {
-			s.errorResponse(w, http.StatusBadRequest, "No hay actualizaciones disponibles")
+			s.errorResponse(w, http.StatusBadRequest, i18n.T("server.noUpdatesAvailable"))
 			return
 		}
 	}
@@ -2511,7 +2511,7 @@ func (s *Server) handlePostponeUpdate(w http.ResponseWriter, r *http.Request) {
 		Version string `json:"version"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Version == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Versión requerida")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.versionRequired"))
 		return
 	}
 
@@ -2536,7 +2536,7 @@ func (s *Server) handleExit(w http.ResponseWriter, r *http.Request) {
 // when the user tries to open a second instance with a URL argument.
 func (s *Server) handleIPCDownload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -2544,7 +2544,7 @@ func (s *Server) handleIPCDownload(w http.ResponseWriter, r *http.Request) {
 		URL string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.URL) == "" {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "URL requerida")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.urlRequired"))
 		return
 	}
 
