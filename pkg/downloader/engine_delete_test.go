@@ -34,10 +34,10 @@ func TestDeleteDownloadDuplicateKeepsSharedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(original); err != nil {
-		t.Fatalf("el archivo original fue borrado al eliminar el duplicado: %v", err)
+		t.Fatalf("original file was deleted when removing duplicate: %v", err)
 	}
 	if _, ok := eng.chatMsgMap["1:2"]; ok {
-		t.Fatal("chatMsgMap no se limpió al borrar el duplicado")
+		t.Fatal("chatMsgMap was not cleared when deleting duplicate")
 	}
 
 	// Cuando ya no queda ninguna otra referencia, el último propietario sí
@@ -46,10 +46,10 @@ func TestDeleteDownloadDuplicateKeepsSharedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(original); !os.IsNotExist(err) {
-		t.Fatal("el archivo debería borrarse al eliminar al último propietario")
+		t.Fatal("file should be removed when deleting the last owner")
 	}
 	if _, ok := eng.chatMsgMap["1:1"]; ok {
-		t.Fatal("chatMsgMap no se limpió al borrar el original")
+		t.Fatal("chatMsgMap was not cleared when deleting original")
 	}
 }
 
@@ -69,7 +69,7 @@ func TestDeleteDownloadOriginalKeptWhileDuplicateReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(original); err != nil {
-		t.Fatalf("el archivo fue borrado aunque el duplicado aún lo referencia: %v", err)
+		t.Fatalf("file was deleted while duplicate still references it: %v", err)
 	}
 }
 
@@ -91,9 +91,9 @@ func TestDeleteDownloadOwnedFileIsRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(file); !os.IsNotExist(err) {
-		t.Fatal("el archivo propio debería haberse borrado")
+		t.Fatal("owned file should have been deleted")
 	}
 	if _, err := os.Stat(temp); !os.IsNotExist(err) {
-		t.Fatal("el temporal propio debería haberse borrado")
+		t.Fatal("owned temp file should have been deleted")
 	}
 }

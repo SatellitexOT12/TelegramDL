@@ -23,10 +23,10 @@ func TestReorderItems(t *testing.T) {
 
 	items := le.GetItems()
 	if len(items) != 3 {
-		t.Fatalf("se esperaban 3 items, got %d", len(items))
+		t.Fatalf("expected 3 items, got %d", len(items))
 	}
 	if items[0].ID != "item3" || items[1].ID != "item1" || items[2].ID != "item2" {
-		t.Fatalf("orden incorrecto tras ReorderItems: got [%s, %s, %s]", items[0].ID, items[1].ID, items[2].ID)
+		t.Fatalf("incorrect order after ReorderItems: got [%s, %s, %s]", items[0].ID, items[1].ID, items[2].ID)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestReorderDownloadOrderPreservedInEngine(t *testing.T) {
 
 	items := le.GetItems()
 	if items[0].CreatedAt >= items[1].CreatedAt || items[1].CreatedAt >= items[2].CreatedAt {
-		t.Fatalf("CreatedAt no es incremental tras ReorderItems: [%f, %f, %f]", items[0].CreatedAt, items[1].CreatedAt, items[2].CreatedAt)
+		t.Fatalf("CreatedAt is not incremental after ReorderItems: [%f, %f, %f]", items[0].CreatedAt, items[1].CreatedAt, items[2].CreatedAt)
 	}
 
 	eng.QueueItem(storage.DownloadItem{
@@ -79,10 +79,10 @@ func TestReorderDownloadOrderPreservedInEngine(t *testing.T) {
 
 	dls := eng.GetDownloads()
 	if len(dls) != 3 {
-		t.Fatalf("se esperaban 3 descargas, got %d", len(dls))
+		t.Fatalf("expected 3 downloads, got %d", len(dls))
 	}
 
 	if dls[0].ID != "item3" || dls[1].ID != "item1" || dls[2].ID != "item2" {
-		t.Fatalf("el motor de descargas no respetó el orden reordenado: got [%s, %s, %s]", dls[0].ID, dls[1].ID, dls[2].ID)
+		t.Fatalf("download engine did not respect reordered sequence: got [%s, %s, %s]", dls[0].ID, dls[1].ID, dls[2].ID)
 	}
 }

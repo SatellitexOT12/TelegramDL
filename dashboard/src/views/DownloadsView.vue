@@ -138,30 +138,30 @@ const pendingDownloads = computed(() =>
 // --- Historial paginado -----------------------------------------------------
 // Antes solo se veían las 15 últimas. Ahora está el historial completo, pero
 // repartido en páginas para que la vista no crezca sin control.
-const TAMANOS_PAGINA = [5, 10, 15]
-const TAMANO_POR_DEFECTO = 10
-const CLAVE_TAMANO = 'tgdl_historial_por_pagina'
+const PAGE_SIZES = [5, 10, 15]
+const DEFAULT_PAGE_SIZE = 10
+const PAGE_SIZE_KEY = 'tgdl_historial_por_pagina'
 
 // El tamaño elegido se recuerda en el navegador, como el color del loader. Se
 // valida contra la lista porque el valor puede venir editado a mano.
-const leerTamanoGuardado = () => {
+const readSavedPageSize = () => {
   try {
-    const guardado = Number(localStorage.getItem(CLAVE_TAMANO))
-    return TAMANOS_PAGINA.includes(guardado) ? guardado : TAMANO_POR_DEFECTO
+    const saved = Number(localStorage.getItem(PAGE_SIZE_KEY))
+    return PAGE_SIZES.includes(saved) ? saved : DEFAULT_PAGE_SIZE
   } catch {
-    return TAMANO_POR_DEFECTO
+    return DEFAULT_PAGE_SIZE
   }
 }
 
-const tamanoPagina = ref(leerTamanoGuardado())
-const paginaHistorial = ref(1)
+const pageSize = ref(readSavedPageSize())
+const historyPage = ref(1)
 
 // Al cambiar el tamaño, la página en la que estabas ya no significa lo mismo:
 // se vuelve al principio.
-watch(tamanoPagina, (tamano) => {
-  paginaHistorial.value = 1
+watch(pageSize, (size) => {
+  historyPage.value = 1
   try {
-    localStorage.setItem(CLAVE_TAMANO, tamano)
+    localStorage.setItem(PAGE_SIZE_KEY, size)
   } catch (e) {
     console.error(e)
   }
@@ -173,37 +173,34 @@ const historyDownloads = computed(() =>
   )
 )
 
-const totalPaginas = computed(() =>
-  Math.max(1, Math.ceil(historyDownloads.value.length / tamanoPagina.value))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(historyDownloads.value.length / pageSize.value))
 )
 
 // Al borrar elementos la última página puede desaparecer: si estábamos en ella,
 // retrocedemos para no quedarnos mirando una lista vacía.
-watch(totalPaginas, (total) => {
-  if (paginaHistorial.value > total) paginaHistorial.value = total
+watch(totalPages, (total) => {
+  if (historyPage.value > total) historyPage.value = total
 })
 
 const recentDownloads = computed(() => {
-  const inicio = (paginaHistorial.value - 1) * tamanoPagina.value
-  return historyDownloads.value.slice(inicio, inicio + tamanoPagina.value)
+  const start = (historyPage.value - 1) * pageSize.value
+  return historyDownloads.value.slice(start, start + pageSize.value)
 })
 
 // Como mucho 5 botones de página alrededor de la actual, para que el paginador
 // no se desborde cuando el historial es largo.
-const paginasVisibles = computed(() => {
-  const total = totalPaginas.value
-  const maximo = 5
-  if (total <= maximo) return Array.from({ length: total }, (_, i) => i + 1)
-  const fin = Math.min(
-    total,
-    Math.max(1, paginaHistorial.value - 2) + maximo - 1
-  )
-  const inicio = Math.max(1, fin - maximo + 1)
-  return Array.from({ length: fin - inicio + 1 }, (_, i) => inicio + i)
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const max = 5
+  if (total <= max) return Array.from({ length: total }, (_, i) => i + 1)
+  const end = Math.min(total, Math.max(1, historyPage.value - 2) + max - 1)
+  const start = Math.max(1, end - max + 1)
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 })
 
-const irAPagina = (pagina) => {
-  paginaHistorial.value = Math.min(totalPaginas.value, Math.max(1, pagina))
+const goToPage = (page) => {
+  historyPage.value = Math.min(totalPages.value, Math.max(1, page))
 }
 
 // El estado llega del backend; si apareciera uno sin traducción (p. ej.
@@ -532,61 +529,57 @@ const allActivePaused = computed(() => {
            volver a bajarlo. Lo que se oculta con una sola página son los
            botones de página, que ahí no pintan nada. -->
       <div v-if="historyDownloads.length" class="history-pager">
-        <template v-if="totalPaginas > 1">
+        <template v-if="totalPages > 1">
           <button
             class="pager-btn"
             type="button"
             :title="t('downloads.prevPage')"
             :aria-label="t('downloads.prevPage')"
-            :disabled="paginaHistorial === 1"
-            @click="irAPagina(paginaHistorial - 1)"
+            :disabled="historyPage === 1"
+            @click="goToPage(historyPage - 1)"
           >
             <ArrowLeft :size="14" />
           </button>
           <button
-            v-for="pagina in paginasVisibles"
-            :key="pagina"
+            v-for="page in visiblePages"
+            :key="page"
             class="pager-btn"
-            :class="{ active: pagina === paginaHistorial }"
+            :class="{ active: page === historyPage }"
             type="button"
-            :aria-current="pagina === paginaHistorial ? 'page' : undefined"
-            @click="irAPagina(pagina)"
+            :aria-current="page === historyPage ? 'page' : undefined"
+            @click="goToPage(page)"
           >
-            {{ pagina }}
+            {{ page }}
           </button>
           <button
             class="pager-btn"
             type="button"
             :title="t('downloads.nextPage')"
             :aria-label="t('downloads.nextPage')"
-            :disabled="paginaHistorial === totalPaginas"
-            @click="irAPagina(paginaHistorial + 1)"
+            :disabled="historyPage === totalPages"
+            @click="goToPage(historyPage + 1)"
           >
             <ArrowRight :size="14" />
           </button>
         </template>
 
         <div class="pager-side">
-          <span v-if="totalPaginas > 1" class="pager-info">
+          <span v-if="totalPages > 1" class="pager-info">
             {{
               t('downloads.pageOf', {
-                page: paginaHistorial,
-                total: totalPaginas
+                page: historyPage,
+                total: totalPages
               })
             }}
           </span>
           <select
-            v-model="tamanoPagina"
+            v-model="pageSize"
             class="pager-select"
             :title="t('downloads.perPageLabel')"
             :aria-label="t('downloads.perPageLabel')"
           >
-            <option
-              v-for="tamano in TAMANOS_PAGINA"
-              :key="tamano"
-              :value="tamano"
-            >
-              {{ t('downloads.perPage', { n: tamano }) }}
+            <option v-for="size in PAGE_SIZES" :key="size" :value="size">
+              {{ t('downloads.perPage', { n: size }) }}
             </option>
           </select>
         </div>

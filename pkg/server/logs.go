@@ -21,7 +21,7 @@ import (
 // recargar todo el historial en cada refresco.
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -52,7 +52,7 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 // conserva: es el histórico de la sesión).
 func (s *Server) handleLogsClear(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 	logbus.Clear()
@@ -65,7 +65,7 @@ func (s *Server) handleLogsClear(w http.ResponseWriter, r *http.Request) {
 // handleLogsExport entrega el registro completo en memoria como texto plano.
 func (s *Server) handleLogsExport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Método no permitido")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 	name := fmt.Sprintf("telegramdl-%s.log", time.Now().Format("2006-01-02_15-04-05"))

@@ -54,10 +54,10 @@ func TestAssetForThisSystemIgnoresNonAppFiles(t *testing.T) {
 
 	chosen := assetForThisSystem(assets)
 	if chosen == nil {
-		t.Fatalf("no se eligió ningún archivo para %s/%s", runtime.GOOS, runtime.GOARCH)
+		t.Fatalf("no asset chosen for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 	if chosen.DownloadURL != "https://example.test/app" {
-		t.Fatalf("se eligió %q en vez del ejecutable", chosen.Name)
+		t.Fatalf("chosen %q instead of executable", chosen.Name)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestAssetForThisSystemPrefersCorrectArch(t *testing.T) {
 
 	chosen := assetForThisSystem(assets)
 	if chosen == nil || chosen.DownloadURL != "https://example.test/mia" {
-		t.Fatalf("se esperaba el archivo de %s, se eligió %+v", architecture, chosen)
+		t.Fatalf("expected asset for %s, got %+v", architecture, chosen)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestAssetForThisSystemNoCompatibleAsset(t *testing.T) {
 		t.Skip("el caso de prueba usa plan9 como sistema imposible")
 	}
 	if chosen := assetForThisSystem(assets); chosen != nil {
-		t.Fatalf("no debería haber elegido nada, eligió %q", chosen.Name)
+		t.Fatalf("should not have chosen anything, got %q", chosen.Name)
 	}
 }
 
@@ -109,7 +109,7 @@ func TestApplyBinarySubstitutesExecutable(t *testing.T) {
 	}
 
 	if err := applyBinary(source, target); err != nil {
-		t.Fatalf("applyBinary devolvió error: %v", err)
+		t.Fatalf("applyBinary returned error: %v", err)
 	}
 
 	content, err := os.ReadFile(target)
@@ -117,7 +117,7 @@ func TestApplyBinarySubstitutesExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(content) != "version nueva" {
-		t.Fatalf("el ejecutable no se sustituyó: %q", content)
+		t.Fatalf("executable was not substituted: %q", content)
 	}
 
 	// El binario nuevo tiene que quedar ejecutable aunque el descargado no lo
@@ -128,7 +128,7 @@ func TestApplyBinarySubstitutesExecutable(t *testing.T) {
 			t.Fatal(err)
 		}
 		if fi.Mode().Perm()&0o100 == 0 {
-			t.Fatalf("el ejecutable quedó sin permiso de ejecución: %v", fi.Mode())
+			t.Fatalf("executable left without execution permission: %v", fi.Mode())
 		}
 	}
 
@@ -139,7 +139,7 @@ func TestApplyBinarySubstitutesExecutable(t *testing.T) {
 	}
 	for _, entry := range entries {
 		if len(entry.Name()) > 0 && entry.Name()[0] == '.' {
-			t.Fatalf("quedó un archivo temporal sin limpiar: %s", entry.Name())
+			t.Fatalf("uncleaned temp file left: %s", entry.Name())
 		}
 	}
 }
@@ -152,12 +152,12 @@ func TestApplyBinaryNoSourceDoesNotTouchTarget(t *testing.T) {
 	}
 
 	if err := applyBinary(filepath.Join(dir, "no-existe"), target); err == nil {
-		t.Fatal("se esperaba un error al no encontrar la nueva versión")
+		t.Fatal("expected error when new version not found")
 	}
 
 	content, err := os.ReadFile(target)
 	if err != nil {
-		t.Fatalf("el ejecutable original desapareció: %v", err)
+		t.Fatalf("original executable vanished: %v", err)
 	}
 	if string(content) != "version vieja" {
 		t.Fatalf("el ejecutable original cambió: %q", content)

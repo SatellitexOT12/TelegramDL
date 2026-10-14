@@ -166,7 +166,10 @@ export default {
     errChatExists: 'Ese chat ya está configurado',
     errInvalidInput: 'Escribe el ID numérico del chat o un enlace {link}',
     autoLabel: 'Auto',
+    autoDownloadLine1: 'Descarga',
+    autoDownloadLine2: 'auto',
     nameLabel: 'Nombre',
+    nameLabelLine: 'Nombre:',
     nameModeManual: 'Manual',
     nameModeOriginal: 'Original',
     nameModeCaption: 'Caption',
@@ -283,13 +286,13 @@ export default {
     // Nombres de las categorías que emite el backend (son claves estables que
     // viajan con cada entrada; aquí solo se les da la etiqueta visible).
     categories: {
-      Sistema: 'Sistema',
-      Descargas: 'Descargas',
-      Escucha: 'Escucha',
-      Ajustes: 'Ajustes',
+      System: 'Sistema',
+      Downloads: 'Descargas',
+      Listener: 'Escucha',
+      Settings: 'Ajustes',
       Telegram: 'Telegram',
-      Servidor: 'Servidor',
-      Actualizador: 'Actualizador'
+      Server: 'Servidor',
+      Updater: 'Actualizador'
     }
   },
 
@@ -549,5 +552,23 @@ export default {
       'No se pudo contactar con TelegramDL. Comprueba que el ordenador está encendido y accesible.',
     invalidToken:
       'Token inválido. Verifica que lo copiaste completo desde Ajustes → Acceso remoto.'
+  },
+
+  console: {
+    sessionStatusError: 'Error verificando estado de sesión:',
+    startupUrlProcessError: 'Error procesando URL de inicio:',
+    startupError: 'Error durante el arranque:',
+    startupUrlFetchError: 'Error obteniendo URL de inicio:',
+    wailsDirectoryFallback: 'Error en SelectDirectory de Wails:',
+    nativePickerUnavailable:
+      'Selector nativo no disponible, se usa el explorador interno:',
+    wailsTokenError: 'No se pudo obtener el token local de Wails:',
+    localStorageUnavailable:
+      'localStorage no disponible: seguimos solo en memoria',
+    updateCheckError: 'Error al buscar actualizaciones:',
+    saveOrderError: 'Error guardando orden:',
+    downloadItemError: 'Error descargando {id}:',
+    updateNameError: 'Error actualizando nombre para {id}:',
+    audioBlocked: 'Audio bloqueado por el navegador:'
   }
 }

@@ -51,12 +51,12 @@
             root.style.setProperty('--user-glow', theme.glow);
             root.style.setProperty('--user-text-dim', theme.textDim);
             root.style.setProperty('--user-gradient', theme.gradient);
-            var clasesTemaEspecial = { 16: 'tema-twilight-comet', 17: 'tema-edge-runner', 18: 'tema-rainy-garden', 19: 'tema-silent-cherry', 20: 'tema-osx', 21: 'tema-herbal-apothecary', 22: 'tema-darling-red' };
-            var temasClaros = [19];
-            var idTema = themeMap[user.color_id] ? user.color_id : 5;
-            var claseTema = clasesTemaEspecial[idTema];
-            if (claseTema) root.classList.add(claseTema);
-            if (temasClaros.indexOf(Number(idTema)) !== -1) root.classList.add('tema-claro');
+            var specialThemeClasses = { 16: 'theme-twilight-comet', 17: 'theme-edge-runner', 18: 'theme-rainy-garden', 19: 'theme-silent-cherry', 20: 'theme-osx', 21: 'theme-herbal-apothecary', 22: 'theme-darling-red' };
+            var lightThemeIds = [19];
+            var themeId = themeMap[user.color_id] ? user.color_id : 5;
+            var themeClass = specialThemeClasses[themeId];
+            if (themeClass) root.classList.add(themeClass);
+            if (lightThemeIds.indexOf(Number(themeId)) !== -1) root.classList.add('theme-light');
           }
         } catch (e) {}
       })();

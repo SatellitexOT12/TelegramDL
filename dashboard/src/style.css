@@ -51,8 +51,8 @@ select option {
   color: var(--user-text-main, #dbe7f5);
 }
 
-html.tema-claro select option {
-  background-color: var(--claro-superficie, #ffffff);
+html.theme-light select option {
+  background-color: var(--light-surface, #ffffff);
   color: #0f172a;
 }
 

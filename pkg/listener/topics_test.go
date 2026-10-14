@@ -74,13 +74,13 @@ func TestMatchChatOnlyAcceptsMonitoredTopic(t *testing.T) {
 	})
 
 	if _, ok := le.matchChat(-1002121902112, 2121902112, 57); !ok {
-		t.Fatal("el tema vigilado debe aceptarse")
+		t.Fatal("monitored topic should be accepted")
 	}
 	if _, ok := le.matchChat(-1002121902112, 2121902112, 99); ok {
-		t.Fatal("un tema distinto del vigilado no debe aceptarse")
+		t.Fatal("topic other than monitored should not be accepted")
 	}
 	if _, ok := le.matchChat(-1002121902112, 2121902112, 0); ok {
-		t.Fatal("el tema General no debe colarse cuando se vigila otro tema")
+		t.Fatal("General topic should not match when another topic is monitored")
 	}
 }
 
@@ -89,7 +89,7 @@ func TestMatchChatEntireGroupAcceptsAnyTopic(t *testing.T) {
 
 	for _, topic := range []int64{0, 1, 57, 99} {
 		if _, ok := le.matchChat(-1002121902112, 2121902112, topic); !ok {
-			t.Fatalf("vigilando el grupo entero debe entrar el tema %d", topic)
+			t.Fatalf("monitoring entire group should accept topic %d", topic)
 		}
 	}
 }
@@ -102,18 +102,18 @@ func TestMatchChatPrefersSpecificTopicEntry(t *testing.T) {
 
 	chat, ok := le.matchChat(-1001, 0, 57)
 	if !ok {
-		t.Fatal("el mensaje del tema 57 debe emparejarse")
+		t.Fatal("message for topic 57 should match")
 	}
 	if !chat.AutoDownload || chat.Topic() != 57 {
-		t.Fatalf("debe ganar la entrada específica del tema: %+v", chat)
+		t.Fatalf("specific topic entry should win: %+v", chat)
 	}
 
 	otro, ok := le.matchChat(-1001, 0, 12)
 	if !ok {
-		t.Fatal("los demás temas los recoge la entrada del grupo entero")
+		t.Fatal("other topics should match the group-wide entry")
 	}
 	if otro.HasTopic() {
-		t.Fatalf("se esperaba la entrada del grupo entero: %+v", otro)
+		t.Fatalf("expected group-wide entry: %+v", otro)
 	}
 }
 
@@ -126,10 +126,10 @@ func TestMatchChatGeneralTopic(t *testing.T) {
 	})
 
 	if _, ok := le.matchChat(-1001, 0, 0); !ok {
-		t.Fatal("un mensaje sin tema debe contar como tema General")
+		t.Fatal("message without topic should match General topic")
 	}
 	if _, ok := le.matchChat(-1001, 0, 57); ok {
-		t.Fatal("un mensaje de otro tema no es del General")
+		t.Fatal("message for another topic is not General")
 	}
 }
 
@@ -139,7 +139,7 @@ func TestMatchChatAlternativeIDs(t *testing.T) {
 	le := newEngineWithChats(config.ListenerChat{ID: 2121902112, Name: "Grupo"})
 
 	if _, ok := le.matchChat(-1002121902112, 2121902112, 0); !ok {
-		t.Fatal("debe reconocerse el canal aunque esté anotado con el ID interno")
+		t.Fatal("channel should be recognized even if noted with internal ID")
 	}
 }
 
@@ -147,6 +147,6 @@ func TestMatchChatUnmonitoredChat(t *testing.T) {
 	le := newEngineWithChats(config.ListenerChat{ID: -1001, Name: "Grupo"})
 
 	if _, ok := le.matchChat(-1009, 0, 0); ok {
-		t.Fatal("un chat que no está en la lista no debe emparejarse")
+		t.Fatal("unmonitored chat should not match")
 	}
 }

@@ -59,7 +59,10 @@ const { t, locale, setLocale } = useI18n()
 // después por la pantalla del token.
 const startsAuthenticated = hasStoredToken()
 const needsRemoteLogin = ref(false)
-const remoteLoginError = ref('')
+const remoteLoginErrorKey = ref('')
+const remoteLoginError = computed(() =>
+  remoteLoginErrorKey.value ? t(remoteLoginErrorKey.value) : ''
+)
 const hasTelegramCredentials = ref(false)
 
 const downloads = ref([])
@@ -94,6 +97,7 @@ const checkTelegramCredentials = async () => {
     const response = await fetch('/api/auth/has-credentials')
     if (!response.ok) return false
     const data = await response.json()
+    if (data.language) setLocale(data.language)
     // is_configured indica que hay credenciales Y sesión activa
     // Si solo hay credenciales pero no sesión, devolvemos false para mostrar AuthWizard
     hasTelegramCredentials.value = data.is_configured === true
@@ -316,6 +320,7 @@ const fetchAuthStatus = async () => {
   try {
     const data = await api('/api/auth/status')
     authStatus.value = data
+    if (data.language) setLocale(data.language)
     if (data.authenticated) {
       localStorage.setItem('tgdl_auth', 'true')
       localStorage.setItem('tgdl_user', JSON.stringify(data.user || null))
@@ -327,7 +332,7 @@ const fetchAuthStatus = async () => {
       applyTheme(5)
     }
   } catch (err) {
-    console.error('Error verificando estado de sesión:', err)
+    console.error(t('console.sessionStatusError'), err)
   }
 }
 
@@ -514,7 +519,7 @@ const processStartupURL = async (url) => {
   try {
     await startDownload(url)
   } catch (err) {
-    console.error('Error procesando URL de inicio:', err)
+    console.error(t('console.startupUrlProcessError'), err)
     showMessage(err.message, true)
   }
 }
@@ -740,7 +745,7 @@ const maybeNotifyQueueFinished = (currentDownloads) => {
   if (successful && settings.sound_notification) {
     new Audio(`${import.meta.env.BASE_URL}notification.wav`)
       .play()
-      .catch((e) => console.log('Audio blocked', e))
+      .catch((e) => console.warn(t('console.audioBlocked'), e))
   }
 }
 
@@ -974,7 +979,7 @@ const startApp = async () => {
       await Promise.all([fetchSettings(), fetchDownloads()]).catch(() => {})
     }
   } catch (err) {
-    console.error('Error durante el arranque:', err)
+    console.error(t('console.startupError'), err)
   } finally {
     const elapsed = Date.now() - startBoot
     const minTime = 6500 // 4.5s animación + 2s de reposo con puntos
@@ -992,7 +997,7 @@ const startApp = async () => {
         await processStartupURL(startupURL)
       }
     } catch (err) {
-      console.error('Error obteniendo URL de inicio:', err)
+      console.error(t('console.startupUrlFetchError'), err)
     }
   }
 }
@@ -1000,7 +1005,7 @@ const startApp = async () => {
 // Valida un token recién introducido en la pantalla de login remoto antes de
 // arrancar el resto de la app con él.
 const handleRemoteLogin = async (value) => {
-  remoteLoginError.value = ''
+  remoteLoginErrorKey.value = ''
   setToken(value)
   try {
     await api('/api/system/info')
@@ -1012,7 +1017,7 @@ const handleRemoteLogin = async (value) => {
     await startApp()
   } catch {
     clearToken()
-    remoteLoginError.value = t('remote.invalidToken')
+    remoteLoginErrorKey.value = 'remote.invalidToken'
   }
 }
 
@@ -2257,10 +2262,10 @@ onUnmounted(() => {
    aro interior que la muestra de los botones de tema, que es lo que hace que
    el degradado se lea como una moneda y no como una mancha. Va después de
    .color-dot.active para poder sumar el aro al resalte del seleccionado. */
-.tema-dot {
+.theme-dot {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
-.tema-dot.active {
+.theme-dot.active {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 0 0 3px var(--user-bg-base),
@@ -2270,7 +2275,7 @@ onUnmounted(() => {
 
 /* Separa un bloque entero de ajustes del anterior (el color del loader del
    color de acento). */
-.seccion-separada {
+.separate-section {
   margin-top: 24px;
   border-top: 1px solid var(--user-border);
   padding-top: 18px;
@@ -2281,7 +2286,7 @@ onUnmounted(() => {
    procedencia, más discreta que el título del bloque. El margen de abajo es
    negativo para recortar parte del gap de 15px del grupo: el subtítulo tiene
    que quedar pegado a SUS colores, no a mitad de camino entre los dos bloques. */
-.grupo-color-titulo {
+.color-group-title {
   display: block;
   font-size: 11px;
   font-weight: 700;
@@ -2290,13 +2295,13 @@ onUnmounted(() => {
   color: var(--user-text-dim);
   margin: 4px 0 -9px;
 }
-.temas-lista {
+.themes-list {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin: 0;
 }
-.tema-chip {
+.theme-chip {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -2309,19 +2314,19 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.tema-chip:hover {
+.theme-chip:hover {
   transform: translateY(-2px);
   border-color: var(--user-border-light);
   color: #eef7ff;
 }
-.tema-chip.active {
+.theme-chip.active {
   color: #eef7ff;
   border-color: var(--user-primary);
   box-shadow:
     0 0 0 1px var(--user-primary),
     0 6px 18px var(--user-glow);
 }
-.tema-muestra {
+.theme-swatch {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -2383,11 +2388,11 @@ onUnmounted(() => {
 
 /* Fila de exportar / importar / limpiar historial: botones del ancho de su
    texto, no estirados como estaban cuando eran las acciones del panel. */
-.acciones-datos {
+.data-actions {
   margin-top: 0;
   flex-wrap: wrap;
 }
-.acciones-datos .clear-history-button {
+.data-actions .clear-history-button {
   width: auto;
   flex: 0 0 auto;
   margin-top: 0;

@@ -16,7 +16,7 @@ import { openExternal } from '../composables/useExternalLink'
 import { useI18n } from '../i18n'
 
 const { authHeaders } = useAuthToken()
-const { t, splitOn } = useI18n()
+const { t, locale, setLocale, splitOn } = useI18n()
 
 // El banner de las credenciales nombra la sección "API development tools",
 // que en my.telegram.org aparece siempre en inglés: va como marcador para
@@ -252,10 +252,33 @@ const cancelBack = () => {
             <path d="M22 2 11 13" />
           </svg>
         </div>
-        <div>
+        <div class="auth-title-box">
           <h2>{{ t('auth.title') }}</h2>
           <p>{{ t('auth.subtitle') }}</p>
         </div>
+        <label
+          class="lang-switch-toggle"
+          :title="locale === 'es' ? 'Switch to English' : 'Cambiar a Español'"
+        >
+          <input
+            type="checkbox"
+            :checked="locale === 'en'"
+            @change="setLocale(locale === 'es' ? 'en' : 'es')"
+          />
+          <span class="lang-switch-track">
+            <span
+              class="lang-switch-label left"
+              :class="{ active: locale === 'es' }"
+              >ES</span
+            >
+            <span
+              class="lang-switch-label right"
+              :class="{ active: locale === 'en' }"
+              >EN</span
+            >
+            <span class="lang-switch-thumb"></span>
+          </span>
+        </label>
       </div>
 
       <!-- Stepper -->
@@ -587,20 +610,98 @@ const cancelBack = () => {
 }
 
 .auth-card {
-  width: min(480px, 100%);
+  width: min(520px, 92vw);
   background: var(--user-surface);
   border: 1px solid var(--user-border);
   border-radius: 20px;
   padding: 30px;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
   animation: modalRise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 .auth-header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: 24px;
+}
+
+.auth-title-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.lang-switch-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.lang-switch-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.lang-switch-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 64px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  padding: 2px;
+  box-sizing: border-box;
+  transition: all 0.25s ease;
+}
+
+.lang-switch-label {
+  flex: 1;
+  text-align: center;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.25s ease;
+  line-height: 22px;
+}
+
+.lang-switch-label.active {
+  color: #000000;
+  font-weight: 800;
+}
+
+.lang-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 22px;
+  background: #ffffff;
+  border-radius: 11px;
+  z-index: 1;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.lang-switch-toggle input:checked + .lang-switch-track .lang-switch-thumb {
+  transform: translateX(30px);
+}
+
+.lang-switch-toggle:hover .lang-switch-track {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.lang-switch-toggle input:focus-visible + .lang-switch-track {
+  outline: 2px solid var(--user-primary, #38a7ff);
+  outline-offset: 2px;
 }
 
 .auth-logo {
@@ -636,14 +737,16 @@ const cancelBack = () => {
   margin-bottom: 26px;
   padding: 10px 0;
   border-bottom: 1px solid #162f47;
+  gap: 4px;
 }
 
 .step-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   opacity: 0.45;
   transition: opacity 0.3s;
+  flex-shrink: 0;
 }
 
 .step-item.active,
@@ -661,6 +764,7 @@ const cancelBack = () => {
   font-weight: 700;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 
 .step-item.active .step-num {
@@ -674,16 +778,18 @@ const cancelBack = () => {
 }
 
 .step-label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #dbe7f5;
+  white-space: nowrap;
 }
 
 .step-divider {
   flex: 1;
+  min-width: 6px;
   height: 2px;
   background: var(--user-border);
-  margin: 0 8px;
+  margin: 0 4px;
 }
 
 /* Step Content */

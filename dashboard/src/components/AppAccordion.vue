@@ -141,7 +141,7 @@ const toggle = () => {
   animation: accordionOpen 0.18s ease both;
 }
 
-.accordion-body :deep(.ajuste-columnas) {
+.accordion-body :deep(.settings-columns) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 34px;
@@ -167,7 +167,7 @@ const toggle = () => {
   .accordion-body {
     padding: 14px 12px 16px;
   }
-  .accordion-body :deep(.ajuste-columnas) {
+  .accordion-body :deep(.settings-columns) {
     gap: 24px;
   }
 }

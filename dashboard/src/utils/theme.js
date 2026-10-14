@@ -260,7 +260,7 @@ export const themeMap = {
   // añadir temas aquí no necesita ningún cambio en Go.
   16: {
     name: 'Twilight Comet',
-    especial: true,
+    special: true,
     primary: '#d1618f',
     secondary: '#f5b96b',
     accent: '#b79af5',
@@ -277,7 +277,7 @@ export const themeMap = {
   },
   17: {
     name: 'Edge Runner UI',
-    especial: true,
+    special: true,
     secondary: '#00e5ff',
     primary: '#e0ff00',
     accent: '#00e5ff',
@@ -294,7 +294,7 @@ export const themeMap = {
   },
   18: {
     name: 'Rainy Garden',
-    especial: true,
+    special: true,
     secondary: '#8fa4b5',
     primary: '#e6ecef',
     accent: '#8fa4b5',
@@ -311,7 +311,7 @@ export const themeMap = {
   },
   19: {
     name: 'Silent Cherry',
-    especial: true,
+    special: true,
     secondary: '#a0e7e5',
     primary: '#f48fb1',
     accent: '#2a6f69',
@@ -328,7 +328,7 @@ export const themeMap = {
   },
   20: {
     name: 'osX',
-    especial: true,
+    special: true,
     secondary: '#64d2ff',
     primary: '#0a84ff',
     accent: '#64d2ff',
@@ -345,7 +345,7 @@ export const themeMap = {
   },
   21: {
     name: 'Herbal Apothecary',
-    especial: true,
+    special: true,
     secondary: '#2b586c',
     primary: '#7fb069',
     accent: '#8fc0d4',
@@ -362,7 +362,7 @@ export const themeMap = {
   },
   22: {
     name: 'Darling Red',
-    especial: true,
+    special: true,
     secondary: '#f48fb1',
     primary: '#d32f2f',
     accent: '#00e5ff',
@@ -382,16 +382,16 @@ export const themeMap = {
 // Clase que enciende el decorado de cada tema especial. Los colores de Telegram
 // (0-15) no tienen entrada aquí y no pintan nada extra: solo cambian variables.
 const specialThemeClasses = {
-  16: 'tema-twilight-comet',
-  17: 'tema-edge-runner',
-  18: 'tema-rainy-garden',
-  19: 'tema-silent-cherry',
-  20: 'tema-osx',
-  21: 'tema-herbal-apothecary',
-  22: 'tema-darling-red'
+  16: 'theme-twilight-comet',
+  17: 'theme-edge-runner',
+  18: 'theme-rainy-garden',
+  19: 'theme-silent-cherry',
+  20: 'theme-osx',
+  21: 'theme-herbal-apothecary',
+  22: 'theme-darling-red'
 }
 
-// Los temas de fondo claro llevan además la clase `tema-claro`, que enciende
+// Los temas de fondo claro llevan además la clase `theme-light`, que enciende
 // un bloque común de themes-dl.css. El panel tiene más de cien colores
 // de texto fijos escritos para fondo oscuro y hay que pisarlos una sola vez,
 // no una por cada tema claro que se añada.
@@ -402,13 +402,13 @@ const applyThemeClass = (colorId) => {
   Object.values(specialThemeClasses).forEach((cls) =>
     root.classList.remove(cls)
   )
-  root.classList.remove('tema-claro')
+  root.classList.remove('theme-light')
   const cls = specialThemeClasses[colorId]
   if (cls) root.classList.add(cls)
   // Number(): el id puede llegar como texto desde el almacenamiento del
   // navegador, y un Set no hace la conversión por su cuenta.
   if (lightThemeIds.has(Number(colorId))) {
-    root.classList.add('tema-claro')
+    root.classList.add('theme-light')
     root.style.colorScheme = 'light'
   } else {
     root.style.colorScheme = 'dark'

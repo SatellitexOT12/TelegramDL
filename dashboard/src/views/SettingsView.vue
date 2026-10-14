@@ -98,7 +98,7 @@ const maskedToken = computed(() =>
 // al iniciar sesión). Del 16 en adelante son temas propios del panel, que
 // además del color traen decorado. Se sacan del propio themeMap en vez de una
 // lista fija, para que añadir uno nuevo no obligue a tocar esta vista.
-const temasEspeciales = computed(() =>
+const specialThemes = computed(() =>
   Object.keys(props.themeMap)
     .map(Number)
     .filter((id) => id >= 16)
@@ -190,7 +190,7 @@ const exportListener = async () => {
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
     triggerBlobDownload(
       JSON.stringify(payload, null, 2),
-      `tgdown-escucha-${stamp}.json`,
+      `tgdown-listener-${stamp}.json`,
       'application/json'
     )
     props.notify(
@@ -365,7 +365,7 @@ const sendTestNotification = async () => {
           </span>
         </div>
 
-        <div class="ajustes-acordeon">
+        <div class="settings-accordion">
           <AppAccordion
             :title="t('settings.downloadsTitle')"
             :description="t('settings.downloadsSub')"
@@ -376,7 +376,7 @@ const sendTestNotification = async () => {
               <ArrowDownToLine :size="15" />
             </template>
 
-            <div class="ajuste-columnas">
+            <div class="settings-columns">
               <!-- Concurrencia y Workers -->
               <div class="settings-group">
                 <label class="setting-label">
@@ -509,7 +509,7 @@ const sendTestNotification = async () => {
               <Palette :size="15" />
             </template>
 
-            <div class="ajuste-columnas">
+            <div class="settings-columns">
               <!-- Paleta de Color y Tema -->
               <div class="settings-group color-group">
                 <span class="setting-label">{{
@@ -519,7 +519,7 @@ const sendTestNotification = async () => {
                 <!-- Los 0-15 vienen de Telegram Premium; del 16 en adelante son las
                        paletas propias del panel. Van separados con su propio título
                        para que se vea de dónde sale cada grupo. -->
-                <span class="grupo-color-titulo">{{
+                <span class="color-group-title">{{
                   t('settings.telegramGroup')
                 }}</span>
                 <div class="color-selector-container">
@@ -557,15 +557,15 @@ const sendTestNotification = async () => {
                        mismo ajuste (color_id) que los de arriba: elegir uno sustituye
                        al color de la cuenta, y "Restablecer color de la cuenta"
                        vuelve a dejar el de Telegram. -->
-                <span class="grupo-color-titulo">{{
+                <span class="color-group-title">{{
                   t('settings.thematicGroup')
                 }}</span>
-                <div class="temas-lista">
+                <div class="themes-list">
                   <button
-                    v-for="id in temasEspeciales"
-                    :key="'tema-' + id"
+                    v-for="id in specialThemes"
+                    :key="'theme-' + id"
                     type="button"
-                    class="tema-chip"
+                    class="theme-chip"
                     :class="{ active: props.settings.color_id === id }"
                     :title="
                       themeMap[id]?.name || t('settings.themeN', { n: id })
@@ -573,10 +573,10 @@ const sendTestNotification = async () => {
                     @click="patch({ color_id: id })"
                   >
                     <span
-                      class="tema-muestra"
+                      class="theme-swatch"
                       :style="{ background: themeMap[id]?.gradient }"
                     ></span>
-                    <span class="tema-nombre">{{
+                    <span class="theme-name">{{
                       themeMap[id]?.name || t('settings.themeN', { n: id })
                     }}</span>
                   </button>
@@ -597,7 +597,7 @@ const sendTestNotification = async () => {
                   t('settings.loaderTitle')
                 }}</span>
 
-                <span class="grupo-color-titulo">{{
+                <span class="color-group-title">{{
                   t('settings.telegramGroup')
                 }}</span>
                 <div class="color-selector-container">
@@ -638,16 +638,16 @@ const sendTestNotification = async () => {
                 <!-- Aquí solo va el círculo con el degradado del tema, sin nombre:
                        del tema especial el loader únicamente toma el color, no el
                        decorado, así que no hay nada más que enseñar. -->
-                <span class="grupo-color-titulo">{{
+                <span class="color-group-title">{{
                   t('settings.thematicGroupShort')
                 }}</span>
                 <div class="color-selector-container">
                   <div class="color-row">
                     <button
-                      v-for="id in temasEspeciales"
-                      :key="'loader-tema-' + id"
+                      v-for="id in specialThemes"
+                      :key="'loader-theme-' + id"
                       type="button"
-                      class="color-dot tema-dot"
+                      class="color-dot theme-dot"
                       :class="{
                         active: props.settings.loader_color_id === id
                       }"
@@ -687,17 +687,17 @@ const sendTestNotification = async () => {
                      más (settings.language). El chip activo sigue a `locale`,
                      que es el idioma realmente en uso, no al valor bruto del
                      ajuste (vacío la primera vez, antes de autodetectar). -->
-              <div class="temas-lista">
+              <div class="themes-list">
                 <button
                   v-for="lang in availableLocales"
                   :key="lang.id"
                   type="button"
-                  class="tema-chip idioma-chip"
+                  class="theme-chip language-chip"
                   :class="{ active: locale === lang.id }"
                   :aria-pressed="locale === lang.id"
                   @click="patch({ language: lang.id })"
                 >
-                  <span class="tema-nombre">{{ lang.label }}</span>
+                  <span class="theme-name">{{ lang.label }}</span>
                 </button>
               </div>
               <small>{{ t('settings.langNote') }}</small>
@@ -962,7 +962,7 @@ const sendTestNotification = async () => {
             </template>
 
             <div class="settings-group">
-              <div class="settings-actions acciones-datos">
+              <div class="settings-actions data-actions">
                 <button
                   type="button"
                   class="reset-button-alt"
@@ -990,7 +990,7 @@ const sendTestNotification = async () => {
                   }}
                 </button>
                 <button
-                  class="clear-history-button boton-historial"
+                  class="clear-history-button history-button"
                   type="button"
                   @click="emit('clear-history')"
                 >

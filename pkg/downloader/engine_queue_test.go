@@ -18,7 +18,7 @@ func waitForCondition(t *testing.T, what string, cond func() bool) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("condición no alcanzada en 8s: %s", what)
+	t.Fatalf("condition not reached in 8s: %s", what)
 }
 
 func (e *Engine) statusOf(id string) string {

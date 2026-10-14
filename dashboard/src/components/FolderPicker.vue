@@ -69,7 +69,7 @@ const show = async () => {
       }
       return
     } catch (err) {
-      console.warn('Wails SelectDirectory fallback:', err)
+      console.warn(t('console.wailsDirectoryFallback'), err)
     }
   }
 
@@ -90,10 +90,7 @@ const show = async () => {
         return
       }
     } catch (err) {
-      console.warn(
-        'Selector nativo no disponible, se usa el explorador interno:',
-        err
-      )
+      console.warn(t('console.nativePickerUnavailable'), err)
     }
   }
 

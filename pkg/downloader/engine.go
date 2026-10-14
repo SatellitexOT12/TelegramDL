@@ -31,7 +31,7 @@ import (
 
 type DownloadStateListener func(item storage.DownloadItem)
 
-var errDownloadAlreadyExists = errors.New("el archivo ya existe")
+var errDownloadAlreadyExists = errors.New("file already exists")
 
 // errMissingMessage marca los mensajes que Telegram no va a entregar nunca:
 // borrados, IDs que jamás existieron, o entradas que no son un mensaje de
@@ -46,7 +46,7 @@ var errDownloadAlreadyExists = errors.New("el archivo ya existe")
 // otro (el que se da precisamente cuando el mensaje está borrado) se escapaba y
 // acababa en "fallido". Con un error centinela y errors.Is ya no depende de
 // cómo esté redactado el mensaje.
-var errMissingMessage = errors.New("mensaje no encontrado en Telegram")
+var errMissingMessage = errors.New("message not found on Telegram")
 
 type Engine struct {
 	clientMgr    *telegram.ClientManager
@@ -400,12 +400,12 @@ func (e *Engine) forgetStateOf(id string) {
 
 func (e *Engine) ClearHistory() (int64, error) {
 	e.mu.Lock()
-	temporales := make([]string, 0, len(e.downloads))
+	tempPaths := make([]string, 0, len(e.downloads))
 	for id, item := range e.downloads {
 		if item.Status == "completed" || item.Status == "failed" || item.Status == "cancelled" || item.Status == "skipped" || item.Status == "duplicate" {
 			// Los archivos temporales se borran después, fuera del candado.
 			if item.FilePath != "" {
-				temporales = append(temporales, item.FilePath+".temp")
+				tempPaths = append(tempPaths, item.FilePath+".temp")
 			}
 
 			key := fmt.Sprintf("%d:%d", item.ChatID, item.MessageID)
@@ -417,8 +417,8 @@ func (e *Engine) ClearHistory() (int64, error) {
 	e.mu.Unlock()
 
 	// Eliminar archivos temporales de descargas no terminadas o canceladas
-	for _, ruta := range temporales {
-		_ = os.Remove(ruta)
+	for _, path := range tempPaths {
+		_ = os.Remove(path)
 	}
 
 	if e.storage == nil {
@@ -543,7 +543,7 @@ func (e *Engine) CancelDownload(id string) error {
 	item, ok := e.downloads[id]
 	if !ok {
 		e.mu.Unlock()
-		return errors.New("descarga no encontrada")
+		return errors.New("download not found")
 	}
 
 	if cancel, exists := e.cancelFuncs[id]; exists {
@@ -587,12 +587,12 @@ func (e *Engine) PauseDownload(id string) error {
 	item, ok := e.downloads[id]
 	if !ok {
 		e.mu.Unlock()
-		return errors.New("descarga no encontrada")
+		return errors.New("download not found")
 	}
 
 	if item.Status != "downloading" && item.Status != "queued" {
 		e.mu.Unlock()
-		return errors.New("solo se pueden pausar descargas activas o en cola")
+		return errors.New("can only pause active or queued downloads")
 	}
 
 	e.pauseStates[id] = true
@@ -640,7 +640,7 @@ func (e *Engine) ResumeDownload(ctx context.Context, id string) error {
 	item, ok := e.downloads[id]
 	if !ok {
 		e.mu.Unlock()
-		return errors.New("descarga no encontrada")
+		return errors.New("download not found")
 	}
 
 	// Permitimos reanudar casi cualquier estado no activo, incluyendo 'completed' para forzar re-descarga
@@ -654,7 +654,7 @@ func (e *Engine) ResumeDownload(ctx context.Context, id string) error {
 	}
 	if !allowed[item.Status] {
 		e.mu.Unlock()
-		return errors.New("la descarga no se puede reanudar en su estado actual")
+		return errors.New("download cannot be resumed in its current state")
 	}
 
 	delete(e.pauseStates, id)

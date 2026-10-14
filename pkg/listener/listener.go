@@ -314,10 +314,10 @@ func (le *ListenerEngine) chatFolder(chatCfg config.ListenerChat) string {
 		return ""
 	}
 
-	clave := chatCfg.Key()
+	key := chatCfg.Key()
 	var entry *config.ListenerChat
 	for i := range le.config.ListenerChats {
-		if le.config.ListenerChats[i].Key() == clave {
+		if le.config.ListenerChats[i].Key() == key {
 			entry = &le.config.ListenerChats[i]
 			break
 		}
@@ -330,24 +330,24 @@ func (le *ListenerEngine) chatFolder(chatCfg config.ListenerChat) string {
 		return dynamicFolder(chatCfg)
 	}
 
-	cambiado := false
+	changed := false
 	if strings.TrimSpace(entry.Folder) == "" {
 		entry.Folder = le.freeGroupFolder(chatCfg)
-		cambiado = true
+		changed = true
 	}
 	if entry.HasTopic() && strings.TrimSpace(entry.TopicFolder) == "" {
 		entry.TopicFolder = le.freeTopicFolder(*entry)
-		cambiado = true
+		changed = true
 	}
 
-	ruta := entry.RelativeFolder()
-	if cambiado {
+	path := entry.RelativeFolder()
+	if changed {
 		le.updateChatMap(le.config)
 	}
 	cfg := le.config
 	le.mu.Unlock()
 
-	if cambiado && le.storage != nil {
+	if changed && le.storage != nil {
 		go func() {
 			if err := le.storage.SaveConfig(cfg); err != nil {
 				log.Printf("[LISTENER] %s", i18n.T("listener.saveFolderError", err))
@@ -355,7 +355,7 @@ func (le *ListenerEngine) chatFolder(chatCfg config.ListenerChat) string {
 		}()
 	}
 
-	return ruta
+	return path
 }
 
 // freeGroupFolder elige el nombre de carpeta del grupo. Se llama con le.mu
@@ -707,7 +707,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 
 	// Subcarpeta de destino. Vacía cuando el reparto por chat está apagado, y
 	// entonces el archivo cae en la carpeta de descargas de siempre.
-	subCarpeta := le.chatFolder(chatCfg)
+	subFolder := le.chatFolder(chatCfg)
 
 	itemID := fmt.Sprintf("listener:%d:%d", peerID, msg.ID)
 	// Mayor precisión para evitar colisiones cuando llegan varios archivos en
@@ -735,7 +735,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 		Kind:             string(mediaInfo.Kind),
 		TotalStr:         config.FormatBytes(float64(mediaInfo.FileSize)),
 		TotalBytes:       mediaInfo.FileSize,
-		SubFolder:        subCarpeta,
+		SubFolder:        subFolder,
 		Source:           "listener",
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -744,7 +744,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 	if chatCfg.AutoDownload {
 		// La carpeta se crea solo cuando el archivo va a bajarse de verdad: un
 		// mensaje que se queda en la bandeja no deja carpetas vacías por ahí.
-		go le.prepareFolder(subCarpeta, chatCfg)
+		go le.prepareFolder(subFolder, chatCfg)
 
 		dlItem.Status = "queued"
 		if le.storage != nil {
@@ -769,7 +769,7 @@ func (le *ListenerEngine) HandleMessage(ctx context.Context, entities tg.Entitie
 			GroupName:        chatCfg.GroupName(),
 			TopicID:          chatCfg.Topic(),
 			TopicName:        chatCfg.TopicLabel(),
-			SubFolder:        subCarpeta,
+			SubFolder:        subFolder,
 			FileName:         initialFileName,
 			CaptionFileName:  mediaInfo.CaptionFileName,
 			OriginalFileName: mediaInfo.OriginalFileName,
@@ -864,7 +864,7 @@ func (le *ListenerEngine) DownloadItem(itemID string) error {
 		}
 	}
 
-	return errors.New("multimedia no encontrado en escucha")
+	return errors.New("media not found in listener")
 }
 
 func (le *ListenerEngine) RemoveItem(itemID string) {
@@ -1007,7 +1007,7 @@ func (le *ListenerEngine) ResolveChat(ctx context.Context, chatID int64) (Resolv
 func (le *ListenerEngine) resolveChat(ctx context.Context, chatID int64) (ResolvedChatInfo, error) {
 	raw := le.clientMgr.RawClient()
 	if raw == nil {
-		return ResolvedChatInfo{ID: chatID, Name: strconv.FormatInt(chatID, 10), Type: "chat"}, errors.New("cliente no conectado")
+		return ResolvedChatInfo{ID: chatID, Name: strconv.FormatInt(chatID, 10), Type: "chat"}, errors.New("client not connected")
 	}
 
 	info := ResolvedChatInfo{
@@ -1157,7 +1157,7 @@ func (le *ListenerEngine) resolveChat(ctx context.Context, chatID int64) (Resolv
 // diálogos si todavía no lo tenemos).
 func (le *ListenerEngine) inputPeer(ctx context.Context, chatID int64) (tg.InputPeerClass, error) {
 	if le.clientMgr == nil || le.clientMgr.RawClient() == nil {
-		return nil, errors.New("cliente no conectado")
+		return nil, errors.New("client not connected")
 	}
 
 	if chatID > 0 {
@@ -1197,11 +1197,11 @@ const maxForumTopics = 200
 // deje elegir cuál vigilar. Si el grupo no tiene temas, la lista viene vacía.
 func (le *ListenerEngine) ResolveTopics(ctx context.Context, chatID int64) ([]ForumTopicInfo, error) {
 	if le.clientMgr == nil {
-		return nil, errors.New("cliente no conectado")
+		return nil, errors.New("client not connected")
 	}
 	raw := le.clientMgr.RawClient()
 	if raw == nil {
-		return nil, errors.New("cliente no conectado")
+		return nil, errors.New("client not connected")
 	}
 
 	peer, err := le.inputPeer(ctx, chatID)
@@ -1238,11 +1238,11 @@ func (le *ListenerEngine) ResolveTopics(ctx context.Context, chatID int64) ([]Fo
 // ResolveTopicName devuelve el título de un tema concreto.
 func (le *ListenerEngine) ResolveTopicName(ctx context.Context, chatID, topicID int64) (string, error) {
 	if le.clientMgr == nil {
-		return "", errors.New("cliente no conectado")
+		return "", errors.New("client not connected")
 	}
 	raw := le.clientMgr.RawClient()
 	if raw == nil {
-		return "", errors.New("cliente no conectado")
+		return "", errors.New("client not connected")
 	}
 	if topicID <= 0 {
 		return "", nil

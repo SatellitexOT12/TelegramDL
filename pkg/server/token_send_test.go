@@ -14,18 +14,18 @@ func TestIsPublicAPIPath(t *testing.T) {
 	// justo quien no lo tiene.
 	for _, path := range []string{publicAPIPath, tokenSendAPIPath} {
 		if !isPublicAPIPath(path) {
-			t.Fatalf("%s debería ser público", path)
+			t.Fatalf("%s should be public", path)
 		}
 	}
 	// Cualquier otra cosa sigue exigiendo token.
 	for _, path := range []string{"/api/settings", "/api/auth/token", "/api/auth/token/regenerate", "/api/downloads"} {
 		if isPublicAPIPath(path) {
-			t.Fatalf("%s NO debería ser público", path)
+			t.Fatalf("%s should NOT be public", path)
 		}
 	}
 }
 
-func TestBuildTokenMessageDejaElTokenEnSuPropiaLinea(t *testing.T) {
+func TestBuildTokenMessageKeepsTokenOnItsOwnLine(t *testing.T) {
 	const token = "0123456789abcdef0123456789abcdef"
 	msg := buildTokenMessage(token)
 
@@ -38,12 +38,10 @@ func TestBuildTokenMessageDejaElTokenEnSuPropiaLinea(t *testing.T) {
 		}
 	}
 	if !found {
-		// Si el token comparte línea con otro texto, el formato de código lo
-		// abarcaría de más y copiarlo de un toque dejaría de funcionar.
-		t.Fatalf("el token debe ocupar una línea entera:\n%s", msg)
+		t.Fatalf("token must occupy its own entire line:\n%s", msg)
 	}
 	if strings.Count(msg, token) != 1 {
-		t.Fatalf("el token no debe aparecer dos veces:\n%s", msg)
+		t.Fatalf("token must not appear twice:\n%s", msg)
 	}
 }
 
@@ -54,22 +52,22 @@ func TestRequestOriginIgnoraCabecerasDeProxy(t *testing.T) {
 	r.Header.Set("X-Forwarded-For", "8.8.8.8")
 
 	if got := requestOrigin(r); got != "192.168.1.40" {
-		t.Fatalf("origen incorrecto: got %q, want %q", got, "192.168.1.40")
+		t.Fatalf("incorrect origin: got %q, want %q", got, "192.168.1.40")
 	}
 }
 
-func TestSendTokenRechazaMetodoIncorrecto(t *testing.T) {
+func TestSendTokenRejectsWrongMethod(t *testing.T) {
 	s := &Server{}
 	w := httptest.NewRecorder()
 
 	s.handleSendTokenToTelegram(w, httptest.NewRequest(http.MethodGet, tokenSendAPIPath, nil))
 
 	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("un GET debe rechazarse: got %d", w.Code)
+		t.Fatalf("GET should be rejected: got %d", w.Code)
 	}
 }
 
-func TestSendTokenAplicaLimiteDeFrecuencia(t *testing.T) {
+func TestSendTokenAppliesRateLimit(t *testing.T) {
 	s := &Server{apiToken: "abc"}
 	// Turno ya consumido: el siguiente intento no debe llegar a Telegram.
 	s.tokenSendNextAt = time.Now().Add(30 * time.Second)
@@ -77,11 +75,11 @@ func TestSendTokenAplicaLimiteDeFrecuencia(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, tokenSendAPIPath, nil)
 	r.RemoteAddr = "10.0.0.5:1234"
-	r.Header.Set(cabeceraPeticionPropia, "1")
+	r.Header.Set(ownRequestHeader, "1")
 	s.handleSendTokenToTelegram(w, r)
 
 	if w.Code != http.StatusTooManyRequests {
-		t.Fatalf("se esperaba 429, got %d", w.Code)
+		t.Fatalf("expected 429, got %d", w.Code)
 	}
 
 	var body struct {
@@ -89,56 +87,51 @@ func TestSendTokenAplicaLimiteDeFrecuencia(t *testing.T) {
 		RetryAfter int    `json:"retry_after"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-		t.Fatalf("respuesta ilegible: %v", err)
+		t.Fatalf("unreadable response: %v", err)
 	}
 	if body.Status != "rate_limited" {
-		t.Fatalf("estado inesperado: %q", body.Status)
+		t.Fatalf("unexpected status: %q", body.Status)
 	}
 	if body.RetryAfter < 1 || body.RetryAfter > 31 {
-		t.Fatalf("la espera devuelta no es razonable: %d", body.RetryAfter)
+		t.Fatalf("returned wait time is unreasonable: %d", body.RetryAfter)
 	}
 	if w.Header().Get("Retry-After") == "" {
-		t.Fatal("falta la cabecera Retry-After")
+		t.Fatal("missing Retry-After header")
 	}
 	// La respuesta nunca debe filtrar el token.
 	if strings.Contains(w.Body.String(), "abc") {
-		t.Fatalf("la respuesta no debe incluir el token: %s", w.Body.String())
+		t.Fatalf("response must not include token: %s", w.Body.String())
 	}
 }
 
-func TestSendTokenSinTokenGenerado(t *testing.T) {
+func TestSendTokenWithoutGeneratedToken(t *testing.T) {
 	s := &Server{}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, tokenSendAPIPath, nil)
 	r.RemoteAddr = "10.0.0.5:1234"
-	r.Header.Set(cabeceraPeticionPropia, "1")
+	r.Header.Set(ownRequestHeader, "1")
 
 	s.handleSendTokenToTelegram(w, r)
 
 	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("sin token generado se esperaba 503, got %d", w.Code)
+		t.Fatalf("without generated token expected 503, got %d", w.Code)
 	}
 }
 
-// Este endpoint responde sin token, así que sin más protección cualquier página
-// abierta en el navegador del usuario podría dispararlo: la petición no lleva
-// cuerpo ni Content-Type, y eso la convierte en una «simple request» que el
-// navegador manda sin consultar antes con CORS. Exigir una cabecera propia
-// obliga al preflight, que CORS rechaza.
-func TestSendTokenExigeLaCabeceraPropia(t *testing.T) {
+func TestSendTokenRequiresOwnHeader(t *testing.T) {
 	s := &Server{apiToken: "abc"}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, tokenSendAPIPath, nil)
 	r.RemoteAddr = "10.0.0.5:1234"
-	// Sin r.Header.Set(cabeceraPeticionPropia, ...): es lo que se comprueba.
+	// Sin r.Header.Set(ownRequestHeader, ...): es lo que se comprueba.
 
 	s.handleSendTokenToTelegram(w, r)
 
 	if w.Code != http.StatusForbidden {
-		t.Fatalf("sin la cabecera propia se esperaba 403, got %d", w.Code)
+		t.Fatalf("without own header expected 403, got %d", w.Code)
 	}
 	if strings.Contains(w.Body.String(), "abc") {
-		t.Fatalf("la respuesta no debe incluir el token: %s", w.Body.String())
+		t.Fatalf("response must not include token: %s", w.Body.String())
 	}
 }
 
@@ -148,7 +141,7 @@ func TestSendTokenExigeLaCabeceraPropia(t *testing.T) {
 // El servidor se deja sin token a propósito: así la petición que SÍ debe pasar
 // el límite se detiene justo después, en la comprobación del token, y el test
 // no necesita una sesión de Telegram para llegar hasta ahí.
-func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
+func TestSendTokenRateLimitsPerOrigin(t *testing.T) {
 	s := &Server{
 		tokenSendByIP: map[string]time.Time{"10.0.0.5": time.Now().Add(5 * time.Minute)},
 	}
@@ -158,7 +151,7 @@ func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, tokenSendAPIPath, nil)
 	r.RemoteAddr = "10.0.0.5:1234"
-	r.Header.Set(cabeceraPeticionPropia, "1")
+	r.Header.Set(ownRequestHeader, "1")
 
 	s.handleSendTokenToTelegram(w, r)
 
@@ -174,7 +167,7 @@ func TestSendTokenLimitaTambienPorOrigen(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodPost, tokenSendAPIPath, nil)
 	r2.RemoteAddr = "10.0.0.9:1234"
-	r2.Header.Set(cabeceraPeticionPropia, "1")
+	r2.Header.Set(ownRequestHeader, "1")
 
 	s.handleSendTokenToTelegram(w2, r2)
 

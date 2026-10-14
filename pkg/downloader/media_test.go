@@ -13,23 +13,23 @@ import (
 func TestSanitizeFileNameReplacesInvalidChars(t *testing.T) {
 	got := SanitizeFileName(`a/b\c:d"e<f>g|h?i*j`)
 	if strings.ContainsAny(got, `/\:"<>|?*`) {
-		t.Fatalf("quedaron caracteres inválidos: %q", got)
+		t.Fatalf("invalid characters remained: %q", got)
 	}
 }
 
 func TestSanitizeFileNameEmptyFallsBackToDefault(t *testing.T) {
 	if got := SanitizeFileName(""); got != "file" {
-		t.Fatalf("se esperaba 'file', got %q", got)
+		t.Fatalf("expected 'file', got %q", got)
 	}
 	if got := SanitizeFileName("   "); got != "file" {
-		t.Fatalf("un nombre de solo espacios debería caer al valor por defecto, got %q", got)
+		t.Fatalf("spaces-only name should fall back to default, got %q", got)
 	}
 }
 
 func TestSanitizeFileNameTrimsDotsAndSpaces(t *testing.T) {
 	got := SanitizeFileName("  video.mp4  ")
 	if got != "video.mp4" {
-		t.Fatalf("se esperaba 'video.mp4' sin espacios, got %q", got)
+		t.Fatalf("expected 'video.mp4' without spaces, got %q", got)
 	}
 }
 
@@ -37,10 +37,10 @@ func TestSanitizeFileNameTruncatesLongNamesKeepingExtension(t *testing.T) {
 	longStem := strings.Repeat("a", 250)
 	got := SanitizeFileName(longStem + ".mp4")
 	if len(got) > 200 {
-		t.Fatalf("el nombre no se truncó a 200 caracteres: len=%d", len(got))
+		t.Fatalf("name was not truncated to 200 chars: len=%d", len(got))
 	}
 	if !strings.HasSuffix(got, ".mp4") {
-		t.Fatalf("se perdió la extensión al truncar: %q", got)
+		t.Fatalf("lost extension when truncating: %q", got)
 	}
 }
 
@@ -60,16 +60,16 @@ func TestExtractMediaInfoDocumentWithFilename(t *testing.T) {
 
 	info := ExtractMediaInfo(msg)
 	if info == nil {
-		t.Fatal("se esperaba MediaInfo, se obtuvo nil")
+		t.Fatal("expected MediaInfo, got nil")
 	}
 	if info.FileName != "reporte.pdf" {
-		t.Fatalf("nombre de archivo incorrecto: %q", info.FileName)
+		t.Fatalf("incorrect filename: %q", info.FileName)
 	}
 	if info.Kind != KindFile {
-		t.Fatalf("kind incorrecto: %q", info.Kind)
+		t.Fatalf("incorrect kind: %q", info.Kind)
 	}
 	if info.FileSize != 12345 {
-		t.Fatalf("tamaño incorrecto: %d", info.FileSize)
+		t.Fatalf("incorrect size: %d", info.FileSize)
 	}
 }
 
@@ -89,13 +89,13 @@ func TestExtractMediaInfoVideoWithoutFilenameGeneratesOne(t *testing.T) {
 
 	info := ExtractMediaInfo(msg)
 	if info == nil {
-		t.Fatal("se esperaba MediaInfo, se obtuvo nil")
+		t.Fatal("expected MediaInfo, got nil")
 	}
 	if info.Kind != KindVideo {
-		t.Fatalf("kind incorrecto: %q", info.Kind)
+		t.Fatalf("incorrect kind: %q", info.Kind)
 	}
 	if info.FileName != "video_99.mp4" {
-		t.Fatalf("nombre generado incorrecto: %q", info.FileName)
+		t.Fatalf("incorrect generated filename: %q", info.FileName)
 	}
 }
 
@@ -115,13 +115,13 @@ func TestExtractMediaInfoAudioWithTitleAndPerformer(t *testing.T) {
 
 	info := ExtractMediaInfo(msg)
 	if info == nil {
-		t.Fatal("se esperaba MediaInfo, se obtuvo nil")
+		t.Fatal("expected MediaInfo, got nil")
 	}
 	if info.Kind != KindSong {
-		t.Fatalf("kind incorrecto: %q", info.Kind)
+		t.Fatalf("incorrect kind: %q", info.Kind)
 	}
 	if info.FileName != "Artista - Cancion.mp3" {
-		t.Fatalf("nombre generado incorrecto: %q", info.FileName)
+		t.Fatalf("incorrect generated filename: %q", info.FileName)
 	}
 }
 
@@ -141,28 +141,28 @@ func TestExtractMediaInfoVoiceMessage(t *testing.T) {
 
 	info := ExtractMediaInfo(msg)
 	if info == nil {
-		t.Fatal("se esperaba MediaInfo, se obtuvo nil")
+		t.Fatal("expected MediaInfo, got nil")
 	}
 	if info.FileName != "voice_3.ogg" {
-		t.Fatalf("nombre generado incorrecto: %q", info.FileName)
+		t.Fatalf("incorrect generated filename: %q", info.FileName)
 	}
 }
 
 func TestExtractMediaInfoNoMediaReturnsNil(t *testing.T) {
 	if info := ExtractMediaInfo(&tg.Message{ID: 1}); info != nil {
-		t.Fatalf("un mensaje sin Media debería devolver nil, se obtuvo %+v", info)
+		t.Fatalf("message without Media should return nil, got %+v", info)
 	}
 	if info := ExtractMediaInfo(nil); info != nil {
-		t.Fatal("un mensaje nil debería devolver nil")
+		t.Fatal("nil message should return nil")
 	}
 }
 
 func TestExtensionFromMimeKnownAndUnknown(t *testing.T) {
 	if ext := extensionFromMime("application/zip"); ext != ".zip" {
-		t.Fatalf("extensión incorrecta para zip: %q", ext)
+		t.Fatalf("incorrect extension for zip: %q", ext)
 	}
 	if ext := extensionFromMime("application/x-made-up"); ext != "" {
-		t.Fatalf("un mime desconocido debería devolver cadena vacía, got %q", ext)
+		t.Fatalf("unknown mime should return empty string, got %q", ext)
 	}
 }
 
@@ -173,23 +173,23 @@ func TestExtensionFromMimeKnownAndUnknown(t *testing.T) {
 // sube el archivo a Telegram, y la escucha lo procesa sola, así que bastaba un
 // mensaje para tumbar la aplicación.
 func TestSanitizeFileNameNoPanicOnLongExtension(t *testing.T) {
-	entradas := []string{
+	entries := []string{
 		"x." + strings.Repeat("y", 250),
 		"." + strings.Repeat("z", 300),
 		strings.Repeat(".", 300),
 		strings.Repeat("a", 5000),
 		strings.Repeat("😀", 300) + ".mp4",
 	}
-	for _, entrada := range entradas {
-		got := SanitizeFileName(entrada)
+	for _, entry := range entries {
+		got := SanitizeFileName(entry)
 		if got == "" {
-			t.Errorf("devolvió un nombre vacío para una entrada de %d bytes", len(entrada))
+			t.Errorf("returned an empty name for an entry of %d bytes", len(entry))
 		}
 		if len(got) > 200 {
-			t.Errorf("no se respetó el límite de 200 bytes: len=%d", len(got))
+			t.Errorf("did not respect limit of 200 bytes: len=%d", len(got))
 		}
 		if !utf8.ValidString(got) {
-			t.Errorf("se partió un carácter UTF-8: %q", got)
+			t.Errorf("split a UTF-8 character: %q", got)
 		}
 	}
 }
@@ -198,18 +198,18 @@ func TestSanitizeFileNameNoPanicOnLongExtension(t *testing.T) {
 // el shell, el nombre no debe llevarlos de todas formas.
 func TestSanitizeFileNameRemovesShellChars(t *testing.T) {
 	if got := SanitizeFileName("video&calc.mp4"); strings.ContainsAny(got, "&^%") {
-		t.Fatalf("sobrevivió un carácter que interpreta cmd.exe: %q", got)
+		t.Fatalf("character interpreted by cmd.exe survived: %q", got)
 	}
 }
 
 func TestSanitizeFileNameAvoidsReservedWindowsNames(t *testing.T) {
-	for _, entrada := range []string{"NUL.mp4", "con.txt", "COM1.dat", "lpt9"} {
-		if isReservedWindowsName(SanitizeFileName(entrada)) {
-			t.Errorf("%q sigue siendo un nombre reservado", entrada)
+	for _, entry := range []string{"NUL.mp4", "con.txt", "COM1.dat", "lpt9"} {
+		if isReservedWindowsName(SanitizeFileName(entry)) {
+			t.Errorf("%q is still a reserved name", entry)
 		}
 	}
 	if got := SanitizeFileName("CONcierto.mp4"); got != "CONcierto.mp4" {
-		t.Errorf("se alteró un nombre legítimo: %q", got)
+		t.Errorf("a legitimate name was altered: %q", got)
 	}
 }
 
@@ -229,7 +229,7 @@ func TestExtractMediaInfoDCID(t *testing.T) {
 	}
 	infoDoc := ExtractMediaInfo(msgDoc)
 	if infoDoc == nil || infoDoc.DCID != 4 {
-		t.Fatalf("se esperaba DCID 4, se obtuvo: %+v", infoDoc)
+		t.Fatalf("expected DCID 4, got: %+v", infoDoc)
 	}
 
 	msgPhoto := &tg.Message{
@@ -246,7 +246,7 @@ func TestExtractMediaInfoDCID(t *testing.T) {
 	}
 	infoPhoto := ExtractMediaInfo(msgPhoto)
 	if infoPhoto == nil || infoPhoto.DCID != 2 {
-		t.Fatalf("se esperaba DCID 2 para foto, se obtuvo: %+v", infoPhoto)
+		t.Fatalf("expected DCID 2 for photo, got: %+v", infoPhoto)
 	}
 }
 
@@ -257,21 +257,21 @@ func TestDetectFileMigrate(t *testing.T) {
 		Argument: 4,
 	}
 	if dc := detectFileMigrate(errTg); dc != 4 {
-		t.Fatalf("se esperaba DC 4 desde tgerr, se obtuvo %d", dc)
+		t.Fatalf("expected DC 4 from tgerr, got %d", dc)
 	}
 
 	errStr := errors.New("get file: get next chunk: invoke pool: rpcDoRequest: rpc error code 303: FILE_MIGRATE (4)")
 	if dc := detectFileMigrate(errStr); dc != 4 {
-		t.Fatalf("se esperaba DC 4 desde error formateado, se obtuvo %d", dc)
+		t.Fatalf("expected DC 4 from formatted error, got %d", dc)
 	}
 
 	errUnderscore := errors.New("rpc error: FILE_MIGRATE_3")
 	if dc := detectFileMigrate(errUnderscore); dc != 3 {
-		t.Fatalf("se esperaba DC 3 desde error con guión bajo, se obtuvo %d", dc)
+		t.Fatalf("expected DC 3 from underscore error, got %d", dc)
 	}
 
 	errOther := errors.New("connection reset by peer")
 	if dc := detectFileMigrate(errOther); dc != 0 {
-		t.Fatalf("se esperaba DC 0 para error no relacionado, se obtuvo %d", dc)
+		t.Fatalf("expected DC 0 for unrelated error, got %d", dc)
 	}
 }

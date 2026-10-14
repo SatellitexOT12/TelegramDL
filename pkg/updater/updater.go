@@ -85,7 +85,7 @@ type AppUpdater struct {
 // errRateLimited distingue el "GitHub no nos deja preguntar ahora mismo" de un
 // fallo de verdad, para no llenar el registro de avisos por algo que se arregla
 // solo con el tiempo.
-var errRateLimited = errors.New("GitHub limitó las peticiones de actualización")
+var errRateLimited = errors.New("GitHub rate limited update requests")
 
 const (
 	githubAPI = "https://api.github.com"
@@ -261,33 +261,33 @@ type assetGitHub struct {
 // cuando GitHub responde que se agotó la cuota de peticiones por hora. El propio
 // GitHub lo dice en las cabeceras, así que no hay que adivinar nada.
 func (u *AppUpdater) recordRateLimit(resp *http.Response) bool {
-	reintentar := resp.Header.Get("Retry-After")
-	agotada := resp.Header.Get("X-RateLimit-Remaining") == "0"
-	if !agotada && reintentar == "" {
+	retryAfter := resp.Header.Get("Retry-After")
+	exhausted := resp.Header.Get("X-RateLimit-Remaining") == "0"
+	if !exhausted && retryAfter == "" {
 		return false
 	}
 
-	espera := 15 * time.Minute
-	if reintentar != "" {
-		if segundos, err := strconv.Atoi(strings.TrimSpace(reintentar)); err == nil && segundos > 0 {
-			espera = time.Duration(segundos) * time.Second
+	wait := 15 * time.Minute
+	if retryAfter != "" {
+		if seconds, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && seconds > 0 {
+			wait = time.Duration(seconds) * time.Second
 		}
 	} else if reset := strings.TrimSpace(resp.Header.Get("X-RateLimit-Reset")); reset != "" {
 		if epoch, err := strconv.ParseInt(reset, 10, 64); err == nil {
-			if falta := time.Until(time.Unix(epoch, 0)); falta > 0 {
-				espera = falta
+			if remaining := time.Until(time.Unix(epoch, 0)); remaining > 0 {
+				wait = remaining
 			}
 		}
 	}
-	espera += 30 * time.Second // un margen por si el reloj va justo
+	wait += 30 * time.Second // un margen por si el reloj va justo
 
 	u.mu.Lock()
-	u.rateLimitUntil = time.Now().Add(espera)
+	u.rateLimitUntil = time.Now().Add(wait)
 	u.mu.Unlock()
 
 	logbus.Warn(logbus.CatUpdater,
 		i18n.T("updater.rateLimited"),
-		i18n.T("updater.rateLimitedDetail", espera.Round(time.Second)))
+		i18n.T("updater.rateLimitedDetail", wait.Round(time.Second)))
 	return true
 }
 
@@ -374,9 +374,9 @@ func archKeywords() []string {
 	}
 }
 
-func containsAnyKeyword(texto string, palabras []string) bool {
-	for _, palabra := range palabras {
-		if strings.Contains(texto, palabra) {
+func containsAnyKeyword(text string, keywords []string) bool {
+	for _, keyword := range keywords {
+		if strings.Contains(text, keyword) {
 			return true
 		}
 	}
@@ -448,7 +448,7 @@ func numericPrefix(s string) int {
 }
 
 // normalizeVersion parte "v2.5.0-rc1+build" en [2 5 0] y "rc1".
-func normalizeVersion(v string) (numeros [3]int, prueba string) {
+func normalizeVersion(v string) (numbers [3]int, preRelease string) {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")
 	v = strings.TrimPrefix(v, "V")
@@ -457,21 +457,21 @@ func normalizeVersion(v string) (numeros [3]int, prueba string) {
 		v = v[:i]
 	}
 	if i := strings.IndexByte(v, '-'); i >= 0 {
-		prueba = v[i+1:]
+		preRelease = v[i+1:]
 		v = v[:i]
 	}
 
-	for i, parte := range strings.SplitN(v, ".", 3) {
-		numeros[i] = numericPrefix(strings.TrimSpace(parte))
+	for i, part := range strings.SplitN(v, ".", 3) {
+		numbers[i] = numericPrefix(strings.TrimSpace(part))
 	}
-	return numeros, prueba
+	return numbers, preRelease
 }
 
 // compareVersions devuelve -1 si a es anterior a b, 1 si es posterior y 0 si
 // son la misma.
 func compareVersions(a, b string) int {
-	na, pruebaA := normalizeVersion(a)
-	nb, pruebaB := normalizeVersion(b)
+	na, preReleaseA := normalizeVersion(a)
+	nb, preReleaseB := normalizeVersion(b)
 
 	for i := 0; i < len(na); i++ {
 		if na[i] != nb[i] {
@@ -483,15 +483,15 @@ func compareVersions(a, b string) int {
 	}
 
 	switch {
-	case pruebaA == "" && pruebaB == "":
+	case preReleaseA == "" && preReleaseB == "":
 		return 0
-	case pruebaA == "":
+	case preReleaseA == "":
 		// 2.5.0 es posterior a 2.5.0-rc1.
 		return 1
-	case pruebaB == "":
+	case preReleaseB == "":
 		return -1
 	}
-	return strings.Compare(pruebaA, pruebaB)
+	return strings.Compare(preReleaseA, preReleaseB)
 }
 
 // ---------------------------------------------------------------------------
@@ -502,15 +502,15 @@ func (u *AppUpdater) CheckForUpdate() (*ReleaseInfo, *ReleaseAsset, error) {
 	u.mu.Lock()
 	u.checkCount++
 	first := u.checkCount == 1
-	pausaHasta := u.rateLimitUntil
+	pausedUntil := u.rateLimitUntil
 	u.mu.Unlock()
 
 	// Si GitHub ya nos dijo que agotamos la cuota, esperamos a que pase el
 	// tiempo que él mismo indicó en vez de seguir insistiendo (y llenando el
 	// registro) cada pocos minutos.
-	if !pausaHasta.IsZero() && time.Now().Before(pausaHasta) {
+	if !pausedUntil.IsZero() && time.Now().Before(pausedUntil) {
 		logbus.Debug(logbus.CatUpdater, i18n.T("updater.checkPaused"),
-			i18n.T("updater.checkPausedDetail", time.Until(pausaHasta).Round(time.Second)))
+			i18n.T("updater.checkPausedDetail", time.Until(pausedUntil).Round(time.Second)))
 		return nil, nil, nil
 	}
 
@@ -599,7 +599,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 		u.setProgress("downloading", 0, asset.Size, 0)
 
 		if err := u.downloadWithProgress(asset.DownloadURL, archivePath); err != nil {
-			u.setProgress("error: descarga fallida: "+err.Error(), 0, 0, 0)
+			u.setProgress(i18n.T("updater.downloadFailedPrefix")+err.Error(), 0, 0, 0)
 			return
 		}
 
@@ -635,12 +635,12 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 		lowerArch := strings.ToLower(archivePath)
 		if strings.HasSuffix(lowerArch, ".zip") {
 			if err := unzip(archivePath, extractPath); err != nil {
-				u.setProgress("error: fallo al descomprimir zip: "+err.Error(), 0, 0, 0)
+				u.setProgress(i18n.T("updater.unzipFailedPrefix")+err.Error(), 0, 0, 0)
 				return
 			}
 		} else if strings.HasSuffix(lowerArch, ".tar.gz") || strings.HasSuffix(lowerArch, ".tgz") {
 			if err := untarGzip(archivePath, extractPath); err != nil {
-				u.setProgress("error: fallo al descomprimir tar.gz: "+err.Error(), 0, 0, 0)
+				u.setProgress(i18n.T("updater.untarFailedPrefix")+err.Error(), 0, 0, 0)
 				return
 			}
 		} else {
@@ -651,7 +651,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 		// 3. Buscar el binario ejecutable real dentro de lo extraído
 		newBinaryPath := u.findExecutable(extractPath)
 		if newBinaryPath == "" {
-			u.setProgress("error: no se encontró el ejecutable en la descarga", 0, 0, 0)
+			u.setProgress(i18n.T("updater.exeNotFound"), 0, 0, 0)
 			return
 		}
 
@@ -665,7 +665,7 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 
 		log.Printf("[UPDATER] %s", i18n.T("updater.applying", exePath))
 		if err := applyBinary(newBinaryPath, exePath); err != nil {
-			u.setProgress("error: fallo al aplicar actualización: "+err.Error(), 0, 0, 0)
+			u.setProgress(i18n.T("updater.applyFailedPrefix")+err.Error(), 0, 0, 0)
 			logbus.Error(logbus.CatUpdater, i18n.T("updater.applyError"), err.Error())
 			return
 		}
@@ -693,10 +693,10 @@ func (u *AppUpdater) InstallUpdate(rel *ReleaseInfo) error {
 func applyBinary(source, target string) error {
 	// Los permisos del ejecutable actual se conservan. En Windows esto no
 	// significa nada (mandan las ACL), pero en Linux y macOS sí.
-	permisos := os.FileMode(0o755)
+	perms := os.FileMode(0o755)
 	if fi, err := os.Stat(target); err == nil {
 		if p := fi.Mode().Perm(); p&0o100 != 0 {
-			permisos = p
+			perms = p
 		}
 	}
 
@@ -709,56 +709,56 @@ func applyBinary(source, target string) error {
 	// El temporal se crea en la MISMA carpeta que el destino: renombrar entre
 	// volúmenes distintos falla, y todo esto depende de que el último cambio de
 	// nombre sea atómico.
-	temporal, err := os.CreateTemp(filepath.Dir(target), ".tgdown-nuevo-*")
+	tmpFile, err := os.CreateTemp(filepath.Dir(target), ".tgdown-new-*")
 	if err != nil {
 		return fmt.Errorf(i18n.T("updater.writeError"), filepath.Dir(target), err)
 	}
-	rutaTemporal := temporal.Name()
-	limpiarTemporal := true
+	tempPath := tmpFile.Name()
+	removeTemp := true
 	defer func() {
-		if limpiarTemporal {
-			_ = os.Remove(rutaTemporal)
+		if removeTemp {
+			_ = os.Remove(tempPath)
 		}
 	}()
 
-	if _, err := io.Copy(temporal, sourceFile); err != nil {
-		_ = temporal.Close()
+	if _, err := io.Copy(tmpFile, sourceFile); err != nil {
+		_ = tmpFile.Close()
 		return fmt.Errorf(i18n.T("updater.copyError"), err)
 	}
 	// Sin esto, un corte de corriente justo después del cambio de nombre podría
 	// dejar en su sitio un ejecutable a medio escribir.
-	_ = temporal.Sync()
-	if err := temporal.Close(); err != nil {
+	_ = tmpFile.Sync()
+	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf(i18n.T("updater.closeError"), err)
 	}
-	if err := os.Chmod(rutaTemporal, permisos); err != nil {
+	if err := os.Chmod(tempPath, perms); err != nil {
 		return fmt.Errorf(i18n.T("updater.chmodError"), err)
 	}
 
-	antiguo := target + ".old"
-	_ = os.Remove(antiguo)
-	if err := os.Rename(target, antiguo); err != nil {
+	oldFile := target + ".old"
+	_ = os.Remove(oldFile)
+	if err := os.Rename(target, oldFile); err != nil {
 		return fmt.Errorf(i18n.T("updater.moveOldError"), target, err)
 	}
 
-	if err := os.Rename(rutaTemporal, target); err != nil {
+	if err := os.Rename(tempPath, target); err != nil {
 		// Deshacer.
-		if errVuelta := os.Rename(antiguo, target); errVuelta != nil {
-			return fmt.Errorf(i18n.T("updater.rollbackFailed"), err, antiguo, errVuelta)
+		if errRollback := os.Rename(oldFile, target); errRollback != nil {
+			return fmt.Errorf(i18n.T("updater.rollbackFailed"), err, oldFile, errRollback)
 		}
 		return fmt.Errorf(i18n.T("updater.putNewError"), err)
 	}
-	limpiarTemporal = false
+	removeTemp = false
 
 	// En Windows el archivo apartado sigue en uso mientras este proceso viva, así
 	// que no poder borrarlo ahora es lo normal y no es un fallo.
-	if err := os.Remove(antiguo); err != nil {
+	if err := os.Remove(oldFile); err != nil {
 		log.Printf("[UPDATER] %s", i18n.T("updater.cleanupNextBoot", err))
 	}
 	return nil
 }
 
-func (u *AppUpdater) downloadWithProgress(descarga, dest string) error {
+func (u *AppUpdater) downloadWithProgress(downloadURL, dest string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -768,7 +768,7 @@ func (u *AppUpdater) downloadWithProgress(descarga, dest string) error {
 	watchdog := time.AfterFunc(noDataTimeout, cancel)
 	defer watchdog.Stop()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, descarga, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return err
 	}

@@ -68,7 +68,7 @@ func NewStorage(dbPath string) (*Storage, error) {
 	dsn := dbPath + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("error al abrir sqlite: %w", err)
+		return nil, fmt.Errorf(i18n.T("storage.openErr"), err)
 	}
 
 	s := &Storage{
@@ -262,7 +262,7 @@ func (s *Storage) migrateListenerTopics() error {
 	}
 	for _, step := range steps {
 		if _, err := tx.Exec(step); err != nil {
-			return fmt.Errorf("error al migrar listener_chats a temas: %w", err)
+			return fmt.Errorf(i18n.T("storage.migrateTopicsErr"), err)
 		}
 	}
 
@@ -1014,7 +1014,7 @@ func (s *Storage) AddChunks(downloadID string, indices []int64) error {
 		// download_id no exista se rechaza, y tragarse ese error dejaba la
 		// tabla vacía sin avisar a nadie.
 		if _, err := stmt.Exec(downloadID, idx); err != nil {
-			return fmt.Errorf("error al guardar el chunk %d de %s: %w", idx, downloadID, err)
+			return fmt.Errorf(i18n.T("storage.saveChunkErr"), idx, downloadID, err)
 		}
 	}
 

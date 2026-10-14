@@ -152,7 +152,7 @@ const onDrop = async (targetIndex) => {
       body: JSON.stringify({ ids: items.value.map((i) => i.id) })
     })
   } catch (err) {
-    console.error('Error guardando orden:', err)
+    console.error(t('console.saveOrderError'), err)
   }
 }
 
@@ -199,8 +199,8 @@ const chatFolder = (chat) => {
   if (!chat || props.settings.organize_by_chat === false) return ''
   const base = (chat.folder || '').trim()
   if (!base) return ''
-  const tema = (chat.topic_folder || '').trim()
-  return chat.topic_id && tema ? `${base} / ${tema}` : base
+  const topic = (chat.topic_folder || '').trim()
+  return chat.topic_id && topic ? `${base} / ${topic}` : base
 }
 
 // Acepta un ID numérico o un enlace privado https://t.me/c/<grupo>/<tema>[/<mensaje>].
@@ -471,7 +471,7 @@ const downloadAll = async () => {
           })
           successCount++
         } catch (err) {
-          console.error(`Error descargando ${item.id}:`, err)
+          console.error(t('console.downloadItemError', { id: item.id }), err)
         }
       }
       props.notify(t('listener.addedToQueue', { n: successCount }))
@@ -625,7 +625,7 @@ const selectBulkFileName = async (type) => {
       item.file_name = targetName
       updatedCount++
     } catch (err) {
-      console.error(`Error actualizando nombre para ${item.id}:`, err)
+      console.error(t('console.updateNameError', { id: item.id }), err)
     }
   }
 
@@ -672,7 +672,7 @@ const applyAutomaticNamesForChat = async (chat) => {
         })
         item.file_name = targetName
       } catch (err) {
-        console.error(`Error actualizando nombre para ${item.id}:`, err)
+        console.error(t('console.updateNameError', { id: item.id }), err)
       }
     }
   }
@@ -830,7 +830,7 @@ onUnmounted(() => {
             <div class="chat-details">
               <strong>{{ chatLabel(chat) }}</strong>
               <small>{{ chatMeta(chat) }}</small>
-              <small v-if="chatFolder(chat)" class="chat-carpeta"
+              <small v-if="chatFolder(chat)" class="chat-folder"
                 ><Folder :size="10" /> {{ chatFolder(chat) }}</small
               >
             </div>
@@ -848,8 +848,8 @@ onUnmounted(() => {
                 <span></span>
               </label>
               <span class="auto-toggle-text">
-                <span class="line1">Descarga</span>
-                <span class="line2">auto</span>
+                <span class="line1">{{ t('listener.autoDownloadLine1') }}</span>
+                <span class="line2">{{ t('listener.autoDownloadLine2') }}</span>
               </span>
             </div>
             <div class="chat-name-mode-wrapper">
@@ -874,7 +874,7 @@ onUnmounted(() => {
                   </span>
                 </button>
                 <span class="chat-name-mode-text">
-                  <span class="line1">Nombre:</span>
+                  <span class="line1">{{ t('listener.nameLabelLine') }}</span>
                   <span class="line2">{{ nameModeLabel(chat.name_mode) }}</span>
                 </span>
               </div>
@@ -1623,7 +1623,7 @@ onUnmounted(() => {
   color: var(--user-text-dim);
   font-size: 10px;
 }
-.chat-carpeta {
+.chat-folder {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1632,7 +1632,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chat-carpeta svg {
+.chat-folder svg {
   flex: none;
 }
 .auto-toggle-wrapper {

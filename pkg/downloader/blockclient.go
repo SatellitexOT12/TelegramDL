@@ -27,7 +27,7 @@ import (
 	"tgdown/pkg/telegram"
 )
 
-// maxBloquesEnVuelo es el tope de peticiones de bloque simultáneas de TODO el
+// maxInFlightBlocks es el tope de peticiones de bloque simultáneas de TODO el
 // programa, sumando todos los workers de todas las descargas.
 //
 // Antes no había ninguno: con 6 descargas a la vez y 4 workers cada una se
@@ -228,59 +228,59 @@ func detectFileMigrate(err error) int {
 // transparentemente al DC adecuado.
 func (c blockClient) UploadGetFile(ctx context.Context, request *tg.UploadGetFileRequest) (tg.UploadFileClass, error) {
 	var (
-		respuesta tg.UploadFileClass
-		err       error
+		resp tg.UploadFileClass
+		err  error
 	)
 
-	for intento := 0; intento < maxFloodAttempts; intento++ {
-		if errEspera := waitFloodGate(ctx); errEspera != nil {
-			return nil, errEspera
+	for attempt := 0; attempt < maxFloodAttempts; attempt++ {
+		if waitErr := waitFloodGate(ctx); waitErr != nil {
+			return nil, waitErr
 		}
-		if errRanura := acquireSlot(ctx); errRanura != nil {
-			return nil, errRanura
+		if slotErr := acquireSlot(ctx); slotErr != nil {
+			return nil, slotErr
 		}
 
 		client := c.currentClient()
-		respuesta, err = client.UploadGetFile(ctx, request)
+		resp, err = client.UploadGetFile(ctx, request)
 		releaseSlot()
 
 		if err == nil {
-			return respuesta, nil
+			return resp, nil
 		}
 
 		if targetDC := detectFileMigrate(err); targetDC > 0 && c.state != nil && c.state.clientMgr != nil {
 			logbus.Info(logbus.CatDownloads,
-				fmt.Sprintf("Detectada migración a DC %d, reconectando al centro de datos adecuado...", targetDC), "")
+				i18n.T("downloads.migratingDC", targetDC), "")
 			newClient, dcErr := c.state.clientMgr.DownloadClientForDC(ctx, targetDC)
 			if dcErr == nil && newClient != nil {
 				c.setClient(newClient)
-				intento-- // No penalizar el contador de intentos ante migración de DC
+				attempt-- // No penalizar el contador de intentos ante migración de DC
 				continue
 			}
 			logbus.Warn(logbus.CatDownloads,
 				fmt.Sprintf("Error conectando a DC %d: %v", targetDC, dcErr), "")
 		}
 
-		espera, esFlood := floodWaitDuration(err)
-		if !esFlood {
-			return respuesta, err
+		wait, isFlood := floodWaitDuration(err)
+		if !isFlood {
+			return resp, err
 		}
 
 		// Se avisa en el registro porque es la única forma de saber desde el
 		// panel que una descarga lenta es Telegram frenándonos y no un problema
 		// del programa.
 		logbus.Warn(logbus.CatDownloads,
-			i18n.T("downloads.floodWait", espera),
+			i18n.T("downloads.floodWait", wait),
 			i18n.T("downloads.floodWaitDetail",
-				request.Offset, intento+1, maxFloodAttempts))
+				request.Offset, attempt+1, maxFloodAttempts))
 
 		// 500ms extra es margen suficiente para no volver justo al borde. La espera
 		// la cumple la puerta al principio de la vuelta siguiente, y la cumplen
 		// todos los workers a la vez.
-		closeFloodGate(espera + 500*time.Millisecond)
+		closeFloodGate(wait + 500*time.Millisecond)
 	}
 
-	return respuesta, err
+	return resp, err
 }
 
 func (c blockClient) UploadGetFileHashes(ctx context.Context, request *tg.UploadGetFileHashesRequest) ([]tg.FileHash, error) {

@@ -6,8 +6,8 @@
    adelante hay paletas propias, y esas sí pueden traer decorado: fondo, capas
    animadas y detalles que los temas de Telegram no tienen.
 
-   Cada tema vive entero dentro de su propia clase (.tema-twilight-comet,
-   .tema-edge-runner, .tema-rainy-garden), que App.vue pone y quita en el
+   Cada tema vive entero dentro de su propia clase (.theme-twilight-comet,
+   .theme-edge-runner, .theme-rainy-garden), que App.vue pone y quita en el
    <html> al aplicar el tema. Con un color de Telegram seleccionado no hay ni
    una regla activa de
    este archivo, así que el panel de siempre se comporta exactamente igual que
@@ -25,25 +25,25 @@
    estrellas, un cometa que cruza de vez en cuando y un cordón carmesí atando
    las piezas que marcan avance o selección.
    -------------------------------------------------------------------------- */
-.tema-twilight-comet {
+.theme-twilight-comet {
   /* El carmesí del cordón es el único color que no sale del themeMap: es el
      punto fijo del tema y no cambia aunque cambie la paleta. */
-  --tc-cordon: #c9372c;
-  --tc-cordon-claro: #e0574a;
-  --tc-cometa: #bdeaff;
-  --tc-cometa-estela: #7fd4f5;
-  --tc-oro: #f7c56b;
-  --tc-horizonte: #f0803c;
+  --tc-ribbon: #c9372c;
+  --tc-ribbon-light: #e0574a;
+  --tc-comet: #bdeaff;
+  --tc-comet-trail: #7fd4f5;
+  --tc-gold: #f7c56b;
+  --tc-horizon: #f0803c;
 }
 
 /* --- El cielo ------------------------------------------------------------- */
 
-.tema-twilight-comet body {
+.theme-twilight-comet body {
   background-image:
     /* último resplandor del sol, abajo a la derecha */
     radial-gradient(
       120% 70% at 78% 118%,
-      color-mix(in srgb, var(--tc-horizonte), transparent 82%) 0%,
+      color-mix(in srgb, var(--tc-horizon), transparent 82%) 0%,
       transparent 60%
     ),
     /* la franja magenta del atardecer */
@@ -65,8 +65,8 @@
    imagen. Dos baldosas de tamaños distintos (620px y 410px) cubren la pantalla
    sin que se note la repetición y pesan cero bytes. Cada una parpadea a su
    ritmo, lo que da algo de profundidad. */
-.tema-twilight-comet body::before,
-.tema-twilight-comet .app-shell::before {
+.theme-twilight-comet body::before,
+.theme-twilight-comet .app-shell::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -74,7 +74,7 @@
   pointer-events: none;
 }
 
-.tema-twilight-comet body::before {
+.theme-twilight-comet body::before {
   background-image:
     radial-gradient(
       1.7px 1.7px at 12% 18%,
@@ -86,7 +86,7 @@
       rgba(255, 255, 255, 0.7),
       transparent 62%
     ),
-    radial-gradient(2px 2px at 57% 24%, var(--tc-cometa), transparent 62%),
+    radial-gradient(2px 2px at 57% 24%, var(--tc-comet), transparent 62%),
     radial-gradient(
       1.1px 1.1px at 73% 12%,
       rgba(255, 255, 255, 0.75),
@@ -102,7 +102,7 @@
       rgba(255, 255, 255, 0.6),
       transparent 62%
     ),
-    radial-gradient(1.9px 1.9px at 46% 52%, var(--tc-oro), transparent 62%),
+    radial-gradient(1.9px 1.9px at 46% 52%, var(--tc-gold), transparent 62%),
     radial-gradient(
       1.1px 1.1px at 66% 44%,
       rgba(255, 255, 255, 0.55),
@@ -123,7 +123,7 @@
       rgba(255, 255, 255, 0.5),
       transparent 62%
     ),
-    radial-gradient(1.5px 1.5px at 80% 77%, var(--tc-cometa), transparent 62%),
+    radial-gradient(1.5px 1.5px at 80% 77%, var(--tc-comet), transparent 62%),
     radial-gradient(
       1.3px 1.3px at 28% 88%,
       rgba(255, 255, 255, 0.55),
@@ -136,11 +136,11 @@
     );
   background-size: 620px 620px;
   opacity: 0.75;
-  animation: tcParpadeo 7s ease-in-out infinite;
+  animation: tcBlink 7s ease-in-out infinite;
 }
 
 /* Segunda baldosa: estrellas más pequeñas y tenues, el fondo del cielo. */
-.tema-twilight-comet .app-shell::before {
+.theme-twilight-comet .app-shell::before {
   background-image:
     radial-gradient(
       1.1px 1.1px at 18% 27%,
@@ -152,7 +152,7 @@
       rgba(255, 255, 255, 0.45),
       transparent 62%
     ),
-    radial-gradient(1.2px 1.2px at 71% 36%, var(--tc-oro), transparent 62%),
+    radial-gradient(1.2px 1.2px at 71% 36%, var(--tc-gold), transparent 62%),
     radial-gradient(
       0.9px 0.9px at 85% 19%,
       rgba(255, 255, 255, 0.4),
@@ -173,10 +173,10 @@
       rgba(255, 255, 255, 0.38),
       transparent 62%
     ),
-    radial-gradient(1.2px 1.2px at 89% 86%, var(--tc-cometa), transparent 62%);
+    radial-gradient(1.2px 1.2px at 89% 86%, var(--tc-comet), transparent 62%);
   background-size: 410px 410px;
   opacity: 0.5;
-  animation: tcParpadeo 11s ease-in-out infinite reverse;
+  animation: tcBlink 11s ease-in-out infinite reverse;
 }
 
 /* El cometa cruza la ventana cada 45 segundos y tarda unos cinco en pasar. Va
@@ -184,7 +184,7 @@
    avisos): detrás de los paneles no se vería, y a media opacidad se lee como
    un reflejo sobre el cristal y no como un elemento de la interfaz. Se mueve
    con transform, así que lo resuelve la GPU sin repintar la página. */
-.tema-twilight-comet body::after {
+.theme-twilight-comet body::after {
   content: '';
   position: fixed;
   top: -16vh;
@@ -197,23 +197,23 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--tc-cometa-estela), transparent 78%) 38%,
-    var(--tc-cometa) 93%,
+    color-mix(in srgb, var(--tc-comet-trail), transparent 78%) 38%,
+    var(--tc-comet) 93%,
     #fff 100%
   );
-  filter: drop-shadow(0 0 8px var(--tc-cometa))
-    drop-shadow(0 0 22px var(--tc-cometa-estela)) blur(0.4px);
+  filter: drop-shadow(0 0 8px var(--tc-comet))
+    drop-shadow(0 0 22px var(--tc-comet-trail)) blur(0.4px);
   opacity: 0;
-  animation: tcCometa 45s linear infinite;
+  animation: tcComet 45s linear infinite;
 }
 
 /* El contenido va por encima del cielo. La barra lateral ya tiene z-index 100. */
-.tema-twilight-comet .app-shell {
+.theme-twilight-comet .app-shell {
   position: relative;
   z-index: 1;
 }
 
-@keyframes tcParpadeo {
+@keyframes tcBlink {
   0%,
   100% {
     opacity: 0.42;
@@ -227,7 +227,7 @@
    navegador aplica la rotación por fuera de la traslación y el trazo se sale
    por abajo en vez de cruzar. El ángulo es el de la propia trayectoria, para
    que el cometa apunte a donde va. */
-@keyframes tcCometa {
+@keyframes tcComet {
   0% {
     transform: translate3d(0, 0, 0) rotate(23deg) scaleX(0.3);
     opacity: 0;
@@ -251,18 +251,18 @@
 /* Con `prefers-reduced-motion` el cielo se queda quieto: las estrellas siguen
    ahí, el parpadeo y el cometa no. */
 @media (prefers-reduced-motion: reduce) {
-  .tema-twilight-comet body::before,
-  .tema-twilight-comet .app-shell::before {
+  .theme-twilight-comet body::before,
+  .theme-twilight-comet .app-shell::before {
     animation: none;
   }
-  .tema-twilight-comet body::after {
+  .theme-twilight-comet body::after {
     display: none;
   }
-  .tema-twilight-comet .hero-card:after {
+  .theme-twilight-comet .hero-card:after {
     animation: none;
   }
-  .tema-twilight-comet .progress-fill::before,
-  .tema-twilight-comet .disk-bar .fill::before {
+  .theme-twilight-comet .progress-fill::before,
+  .theme-twilight-comet .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -271,7 +271,7 @@
 /* Los paneles dejan de ser cajas opacas para que el cielo se vea detrás. El
    desenfoque es lo que evita que las estrellas molesten al leer. */
 
-.tema-twilight-comet .sidebar {
+.theme-twilight-comet .sidebar {
   background: color-mix(in srgb, var(--user-bg-base), transparent 22%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -279,9 +279,9 @@
     color-mix(in srgb, var(--user-border-light), transparent 40%);
 }
 
-.tema-twilight-comet .panel,
-.tema-twilight-comet .stat-card,
-.tema-twilight-comet .hero-card {
+.theme-twilight-comet .panel,
+.theme-twilight-comet .stat-card,
+.theme-twilight-comet .hero-card {
   background-color: color-mix(in srgb, var(--user-surface), transparent 14%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -289,11 +289,11 @@
 
 /* La tarjeta grande es el trozo de cielo más literal del panel: va de la noche
    (arriba izquierda) al naranja del horizonte (abajo derecha). */
-.tema-twilight-comet .hero-card {
+.theme-twilight-comet .hero-card {
   background-image:
     radial-gradient(
       90% 120% at 100% 130%,
-      color-mix(in srgb, var(--tc-horizonte), transparent 80%) 0%,
+      color-mix(in srgb, var(--tc-horizon), transparent 80%) 0%,
       transparent 58%
     ),
     linear-gradient(
@@ -305,19 +305,19 @@
 }
 
 /* El halo de la esquina pasa a ser un sol poniente en vez de una mancha. */
-.tema-twilight-comet .hero-card:after {
+.theme-twilight-comet .hero-card:after {
   background: radial-gradient(
     circle,
-    var(--tc-oro) 0%,
-    color-mix(in srgb, var(--tc-horizonte), transparent 45%) 38%,
+    var(--tc-gold) 0%,
+    color-mix(in srgb, var(--tc-horizon), transparent 45%) 38%,
     transparent 70%
   );
   opacity: 0.3;
   filter: blur(14px);
-  animation: tcSol 9s ease-in-out infinite;
+  animation: tcSun 9s ease-in-out infinite;
 }
 
-@keyframes tcSol {
+@keyframes tcSun {
   0%,
   100% {
     opacity: 0.24;
@@ -334,7 +334,7 @@
    que cambiar de tema no mueva el texto de sitio. Lo único que se toca es el
    tono del título de la vista, un poco más claro sobre el cielo violeta. */
 
-.tema-twilight-comet .topbar h1 {
+.theme-twilight-comet .topbar h1 {
   color: #f6f0fa;
 }
 
@@ -344,9 +344,9 @@
 
 /* Trenzado: un degradado repetido en diagonal sobre el color del tema da la
    textura del cordón sin necesidad de una imagen. */
-.tema-twilight-comet .progress-fill,
-.tema-twilight-comet .disk-bar .fill,
-.tema-twilight-comet .update-progress-fill {
+.theme-twilight-comet .progress-fill,
+.theme-twilight-comet .disk-bar .fill,
+.theme-twilight-comet .update-progress-fill {
   background-image: var(--user-gradient);
   box-shadow: 0 0 12px var(--user-glow);
 }
@@ -360,14 +360,14 @@
    de pixeles por segundo, las rayas se emborronan y parece que la animación
    se apaga. Aquí el recorrido es fijo —dos periodos del trazado—, así que el
    cordón avanza al mismo ritmo con la barra al 5% que al 95%. */
-.tema-twilight-comet .progress-fill,
-.tema-twilight-comet .disk-bar .fill {
+.theme-twilight-comet .progress-fill,
+.theme-twilight-comet .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-.tema-twilight-comet .progress-fill::before,
-.tema-twilight-comet .disk-bar .fill::before {
+.theme-twilight-comet .progress-fill::before,
+.theme-twilight-comet .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -381,14 +381,14 @@
     rgba(255, 255, 255, 0.22) 0 4px,
     rgba(0, 0, 0, 0.1) 4px 9px
   );
-  animation: tcCordonAvanza 1.2s linear infinite;
+  animation: tcRibbonAdvance 1.2s linear infinite;
 }
 
 /* 19.86px son dos periodos horizontales del trazado: el periodo del degradado
    es de 9px medidos sobre su propio eje, y a 115deg eso son 9 / sin(115deg) =
    9.93px en horizontal. Al desplazarse un múltiplo exacto, el salto del final
    del bucle cae justo encima del patrón y no se ve. */
-@keyframes tcCordonAvanza {
+@keyframes tcRibbonAdvance {
   from {
     transform: translateX(0);
   }
@@ -400,7 +400,7 @@
 /* La barra del diálogo de actualización ya trae su propia animación de viento
    dentro, así que ahí el trenzado se queda quieto, de fondo, y no se le añade
    el recorte que necesitaría la capa móvil. */
-.tema-twilight-comet .update-progress-fill {
+.theme-twilight-comet .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       115deg,
@@ -410,18 +410,18 @@
     var(--user-gradient);
 }
 
-.tema-twilight-comet .progress-track {
+.theme-twilight-comet .progress-track {
   background: color-mix(in srgb, var(--user-bg-base), transparent 30%);
 }
 
 /* La pestaña seleccionada lleva el carmesí al borde, no el color del tema: es
    el punto fijo de la interfaz. */
-.tema-twilight-comet .sidebar-nav button {
+.theme-twilight-comet .sidebar-nav button {
   position: relative;
 }
-.tema-twilight-comet .sidebar-nav button.selected {
+.theme-twilight-comet .sidebar-nav button.selected {
   box-shadow:
-    inset 3px 0 var(--tc-cordon),
+    inset 3px 0 var(--tc-ribbon),
     0 6px 20px rgba(0, 0, 0, 0.25);
   background: color-mix(
     in srgb,
@@ -429,112 +429,111 @@
     transparent 15%
   ) !important;
 }
-.tema-twilight-comet .sidebar-nav button.selected::after {
+.theme-twilight-comet .sidebar-nav button.selected::after {
   content: '';
   position: absolute;
   right: 10px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--tc-cordon-claro);
-  box-shadow: 0 0 8px var(--tc-cordon);
+  background: var(--tc-ribbon-light);
+  box-shadow: 0 0 8px var(--tc-ribbon);
 }
 
 /* Los enlaces de ayuda ya eran de un rojo fijo: se alinean con el cordón. */
-.tema-twilight-comet .inline-link,
-.tema-twilight-comet .inline-link:visited {
-  color: var(--tc-cordon-claro);
+.theme-twilight-comet .inline-link,
+.theme-twilight-comet .inline-link:visited {
+  color: var(--tc-ribbon-light);
 }
-.tema-twilight-comet .inline-link:hover {
+.theme-twilight-comet .inline-link:hover {
   color: #ff7a6d;
 }
-.tema-twilight-comet .inline-link:focus-visible {
-  outline-color: var(--tc-cordon-claro);
+.theme-twilight-comet .inline-link:focus-visible {
+  outline-color: var(--tc-ribbon-light);
 }
 
 /* --- Detalles ------------------------------------------------------------- */
 
 /* Los cuatro iconos de estadísticas tienen colores fijos que no pegan con el
    cielo; pasan a los tonos del tema. */
-.tema-twilight-comet .stat-icon.blue {
+.theme-twilight-comet .stat-icon.blue {
   background: color-mix(in srgb, var(--user-icon-bg), transparent 10%);
   color: var(--user-accent);
 }
-.tema-twilight-comet .stat-icon.amber {
+.theme-twilight-comet .stat-icon.amber {
   background: rgba(240, 128, 60, 0.16);
-  color: var(--tc-oro);
+  color: var(--tc-gold);
 }
-.tema-twilight-comet .stat-icon.green {
+.theme-twilight-comet .stat-icon.green {
   background: rgba(53, 163, 181, 0.16);
   color: #7ed3de;
 }
-.tema-twilight-comet .stat-icon.gray {
+.theme-twilight-comet .stat-icon.gray {
   background: rgba(144, 134, 187, 0.14);
   color: #a79ccb;
 }
 
-.tema-twilight-comet .primary-button,
-.tema-twilight-comet .save-button {
+.theme-twilight-comet .primary-button,
+.theme-twilight-comet .save-button {
   color: #fff8ef;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   box-shadow: 0 4px 18px color-mix(in srgb, var(--user-glow), transparent 25%);
 }
-.tema-twilight-comet .primary-button:hover:not(:disabled),
-.tema-twilight-comet .save-button:hover:not(:disabled) {
-  box-shadow: 0 10px 30px
-    color-mix(in srgb, var(--tc-horizonte), transparent 62%);
+.theme-twilight-comet .primary-button:hover:not(:disabled),
+.theme-twilight-comet .save-button:hover:not(:disabled) {
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--tc-horizon), transparent 62%);
 }
 
 /* El verde del punto de estado desentona con el cielo: pasa al oro. El rojo de
    desconectado se mantiene, que ahí el color es información. */
-.tema-twilight-comet .status-dot,
-.tema-twilight-comet .live-dot {
-  background: var(--tc-oro);
-  box-shadow: 0 0 12px var(--tc-oro);
+.theme-twilight-comet .status-dot,
+.theme-twilight-comet .live-dot {
+  background: var(--tc-gold);
+  box-shadow: 0 0 12px var(--tc-gold);
 }
-.tema-twilight-comet .status-dot.disconnected {
-  background: var(--tc-cordon);
-  box-shadow: 0 0 12px var(--tc-cordon);
+.theme-twilight-comet .status-dot.disconnected {
+  background: var(--tc-ribbon);
+  box-shadow: 0 0 12px var(--tc-ribbon);
 }
-.tema-twilight-comet .sidebar-user-badge .user-icon {
-  color: var(--tc-oro);
-}
-
-.tema-twilight-comet .badge,
-.tema-twilight-comet .save-state {
-  background: color-mix(in srgb, var(--tc-oro), transparent 88%);
-  color: var(--tc-oro);
-  border-color: color-mix(in srgb, var(--tc-oro), transparent 80%);
+.theme-twilight-comet .sidebar-user-badge .user-icon {
+  color: var(--tc-gold);
 }
 
-.tema-twilight-comet .toast.success {
+.theme-twilight-comet .badge,
+.theme-twilight-comet .save-state {
+  background: color-mix(in srgb, var(--tc-gold), transparent 88%);
+  color: var(--tc-gold);
+  border-color: color-mix(in srgb, var(--tc-gold), transparent 80%);
+}
+
+.theme-twilight-comet .toast.success {
   background: color-mix(in srgb, var(--user-surface), transparent 8%);
-  border-color: color-mix(in srgb, var(--tc-oro), transparent 65%);
+  border-color: color-mix(in srgb, var(--tc-gold), transparent 65%);
 }
 
 /* Barras de desplazamiento del color del tema, no del sistema. */
-.tema-twilight-comet ::-webkit-scrollbar {
+.theme-twilight-comet ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-.tema-twilight-comet ::-webkit-scrollbar-track {
+.theme-twilight-comet ::-webkit-scrollbar-track {
   background: transparent;
 }
-.tema-twilight-comet ::-webkit-scrollbar-thumb {
+.theme-twilight-comet ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--user-border-light), transparent 20%);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.tema-twilight-comet ::-webkit-scrollbar-thumb:hover {
+.theme-twilight-comet ::-webkit-scrollbar-thumb:hover {
   background: var(--user-primary);
   background-clip: content-box;
 }
 
 /* La pantalla de arranque y la de actualización comparten el cielo: sin esto
    se verían como un rectángulo plano encima del fondo. */
-.tema-twilight-comet .boot-screen,
-.tema-twilight-comet .update-required-overlay {
+.theme-twilight-comet .boot-screen,
+.theme-twilight-comet .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -545,19 +544,19 @@
 /* En pantallas estrechas la barra lateral queda arriba: el cordón pasa a ser
    el borde inferior, y el cielo se calma para no competir con el contenido. */
 @media (max-width: 900px) {
-  .tema-twilight-comet .sidebar {
+  .theme-twilight-comet .sidebar {
     border-bottom: 1px solid
-      color-mix(in srgb, var(--tc-cordon), transparent 70%);
+      color-mix(in srgb, var(--tc-ribbon), transparent 70%);
   }
-  .tema-twilight-comet .sidebar-nav button.selected {
+  .theme-twilight-comet .sidebar-nav button.selected {
     box-shadow:
-      inset 0 -3px var(--tc-cordon),
+      inset 0 -3px var(--tc-ribbon),
       0 6px 20px rgba(0, 0, 0, 0.25);
   }
-  .tema-twilight-comet .sidebar-nav button.selected::after {
+  .theme-twilight-comet .sidebar-nav button.selected::after {
     display: none;
   }
-  .tema-twilight-comet body::before {
+  .theme-twilight-comet body::before {
     opacity: 0.35;
   }
 }
@@ -569,17 +568,17 @@
    mal. El decorado es de HUD —rejilla, líneas de barrido, esquinas marcadas—
    y no de "fondo bonito": nada tapa el contenido ni se mueve donde se lee.
    -------------------------------------------------------------------------- */
-.tema-edge-runner {
+.theme-edge-runner {
   /* El magenta no está en el themeMap porque no es un color de interfaz sino
      de alarma: solo aparece en errores, desconexiones y acciones destructivas. */
-  --er-alerta: #ff0055;
-  --er-alerta-claro: #ff4d7d;
-  --er-lima: #a8f53c;
+  --er-alert: #ff0055;
+  --er-alert-light: #ff4d7d;
+  --er-lime: #a8f53c;
 }
 
 /* --- El fondo ------------------------------------------------------------- */
 
-.tema-edge-runner body {
+.theme-edge-runner body {
   background-image:
     /* derrame de neón amarillo desde abajo a la izquierda */
     radial-gradient(
@@ -604,7 +603,7 @@
 /* Rejilla técnica de fondo. Va por detrás de todo (z-index -1) y los paneles
    son opacos, así que solo asoma por los huecos: da la sensación de que la
    interfaz está montada sobre una cuadrícula, sin estorbar la lectura. */
-.tema-edge-runner body::before {
+.theme-edge-runner body::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -623,7 +622,7 @@
     );
 }
 
-.tema-edge-runner .app-shell {
+.theme-edge-runner .app-shell {
   position: relative;
   z-index: 1;
 }
@@ -632,7 +631,7 @@
    <html>, así que este ::before es el del elemento raíz y queda por encima de
    cualquier cosa de la página. La opacidad es deliberadamente mínima: a 1px de
    cada 3 y al 4,5% se nota como textura, no como suciedad sobre el texto. */
-.tema-edge-runner::before {
+.theme-edge-runner::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -649,7 +648,7 @@
    tarda unos dos en pasar. Como el cometa del otro tema, va por encima del
    contenido —detrás de los paneles opacos no se vería— y a media opacidad se
    lee como el refresco de una pantalla, no como un elemento de la interfaz. */
-.tema-edge-runner body::after {
+.theme-edge-runner body::after {
   content: '';
   position: fixed;
   left: 0;
@@ -667,10 +666,10 @@
     transparent 100%
   );
   opacity: 0;
-  animation: erBarrido 11s linear infinite;
+  animation: erSweep 11s linear infinite;
 }
 
-@keyframes erBarrido {
+@keyframes erSweep {
   0% {
     transform: translateY(-130px);
     opacity: 0;
@@ -692,11 +691,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tema-edge-runner body::after {
+  .theme-edge-runner body::after {
     display: none;
   }
-  .tema-edge-runner .progress-fill::before,
-  .tema-edge-runner .disk-bar .fill::before {
+  .theme-edge-runner .progress-fill::before,
+  .theme-edge-runner .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -705,15 +704,15 @@
 /* Nada de cristal aquí: los paneles son chapa opaca sobre negro, que es lo que
    deja que el neón destaque. Lo que los marca son las esquinas. */
 
-.tema-edge-runner .panel,
-.tema-edge-runner .stat-card,
-.tema-edge-runner .hero-card,
-.tema-edge-runner .logs-hero {
+.theme-edge-runner .panel,
+.theme-edge-runner .stat-card,
+.theme-edge-runner .hero-card,
+.theme-edge-runner .logs-hero {
   background-color: var(--user-surface);
   border-color: var(--user-border);
 }
 
-.tema-edge-runner .hero-card {
+.theme-edge-runner .hero-card {
   background-image: linear-gradient(
     112deg,
     var(--user-surface-light) 0%,
@@ -724,7 +723,7 @@
 }
 
 /* El halo de la esquina pasa a ser el resplandor de un rótulo de neón. */
-.tema-edge-runner .hero-card:after {
+.theme-edge-runner .hero-card:after {
   background: radial-gradient(circle, var(--user-primary) 0%, transparent 62%);
   opacity: 0.12;
   filter: blur(18px);
@@ -733,12 +732,12 @@
 /* Escuadras en dos esquinas opuestas: amarillo arriba a la izquierda, cian
    abajo a la derecha. El radio es el mismo del panel (15px) para que la
    escuadra se pegue a la curva en vez de cruzarla. */
-.tema-edge-runner .panel {
+.theme-edge-runner .panel {
   position: relative;
 }
 
-.tema-edge-runner .panel::before,
-.tema-edge-runner .panel::after {
+.theme-edge-runner .panel::before,
+.theme-edge-runner .panel::after {
   content: '';
   position: absolute;
   width: 28px;
@@ -746,7 +745,7 @@
   pointer-events: none;
 }
 
-.tema-edge-runner .panel::before {
+.theme-edge-runner .panel::before {
   top: -1px;
   left: -1px;
   border-top: 2px solid var(--user-primary);
@@ -754,7 +753,7 @@
   border-top-left-radius: 15px;
 }
 
-.tema-edge-runner .panel::after {
+.theme-edge-runner .panel::after {
   bottom: -1px;
   right: -1px;
   border-bottom: 2px solid var(--user-accent);
@@ -765,10 +764,10 @@
 
 /* Las tarjetas de cifras llevan un filo amarillo a la izquierda en vez de
    escuadras: son cuatro seguidas y con escuadras quedaría recargado. */
-.tema-edge-runner .stat-card {
+.theme-edge-runner .stat-card {
   box-shadow: inset 2px 0 0 var(--user-primary);
 }
-.tema-edge-runner .stat-card:hover {
+.theme-edge-runner .stat-card:hover {
   box-shadow:
     inset 2px 0 0 var(--user-primary),
     0 12px 28px rgba(0, 0, 0, 0.45);
@@ -779,49 +778,49 @@
    los títulos pasan a blanco y el texto secundario al gris de la paleta. El
    tema no toca ninguna fuente. */
 
-.tema-edge-runner .brand,
-.tema-edge-runner .hero-card h2,
-.tema-edge-runner .panel-heading h2,
-.tema-edge-runner .logs-hero h2,
-.tema-edge-runner .stat-card strong,
-.tema-edge-runner .sidebar-bottom strong,
-.tema-edge-runner .setting-label,
-.tema-edge-runner .sidebar-user-badge,
-.tema-edge-runner .download-form input,
-.tema-edge-runner .speed-row input,
-.tema-edge-runner .token-row input {
+.theme-edge-runner .brand,
+.theme-edge-runner .hero-card h2,
+.theme-edge-runner .panel-heading h2,
+.theme-edge-runner .logs-hero h2,
+.theme-edge-runner .stat-card strong,
+.theme-edge-runner .sidebar-bottom strong,
+.theme-edge-runner .setting-label,
+.theme-edge-runner .sidebar-user-badge,
+.theme-edge-runner .download-form input,
+.theme-edge-runner .speed-row input,
+.theme-edge-runner .token-row input {
   color: #fff;
 }
 
-.tema-edge-runner .empty-state p,
-.tema-edge-runner .sidebar-status {
+.theme-edge-runner .empty-state p,
+.theme-edge-runner .sidebar-status {
   color: var(--user-text-dim);
 }
 
 /* Aberración cromática en el título de la vista: el desdoble cian/magenta de
    una señal mal sincronizada. Fija, no animada: un título que tiembla mientras
    se lee cansa. */
-.tema-edge-runner .topbar h1 {
+.theme-edge-runner .topbar h1 {
   color: #fff;
   text-shadow:
-    1.5px 0 0 color-mix(in srgb, var(--er-alerta), transparent 58%),
+    1.5px 0 0 color-mix(in srgb, var(--er-alert), transparent 58%),
     -1.5px 0 0 color-mix(in srgb, var(--user-accent), transparent 58%);
 }
 
 /* --- Navegación ----------------------------------------------------------- */
 
-.tema-edge-runner .sidebar {
+.theme-edge-runner .sidebar {
   background: var(--user-bg-base);
   border-right: 1px solid
     color-mix(in srgb, var(--user-primary), transparent 88%);
 }
 
-.tema-edge-runner .sidebar-nav button:hover {
+.theme-edge-runner .sidebar-nav button:hover {
   color: var(--user-accent);
   background: color-mix(in srgb, var(--user-accent), transparent 94%);
 }
 
-.tema-edge-runner .sidebar-nav button.selected {
+.theme-edge-runner .sidebar-nav button.selected {
   color: var(--user-primary);
   background: color-mix(
     in srgb,
@@ -832,12 +831,12 @@
     inset 3px 0 var(--user-primary),
     0 0 18px color-mix(in srgb, var(--user-primary), transparent 88%);
 }
-.tema-edge-runner .sidebar-nav button.selected span {
+.theme-edge-runner .sidebar-nav button.selected span {
   color: var(--user-primary);
 }
 
 @media (max-width: 900px) {
-  .tema-edge-runner .sidebar-nav button.selected {
+  .theme-edge-runner .sidebar-nav button.selected {
     box-shadow:
       inset 0 -3px var(--user-primary),
       0 0 18px color-mix(in srgb, var(--user-primary), transparent 88%);
@@ -852,9 +851,9 @@
    vertical, así que el periodo horizontal son los 10px exactos del degradado y
    el recorrido, 20px, son dos periodos justos. */
 
-.tema-edge-runner .progress-fill,
-.tema-edge-runner .disk-bar .fill,
-.tema-edge-runner .update-progress-fill {
+.theme-edge-runner .progress-fill,
+.theme-edge-runner .disk-bar .fill,
+.theme-edge-runner .update-progress-fill {
   background-image: var(--user-gradient);
   box-shadow:
     inset -2px 0 0 rgba(255, 255, 255, 0.9),
@@ -862,20 +861,20 @@
     0 0 22px color-mix(in srgb, var(--user-primary), transparent 80%);
 }
 
-.tema-edge-runner .progress-track {
+.theme-edge-runner .progress-track {
   background: var(--user-bg-base);
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--user-accent), transparent 90%);
 }
 
-.tema-edge-runner .progress-fill,
-.tema-edge-runner .disk-bar .fill {
+.theme-edge-runner .progress-fill,
+.theme-edge-runner .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-.tema-edge-runner .progress-fill::before,
-.tema-edge-runner .disk-bar .fill::before {
+.theme-edge-runner .progress-fill::before,
+.theme-edge-runner .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -888,10 +887,10 @@
     rgba(10, 10, 12, 0.55) 0 3px,
     transparent 3px 10px
   );
-  animation: erSegmentos 1.1s linear infinite;
+  animation: erSegments 1.1s linear infinite;
 }
 
-@keyframes erSegmentos {
+@keyframes erSegments {
   from {
     transform: translateX(0);
   }
@@ -902,7 +901,7 @@
 
 /* La barra del diálogo de actualización ya trae su propia animación dentro, así
    que ahí los segmentos se quedan quietos, de fondo. */
-.tema-edge-runner .update-progress-fill {
+.theme-edge-runner .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       90deg,
@@ -919,131 +918,131 @@
    claro no se distingue y el interruptor parece una pastilla lisa. El botón
    pasa al negro del fondo, que además es el recorte que este tema usa en los
    botones. */
-.tema-edge-runner .switch input:checked + span:after,
-.tema-edge-runner .chat-name-mode-btn.active .chat-switch-thumb {
+.theme-edge-runner .switch input:checked + span:after,
+.theme-edge-runner .chat-name-mode-btn.active .chat-switch-thumb {
   background: var(--user-bg-base);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.tema-edge-runner .status-dot,
-.tema-edge-runner .live-dot {
+.theme-edge-runner .status-dot,
+.theme-edge-runner .live-dot {
   background: var(--user-primary);
   box-shadow: 0 0 12px var(--user-primary);
 }
-.tema-edge-runner .status-dot.disconnected {
-  background: var(--er-alerta);
-  box-shadow: 0 0 12px var(--er-alerta);
+.theme-edge-runner .status-dot.disconnected {
+  background: var(--er-alert);
+  box-shadow: 0 0 12px var(--er-alert);
 }
-.tema-edge-runner .sidebar-status.is-disconnected {
-  color: var(--er-alerta-claro);
-  background: color-mix(in srgb, var(--er-alerta), transparent 94%);
-  border-color: color-mix(in srgb, var(--er-alerta), transparent 86%);
+.theme-edge-runner .sidebar-status.is-disconnected {
+  color: var(--er-alert-light);
+  background: color-mix(in srgb, var(--er-alert), transparent 94%);
+  border-color: color-mix(in srgb, var(--er-alert), transparent 86%);
 }
 
-.tema-edge-runner .badge,
-.tema-edge-runner .save-state {
+.theme-edge-runner .badge,
+.theme-edge-runner .save-state {
   background: color-mix(in srgb, var(--user-accent), transparent 90%);
   color: var(--user-accent);
   border-color: color-mix(in srgb, var(--user-accent), transparent 80%);
 }
 
-.tema-edge-runner .sidebar-user-badge .user-icon {
+.theme-edge-runner .sidebar-user-badge .user-icon {
   color: var(--user-accent);
 }
 
 /* Todo lo destructivo o roto, en magenta. */
-.tema-edge-runner .row-side button,
-.tema-edge-runner .delete-button,
-.tema-edge-runner .sidebar-user-badge .logout-btn {
-  color: var(--er-alerta-claro);
+.theme-edge-runner .row-side button,
+.theme-edge-runner .delete-button,
+.theme-edge-runner .sidebar-user-badge .logout-btn {
+  color: var(--er-alert-light);
 }
-.tema-edge-runner .row-side button:hover,
-.tema-edge-runner .delete-button:hover,
-.tema-edge-runner .sidebar-user-badge .logout-btn:hover {
+.theme-edge-runner .row-side button:hover,
+.theme-edge-runner .delete-button:hover,
+.theme-edge-runner .sidebar-user-badge .logout-btn:hover {
   color: #fff;
-  background: color-mix(in srgb, var(--er-alerta), transparent 82%);
+  background: color-mix(in srgb, var(--er-alert), transparent 82%);
 }
-.tema-edge-runner .row-side .pause-action {
+.theme-edge-runner .row-side .pause-action {
   color: var(--user-primary);
 }
-.tema-edge-runner .row-side .resume-action {
-  color: var(--er-lima);
+.theme-edge-runner .row-side .resume-action {
+  color: var(--er-lime);
 }
 
-.tema-edge-runner .toast.danger {
-  background: color-mix(in srgb, var(--er-alerta), var(--user-surface) 84%);
+.theme-edge-runner .toast.danger {
+  background: color-mix(in srgb, var(--er-alert), var(--user-surface) 84%);
   color: #ffd6e2;
-  border: 1px solid color-mix(in srgb, var(--er-alerta), transparent 60%);
+  border: 1px solid color-mix(in srgb, var(--er-alert), transparent 60%);
 }
-.tema-edge-runner .toast.success {
+.theme-edge-runner .toast.success {
   background: var(--user-surface);
   color: var(--user-primary);
   border: 1px solid color-mix(in srgb, var(--user-primary), transparent 70%);
 }
 
-.tema-edge-runner .inline-link,
-.tema-edge-runner .inline-link:visited {
+.theme-edge-runner .inline-link,
+.theme-edge-runner .inline-link:visited {
   color: var(--user-accent);
 }
-.tema-edge-runner .inline-link:hover {
+.theme-edge-runner .inline-link:hover {
   color: #fff;
 }
-.tema-edge-runner .inline-link:focus-visible {
+.theme-edge-runner .inline-link:focus-visible {
   outline-color: var(--user-accent);
 }
 
 /* --- Detalles ------------------------------------------------------------- */
 
-.tema-edge-runner .stat-icon.blue {
+.theme-edge-runner .stat-icon.blue {
   background: color-mix(in srgb, var(--user-primary), transparent 88%);
   color: var(--user-primary);
 }
-.tema-edge-runner .stat-icon.amber {
+.theme-edge-runner .stat-icon.amber {
   background: color-mix(in srgb, var(--user-accent), transparent 88%);
   color: var(--user-accent);
 }
-.tema-edge-runner .stat-icon.green {
-  background: color-mix(in srgb, var(--er-lima), transparent 88%);
-  color: var(--er-lima);
+.theme-edge-runner .stat-icon.green {
+  background: color-mix(in srgb, var(--er-lime), transparent 88%);
+  color: var(--er-lime);
 }
-.tema-edge-runner .stat-icon.gray {
+.theme-edge-runner .stat-icon.gray {
   background: color-mix(in srgb, var(--user-text-dim), transparent 90%);
   color: var(--user-text-dim);
 }
 
 /* Botón principal: rótulo de neón con el texto en negro recortado encima. */
-.tema-edge-runner .primary-button,
-.tema-edge-runner .save-button {
+.theme-edge-runner .primary-button,
+.theme-edge-runner .save-button {
   color: var(--user-bg-base);
   font-weight: 700;
   box-shadow: 0 0 18px color-mix(in srgb, var(--user-primary), transparent 72%);
 }
-.tema-edge-runner .primary-button:hover:not(:disabled),
-.tema-edge-runner .save-button:hover:not(:disabled) {
+.theme-edge-runner .primary-button:hover:not(:disabled),
+.theme-edge-runner .save-button:hover:not(:disabled) {
   box-shadow: 0 10px 30px
     color-mix(in srgb, var(--user-accent), transparent 62%);
 }
 
-.tema-edge-runner ::-webkit-scrollbar {
+.theme-edge-runner ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-.tema-edge-runner ::-webkit-scrollbar-track {
+.theme-edge-runner ::-webkit-scrollbar-track {
   background: transparent;
 }
-.tema-edge-runner ::-webkit-scrollbar-thumb {
+.theme-edge-runner ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--user-primary), transparent 60%);
   border-radius: 0;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.tema-edge-runner ::-webkit-scrollbar-thumb:hover {
+.theme-edge-runner ::-webkit-scrollbar-thumb:hover {
   background: var(--user-primary);
   background-clip: content-box;
 }
 
-.tema-edge-runner .boot-screen,
-.tema-edge-runner .update-required-overlay {
+.theme-edge-runner .boot-screen,
+.theme-edge-runner .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -1063,33 +1062,33 @@
    secundarias, y la niebla clara para lo activo y el texto principal, que es
    justo el reparto de la paleta.
    -------------------------------------------------------------------------- */
-.tema-rainy-garden {
-  --rg-niebla: #e6ecef;
-  --rg-lluvia: #8fa4b5;
-  --rg-lluvia-honda: #5c768d;
-  --rg-musgo: #2d5a27;
-  --rg-musgo-hondo: #1e4620;
+.theme-rainy-garden {
+  --rg-mist: #e6ecef;
+  --rg-rain: #8fa4b5;
+  --rg-rain-deep: #5c768d;
+  --rg-moss: #2d5a27;
+  --rg-moss-deep: #1e4620;
 }
 
 /* --- El jardín ------------------------------------------------------------ */
 
-.tema-rainy-garden body {
+.theme-rainy-garden body {
   background-image:
     /* follaje desenfocado en las dos esquinas de abajo */
     radial-gradient(
       60% 42% at 4% 108%,
-      color-mix(in srgb, var(--rg-musgo), transparent 62%) 0%,
+      color-mix(in srgb, var(--rg-moss), transparent 62%) 0%,
       transparent 62%
     ),
     radial-gradient(
       52% 38% at 98% 104%,
-      color-mix(in srgb, var(--rg-musgo-hondo), transparent 58%) 0%,
+      color-mix(in srgb, var(--rg-moss-deep), transparent 58%) 0%,
       transparent 60%
     ),
     /* luz gris de día nublado entrando por arriba */
     radial-gradient(
         70% 48% at 62% -10%,
-        color-mix(in srgb, var(--rg-lluvia), transparent 86%) 0%,
+        color-mix(in srgb, var(--rg-rain), transparent 86%) 0%,
         transparent 58%
       ),
     radial-gradient(
@@ -1110,8 +1109,8 @@
    por su propio eje inclinado; por eso las capas se extienden un 25% fuera de
    la pantalla, para que al girar no se vean los bordes. Y el recorrido es
    exactamente el alto del mosaico, así que el bucle no tiene salto. */
-.tema-rainy-garden body::before,
-.tema-rainy-garden::before {
+.theme-rainy-garden body::before,
+.theme-rainy-garden::before {
   content: '';
   position: fixed;
   inset: -25%;
@@ -1119,64 +1118,64 @@
 }
 
 /* Lluvia lejana: densa, lenta y por detrás de los paneles. */
-.tema-rainy-garden body::before {
+.theme-rainy-garden body::before {
   z-index: -1;
   background-image:
     radial-gradient(
       1.1px 14px at 12% 20%,
-      color-mix(in srgb, var(--rg-niebla), transparent 68%),
+      color-mix(in srgb, var(--rg-mist), transparent 68%),
       transparent 70%
     ),
     radial-gradient(
       1px 11px at 37% 62%,
-      color-mix(in srgb, var(--rg-niebla), transparent 76%),
+      color-mix(in srgb, var(--rg-mist), transparent 76%),
       transparent 70%
     ),
     radial-gradient(
       1.2px 16px at 64% 8%,
-      color-mix(in srgb, var(--rg-niebla), transparent 72%),
+      color-mix(in srgb, var(--rg-mist), transparent 72%),
       transparent 70%
     ),
     radial-gradient(
       1px 12px at 82% 44%,
-      color-mix(in srgb, var(--rg-niebla), transparent 80%),
+      color-mix(in srgb, var(--rg-mist), transparent 80%),
       transparent 70%
     ),
     radial-gradient(
       1.1px 13px at 51% 85%,
-      color-mix(in srgb, var(--rg-niebla), transparent 74%),
+      color-mix(in srgb, var(--rg-mist), transparent 74%),
       transparent 70%
     ),
     radial-gradient(
       1px 10px at 92% 72%,
-      color-mix(in srgb, var(--rg-niebla), transparent 82%),
+      color-mix(in srgb, var(--rg-mist), transparent 82%),
       transparent 70%
     ),
     radial-gradient(
       1.2px 15px at 26% 47%,
-      color-mix(in srgb, var(--rg-niebla), transparent 78%),
+      color-mix(in srgb, var(--rg-mist), transparent 78%),
       transparent 70%
     );
   background-size: 180px 220px;
-  animation: rgLluviaLejos 1.9s linear infinite;
+  animation: rgRainFar 1.9s linear infinite;
 }
 
 /* Lluvia cercana: cuatro gotas largas por mosaico, al 12% de opacidad. A ese
    nivel se percibe el movimiento sin que estorbe para leer lo que hay debajo,
    que es el único sitio del tema donde algo pasa por encima del texto. */
-.tema-rainy-garden::before {
+.theme-rainy-garden::before {
   z-index: 400;
   opacity: 0.12;
   background-image:
-    radial-gradient(1.5px 28px at 22% 30%, var(--rg-niebla), transparent 72%),
-    radial-gradient(1.7px 34px at 68% 70%, var(--rg-niebla), transparent 72%),
-    radial-gradient(1.4px 24px at 45% 12%, var(--rg-niebla), transparent 72%),
-    radial-gradient(1.5px 30px at 88% 52%, var(--rg-niebla), transparent 72%);
+    radial-gradient(1.5px 28px at 22% 30%, var(--rg-mist), transparent 72%),
+    radial-gradient(1.7px 34px at 68% 70%, var(--rg-mist), transparent 72%),
+    radial-gradient(1.4px 24px at 45% 12%, var(--rg-mist), transparent 72%),
+    radial-gradient(1.5px 30px at 88% 52%, var(--rg-mist), transparent 72%);
   background-size: 300px 300px;
-  animation: rgLluviaCerca 1.15s linear infinite;
+  animation: rgRainNear 1.15s linear infinite;
 }
 
-@keyframes rgLluviaLejos {
+@keyframes rgRainFar {
   from {
     transform: rotate(7deg) translateY(0);
   }
@@ -1185,7 +1184,7 @@
   }
 }
 
-@keyframes rgLluviaCerca {
+@keyframes rgRainNear {
   from {
     transform: rotate(7deg) translateY(0);
   }
@@ -1197,7 +1196,7 @@
 /* El charco: el resplandor del agua acumulada abajo. Va por detrás de todo,
    así que solo asoma por los huecos del fondo, y respira despacio en vez de
    quedarse plano. */
-.tema-rainy-garden body::after {
+.theme-rainy-garden body::after {
   content: '';
   position: fixed;
   left: 0;
@@ -1208,14 +1207,14 @@
   pointer-events: none;
   background-image: linear-gradient(
     to top,
-    color-mix(in srgb, var(--rg-lluvia-honda), transparent 80%) 0%,
-    color-mix(in srgb, var(--rg-lluvia-honda), transparent 92%) 45%,
+    color-mix(in srgb, var(--rg-rain-deep), transparent 80%) 0%,
+    color-mix(in srgb, var(--rg-rain-deep), transparent 92%) 45%,
     transparent 100%
   );
-  animation: rgCharco 9s ease-in-out infinite;
+  animation: rgPuddle 9s ease-in-out infinite;
 }
 
-@keyframes rgCharco {
+@keyframes rgPuddle {
   0%,
   100% {
     opacity: 0.55;
@@ -1225,23 +1224,23 @@
   }
 }
 
-.tema-rainy-garden .app-shell {
+.theme-rainy-garden .app-shell {
   position: relative;
   z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tema-rainy-garden body::before {
+  .theme-rainy-garden body::before {
     animation: none;
   }
-  .tema-rainy-garden::before {
+  .theme-rainy-garden::before {
     display: none;
   }
-  .tema-rainy-garden body::after {
+  .theme-rainy-garden body::after {
     animation: none;
   }
-  .tema-rainy-garden .progress-fill::before,
-  .tema-rainy-garden .disk-bar .fill::before {
+  .theme-rainy-garden .progress-fill::before,
+  .theme-rainy-garden .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -1251,45 +1250,45 @@
    bastante desenfoque y una línea de luz en el filo de arriba, que es donde el
    agua atrapa la claridad. */
 
-.tema-rainy-garden .sidebar {
+.theme-rainy-garden .sidebar {
   background: color-mix(in srgb, var(--user-bg-base), transparent 18%);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-right: 1px solid
-    color-mix(in srgb, var(--rg-lluvia-honda), transparent 55%);
+    color-mix(in srgb, var(--rg-rain-deep), transparent 55%);
 }
 
-.tema-rainy-garden .panel,
-.tema-rainy-garden .stat-card,
-.tema-rainy-garden .hero-card,
-.tema-rainy-garden .logs-hero {
+.theme-rainy-garden .panel,
+.theme-rainy-garden .stat-card,
+.theme-rainy-garden .hero-card,
+.theme-rainy-garden .logs-hero {
   background-color: color-mix(in srgb, var(--user-surface), transparent 12%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-color: color-mix(in srgb, var(--user-border-light), transparent 52%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--rg-niebla), transparent 86%),
+    inset 0 1px 0 color-mix(in srgb, var(--rg-mist), transparent 86%),
     0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
-.tema-rainy-garden .stat-card:hover {
+.theme-rainy-garden .stat-card:hover {
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--rg-niebla), transparent 78%),
+    inset 0 1px 0 color-mix(in srgb, var(--rg-mist), transparent 78%),
     0 14px 30px rgba(0, 0, 0, 0.38);
 }
 
-.tema-rainy-garden .hero-card {
+.theme-rainy-garden .hero-card {
   background-image: linear-gradient(
     118deg,
     color-mix(in srgb, var(--user-surface-light), transparent 8%) 0%,
     color-mix(in srgb, var(--user-surface), transparent 10%) 62%,
-    color-mix(in srgb, var(--rg-lluvia-honda), var(--user-surface) 78%) 100%
+    color-mix(in srgb, var(--rg-rain-deep), var(--user-surface) 78%) 100%
   );
 }
 
 /* El halo de la esquina pasa a ser luz difusa entre la lluvia. */
-.tema-rainy-garden .hero-card:after {
-  background: radial-gradient(circle, var(--rg-niebla) 0%, transparent 66%);
+.theme-rainy-garden .hero-card:after {
+  background: radial-gradient(circle, var(--rg-mist) 0%, transparent 66%);
   opacity: 0.1;
   filter: blur(26px);
 }
@@ -1298,50 +1297,50 @@
 /* El tema no toca ninguna fuente. Solo los blancos, que en el panel tiran a
    azul frío y sobre verde se ven morados: pasan a la niebla de la paleta. */
 
-.tema-rainy-garden .topbar h1,
-.tema-rainy-garden .brand,
-.tema-rainy-garden .hero-card h2,
-.tema-rainy-garden .panel-heading h2,
-.tema-rainy-garden .logs-hero h2,
-.tema-rainy-garden .stat-card strong,
-.tema-rainy-garden .sidebar-bottom strong,
-.tema-rainy-garden .setting-label,
-.tema-rainy-garden .sidebar-user-badge,
-.tema-rainy-garden .download-form input,
-.tema-rainy-garden .speed-row input,
-.tema-rainy-garden .token-row input {
-  color: var(--rg-niebla);
+.theme-rainy-garden .topbar h1,
+.theme-rainy-garden .brand,
+.theme-rainy-garden .hero-card h2,
+.theme-rainy-garden .panel-heading h2,
+.theme-rainy-garden .logs-hero h2,
+.theme-rainy-garden .stat-card strong,
+.theme-rainy-garden .sidebar-bottom strong,
+.theme-rainy-garden .setting-label,
+.theme-rainy-garden .sidebar-user-badge,
+.theme-rainy-garden .download-form input,
+.theme-rainy-garden .speed-row input,
+.theme-rainy-garden .token-row input {
+  color: var(--rg-mist);
 }
 
-.tema-rainy-garden .empty-state p {
-  color: color-mix(in srgb, var(--rg-niebla), transparent 25%);
+.theme-rainy-garden .empty-state p {
+  color: color-mix(in srgb, var(--rg-mist), transparent 25%);
 }
-.tema-rainy-garden .sidebar-status {
-  color: var(--rg-lluvia);
+.theme-rainy-garden .sidebar-status {
+  color: var(--rg-rain);
 }
 
 /* --- Navegación ----------------------------------------------------------- */
 
-.tema-rainy-garden .sidebar-nav button:hover {
-  color: var(--rg-niebla);
-  background: color-mix(in srgb, var(--rg-lluvia), transparent 90%);
+.theme-rainy-garden .sidebar-nav button:hover {
+  color: var(--rg-mist);
+  background: color-mix(in srgb, var(--rg-rain), transparent 90%);
 }
 
-.tema-rainy-garden .sidebar-nav button.selected {
-  color: var(--rg-niebla);
-  background: color-mix(in srgb, var(--rg-musgo), transparent 55%) !important;
+.theme-rainy-garden .sidebar-nav button.selected {
+  color: var(--rg-mist);
+  background: color-mix(in srgb, var(--rg-moss), transparent 55%) !important;
   box-shadow:
-    inset 3px 0 var(--rg-lluvia),
+    inset 3px 0 var(--rg-rain),
     0 6px 20px rgba(0, 0, 0, 0.25);
 }
-.tema-rainy-garden .sidebar-nav button.selected span {
-  color: var(--rg-niebla);
+.theme-rainy-garden .sidebar-nav button.selected span {
+  color: var(--rg-mist);
 }
 
 @media (max-width: 900px) {
-  .tema-rainy-garden .sidebar-nav button.selected {
+  .theme-rainy-garden .sidebar-nav button.selected {
     box-shadow:
-      inset 0 -3px var(--rg-lluvia),
+      inset 0 -3px var(--rg-rain),
       0 6px 20px rgba(0, 0, 0, 0.25);
   }
 }
@@ -1354,27 +1353,27 @@
    repite cada 11 / sen(105°) = 11,39px; el recorrido, 22,78px, son dos
    periodos justos y el salto del bucle no se ve. */
 
-.tema-rainy-garden .progress-fill,
-.tema-rainy-garden .disk-bar .fill,
-.tema-rainy-garden .update-progress-fill {
+.theme-rainy-garden .progress-fill,
+.theme-rainy-garden .disk-bar .fill,
+.theme-rainy-garden .update-progress-fill {
   background-image: var(--user-gradient);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--rg-niebla), transparent 78%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rg-mist), transparent 78%);
 }
 
-.tema-rainy-garden .progress-track {
+.theme-rainy-garden .progress-track {
   background: color-mix(in srgb, var(--user-bg-base), transparent 25%);
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--rg-lluvia-honda), transparent 72%);
+    color-mix(in srgb, var(--rg-rain-deep), transparent 72%);
 }
 
-.tema-rainy-garden .progress-fill,
-.tema-rainy-garden .disk-bar .fill {
+.theme-rainy-garden .progress-fill,
+.theme-rainy-garden .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-.tema-rainy-garden .progress-fill::before,
-.tema-rainy-garden .disk-bar .fill::before {
+.theme-rainy-garden .progress-fill::before,
+.theme-rainy-garden .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1387,10 +1386,10 @@
     rgba(255, 255, 255, 0.26) 0 2px,
     rgba(92, 118, 141, 0.16) 2px 11px
   );
-  animation: rgAgua 1.5s linear infinite;
+  animation: rgWater 1.5s linear infinite;
 }
 
-@keyframes rgAgua {
+@keyframes rgWater {
   from {
     transform: translateX(0);
   }
@@ -1401,7 +1400,7 @@
 
 /* La barra del diálogo de actualización ya trae su propia animación dentro,
    así que ahí el rayado se queda quieto, de fondo. */
-.tema-rainy-garden .update-progress-fill {
+.theme-rainy-garden .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       105deg,
@@ -1417,129 +1416,129 @@
    el botón blanco del panel encima de ella desaparece. El botón pasa al verde
    hondo del follaje: es el mismo contraste que hay entre el texto y el fondo
    en el resto del tema. */
-.tema-rainy-garden .switch input:checked + span:after,
-.tema-rainy-garden .chat-name-mode-btn.active .chat-switch-thumb {
-  background: var(--rg-musgo-hondo);
+.theme-rainy-garden .switch input:checked + span:after,
+.theme-rainy-garden .chat-name-mode-btn.active .chat-switch-thumb {
+  background: var(--rg-moss-deep);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
-.tema-rainy-garden .status-dot,
-.tema-rainy-garden .live-dot {
-  background: var(--rg-niebla);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--rg-niebla), transparent 45%);
+.theme-rainy-garden .status-dot,
+.theme-rainy-garden .live-dot {
+  background: var(--rg-mist);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rg-mist), transparent 45%);
 }
-.tema-rainy-garden .status-dot.disconnected {
+.theme-rainy-garden .status-dot.disconnected {
   background: #c97a6d;
   box-shadow: 0 0 12px rgba(201, 122, 109, 0.55);
 }
-.tema-rainy-garden .sidebar-status.is-disconnected {
+.theme-rainy-garden .sidebar-status.is-disconnected {
   color: #e0a79c;
   background: rgba(201, 122, 109, 0.08);
   border-color: rgba(201, 122, 109, 0.18);
 }
 
-.tema-rainy-garden .badge,
-.tema-rainy-garden .save-state {
-  background: color-mix(in srgb, var(--rg-lluvia), transparent 88%);
-  color: var(--rg-niebla);
-  border-color: color-mix(in srgb, var(--rg-lluvia), transparent 74%);
+.theme-rainy-garden .badge,
+.theme-rainy-garden .save-state {
+  background: color-mix(in srgb, var(--rg-rain), transparent 88%);
+  color: var(--rg-mist);
+  border-color: color-mix(in srgb, var(--rg-rain), transparent 74%);
 }
 
-.tema-rainy-garden .count-pill {
-  color: var(--rg-niebla);
-  background: color-mix(in srgb, var(--rg-lluvia-honda), transparent 70%);
+.theme-rainy-garden .count-pill {
+  color: var(--rg-mist);
+  background: color-mix(in srgb, var(--rg-rain-deep), transparent 70%);
 }
 
-.tema-rainy-garden .sidebar-user-badge .user-icon {
-  color: var(--rg-lluvia);
+.theme-rainy-garden .sidebar-user-badge .user-icon {
+  color: var(--rg-rain);
 }
 
-.tema-rainy-garden .row-side button,
-.tema-rainy-garden .delete-button,
-.tema-rainy-garden .sidebar-user-badge .logout-btn {
+.theme-rainy-garden .row-side button,
+.theme-rainy-garden .delete-button,
+.theme-rainy-garden .sidebar-user-badge .logout-btn {
   color: #d99a8f;
 }
-.tema-rainy-garden .row-side button:hover,
-.tema-rainy-garden .delete-button:hover,
-.tema-rainy-garden .sidebar-user-badge .logout-btn:hover {
+.theme-rainy-garden .row-side button:hover,
+.theme-rainy-garden .delete-button:hover,
+.theme-rainy-garden .sidebar-user-badge .logout-btn:hover {
   color: #f2c4bb;
   background: rgba(201, 122, 109, 0.16);
 }
-.tema-rainy-garden .row-side .pause-action {
-  color: var(--rg-lluvia);
+.theme-rainy-garden .row-side .pause-action {
+  color: var(--rg-rain);
 }
-.tema-rainy-garden .row-side .resume-action {
+.theme-rainy-garden .row-side .resume-action {
   color: #9ec79a;
 }
 
-.tema-rainy-garden .toast.success {
+.theme-rainy-garden .toast.success {
   background: color-mix(in srgb, var(--user-surface), transparent 6%);
-  color: var(--rg-niebla);
-  border: 1px solid color-mix(in srgb, var(--rg-lluvia), transparent 62%);
+  color: var(--rg-mist);
+  border: 1px solid color-mix(in srgb, var(--rg-rain), transparent 62%);
 }
 
-.tema-rainy-garden .inline-link,
-.tema-rainy-garden .inline-link:visited {
-  color: var(--rg-lluvia);
+.theme-rainy-garden .inline-link,
+.theme-rainy-garden .inline-link:visited {
+  color: var(--rg-rain);
 }
-.tema-rainy-garden .inline-link:hover {
-  color: var(--rg-niebla);
+.theme-rainy-garden .inline-link:hover {
+  color: var(--rg-mist);
 }
-.tema-rainy-garden .inline-link:focus-visible {
-  outline-color: var(--rg-lluvia);
+.theme-rainy-garden .inline-link:focus-visible {
+  outline-color: var(--rg-rain);
 }
 
 /* Los cuatro iconos de cifras, en tonos del jardín en vez de sus colores fijos. */
-.tema-rainy-garden .stat-icon.blue {
-  background: color-mix(in srgb, var(--rg-musgo), transparent 55%);
-  color: var(--rg-niebla);
+.theme-rainy-garden .stat-icon.blue {
+  background: color-mix(in srgb, var(--rg-moss), transparent 55%);
+  color: var(--rg-mist);
 }
-.tema-rainy-garden .stat-icon.amber {
-  background: color-mix(in srgb, var(--rg-lluvia-honda), transparent 68%);
-  color: var(--rg-lluvia);
+.theme-rainy-garden .stat-icon.amber {
+  background: color-mix(in srgb, var(--rg-rain-deep), transparent 68%);
+  color: var(--rg-rain);
 }
-.tema-rainy-garden .stat-icon.green {
-  background: color-mix(in srgb, var(--rg-musgo-hondo), transparent 45%);
+.theme-rainy-garden .stat-icon.green {
+  background: color-mix(in srgb, var(--rg-moss-deep), transparent 45%);
   color: #9ec79a;
 }
-.tema-rainy-garden .stat-icon.gray {
+.theme-rainy-garden .stat-icon.gray {
   background: color-mix(in srgb, var(--user-text-dim), transparent 88%);
   color: var(--user-text-dim);
 }
 
 /* Botón principal: cristal claro sobre el verde, con el texto en el verde
    hondo del fondo. */
-.tema-rainy-garden .primary-button,
-.tema-rainy-garden .save-button {
+.theme-rainy-garden .primary-button,
+.theme-rainy-garden .save-button {
   color: var(--user-bg-base);
   font-weight: 700;
 }
-.tema-rainy-garden .primary-button:hover:not(:disabled),
-.tema-rainy-garden .save-button:hover:not(:disabled) {
+.theme-rainy-garden .primary-button:hover:not(:disabled),
+.theme-rainy-garden .save-button:hover:not(:disabled) {
   box-shadow: 0 10px 28px
-    color-mix(in srgb, var(--rg-lluvia-honda), transparent 55%);
+    color-mix(in srgb, var(--rg-rain-deep), transparent 55%);
 }
 
-.tema-rainy-garden ::-webkit-scrollbar {
+.theme-rainy-garden ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-.tema-rainy-garden ::-webkit-scrollbar-track {
+.theme-rainy-garden ::-webkit-scrollbar-track {
   background: transparent;
 }
-.tema-rainy-garden ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--rg-lluvia-honda), transparent 35%);
+.theme-rainy-garden ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--rg-rain-deep), transparent 35%);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.tema-rainy-garden ::-webkit-scrollbar-thumb:hover {
-  background: var(--rg-lluvia);
+.theme-rainy-garden ::-webkit-scrollbar-thumb:hover {
+  background: var(--rg-rain);
   background-clip: content-box;
 }
 
-.tema-rainy-garden .boot-screen,
-.tema-rainy-garden .update-required-overlay {
+.theme-rainy-garden .boot-screen,
+.theme-rainy-garden .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -1548,7 +1547,7 @@
 }
 
 /* =============================================================================
-   BASE DE LOS TEMAS CLAROS  ·  html.tema-claro
+   BASE DE LOS TEMAS CLAROS  ·  html.theme-light
    -----------------------------------------------------------------------------
    El panel está escrito para fondo oscuro: tiene más de cien colores de texto
    y de fondo fijos repartidos entre style.css, App.vue y siete vistas y
@@ -1557,9 +1556,9 @@
    o chillan. Este bloque los pisa TODOS de una vez, agrupados por el color al
    que van y no por el archivo del que vienen.
 
-   App.vue añade la clase `tema-claro` en el <html> además de la del tema
-   cuando el tema elegido es de fondo claro (ver `temasClaros`). Cada tema
-   claro solo tiene que declarar las variables --claro-* de aquí abajo y
+   App.vue añade la clase `theme-light` en el <html> además de la del tema
+   cuando el tema elegido es de fondo claro (ver `lightThemeIds`). Cada tema
+   claro solo tiene que declarar las variables --light-* de aquí abajo y
    ocuparse de su propia personalidad: fondo, superficies, iconos y acentos.
 
    POR QUÉ EL PREFIJO `html`. Varios de esos colores viven en bloques
@@ -1569,25 +1568,25 @@
    `!important` por todo el archivo.
 
    Variables que hay que declarar en cada tema claro:
-     --claro-tinta          texto principal
-     --claro-tinta-suave    texto secundario
-     --claro-ok             verde de "todo bien" (texto)
-     --claro-ok-fondo       su relleno
-     --claro-ok-borde       su borde
-     --claro-alerta         rojo de aviso (texto)
-     --claro-alerta-fondo   su relleno
-     --claro-ambar          ámbar de "atención" (texto)
-     --claro-ambar-fondo    su relleno
-     --claro-info-fondo     relleno del nivel "info" del registro
-     --claro-debug-fondo    relleno del nivel "debug" del registro
-     --claro-pista          pista del control deslizante
-     --claro-aro            aro de las muestras de color
-     --claro-enlace         enlaces de ayuda
-     --claro-enlace-hover   enlaces con el cursor encima
-     --claro-boton-texto    texto encima de los botones de acción
+     --light-ink          texto principal
+     --light-ink-soft    texto secundario
+     --light-ok             verde de "todo bien" (texto)
+     --light-ok-bg       su relleno
+     --light-ok-border       su borde
+     --light-alert         rojo de aviso (texto)
+     --light-alert-bg   su relleno
+     --light-amber          ámbar de "atención" (texto)
+     --light-amber-bg    su relleno
+     --light-info-bg     relleno del nivel "info" del registro
+     --light-debug-bg    relleno del nivel "debug" del registro
+     --light-track          pista del control deslizante
+     --light-ring            aro de las muestras de color
+     --light-link         enlaces de ayuda
+     --light-link-hover   enlaces con el cursor encima
+     --light-button-text    texto encima de los botones de acción
    ========================================================================== */
 
-html.tema-claro {
+html.theme-light {
   /* Sin esto el navegador sigue pintando los controles nativos —desplegables,
      cursor de texto, barras— en su versión oscura, y sobre fondo claro se ven
      como manchas negras. */
@@ -1595,184 +1594,184 @@ html.tema-claro {
 }
 
 /* --- Tinta: todo lo que era blanco azulado -------------------------------- */
-html.tema-claro,
-html.tema-claro .brand,
-html.tema-claro .sidebar-nav button:hover,
-html.tema-claro .sidebar-nav button.selected,
-html.tema-claro .sidebar-bottom strong,
-html.tema-claro .topbar h1,
-html.tema-claro .hero-card h2,
-html.tema-claro .stat-card strong,
-html.tema-claro .panel-heading h2,
-html.tema-claro .setting-label,
-html.tema-claro .accordion-header,
-html.tema-claro .notif-label,
-html.tema-claro .sidebar-user-badge,
-html.tema-claro .retry-button:hover,
-html.tema-claro .download-form input,
-html.tema-claro .speed-row input,
-html.tema-claro .speed-row select,
-html.tema-claro .token-row input,
-html.tema-claro .update-card h2,
-html.tema-claro .update-status-text,
-html.tema-claro .listener-hero h2,
-html.tema-claro .listener-add input,
-html.tema-claro .scanner-input,
-html.tema-claro .compact-select,
-html.tema-claro .chat-chip strong,
-html.tema-claro .bulk-download,
-html.tema-claro .bulk-delete,
-html.tema-claro .topic-picker-head strong,
-html.tema-claro .topic-select,
-html.tema-claro .ghost-button:hover,
-html.tema-claro .logs-hero h2,
-html.tema-claro .counter strong,
-html.tema-claro .level-chip.active,
-html.tema-claro .cat-select,
-html.tema-claro .search-box input,
-html.tema-claro .tool-button,
-html.tema-claro .log-message,
-html.tema-claro .auth-logo,
-html.tema-claro .auth-header h2,
-html.tema-claro .step-label,
-html.tema-claro .step-intro h3,
-html.tema-claro .form-group input,
-html.tema-claro .auth-button.secondary:hover:not(:disabled),
-html.tema-claro .auth-button.ghost,
-html.tema-claro .auth-button.ghost:not(:disabled):hover,
-html.tema-claro .token-input-row input,
-html.tema-claro .ghost-icon-btn:hover,
-html.tema-claro .modal-header h3,
-html.tema-claro .cancel-btn:hover,
-html.tema-claro .folder-current,
-html.tema-claro .folder-dialog-header h3,
-html.tema-claro .folder-entry,
-html.tema-claro .folder-entry:hover,
-html.tema-claro .icon-button:hover,
-html.tema-claro .secondary-button:hover,
-html.tema-claro .tema-chip:hover,
-html.tema-claro .tema-chip.active {
-  color: var(--claro-tinta);
+html.theme-light,
+html.theme-light .brand,
+html.theme-light .sidebar-nav button:hover,
+html.theme-light .sidebar-nav button.selected,
+html.theme-light .sidebar-bottom strong,
+html.theme-light .topbar h1,
+html.theme-light .hero-card h2,
+html.theme-light .stat-card strong,
+html.theme-light .panel-heading h2,
+html.theme-light .setting-label,
+html.theme-light .accordion-header,
+html.theme-light .notif-label,
+html.theme-light .sidebar-user-badge,
+html.theme-light .retry-button:hover,
+html.theme-light .download-form input,
+html.theme-light .speed-row input,
+html.theme-light .speed-row select,
+html.theme-light .token-row input,
+html.theme-light .update-card h2,
+html.theme-light .update-status-text,
+html.theme-light .listener-hero h2,
+html.theme-light .listener-add input,
+html.theme-light .scanner-input,
+html.theme-light .compact-select,
+html.theme-light .chat-chip strong,
+html.theme-light .bulk-download,
+html.theme-light .bulk-delete,
+html.theme-light .topic-picker-head strong,
+html.theme-light .topic-select,
+html.theme-light .ghost-button:hover,
+html.theme-light .logs-hero h2,
+html.theme-light .counter strong,
+html.theme-light .level-chip.active,
+html.theme-light .cat-select,
+html.theme-light .search-box input,
+html.theme-light .tool-button,
+html.theme-light .log-message,
+html.theme-light .auth-logo,
+html.theme-light .auth-header h2,
+html.theme-light .step-label,
+html.theme-light .step-intro h3,
+html.theme-light .form-group input,
+html.theme-light .auth-button.secondary:hover:not(:disabled),
+html.theme-light .auth-button.ghost,
+html.theme-light .auth-button.ghost:not(:disabled):hover,
+html.theme-light .token-input-row input,
+html.theme-light .ghost-icon-btn:hover,
+html.theme-light .modal-header h3,
+html.theme-light .cancel-btn:hover,
+html.theme-light .folder-current,
+html.theme-light .folder-dialog-header h3,
+html.theme-light .folder-entry,
+html.theme-light .folder-entry:hover,
+html.theme-light .icon-button:hover,
+html.theme-light .secondary-button:hover,
+html.theme-light .theme-chip:hover,
+html.theme-light .theme-chip.active {
+  color: var(--light-ink);
 }
 
 /* El logotipo de la barra lateral es texto SVG: se pinta con fill y stroke, no
    con color, así que no le vale la regla de arriba. */
-html.tema-claro .brand-logo-text {
-  fill: var(--claro-tinta);
+html.theme-light .brand-logo-text {
+  fill: var(--light-ink);
 }
-html.tema-claro .brand-logo-text tspan,
-html.tema-claro .brand-version-text tspan {
-  stroke: var(--claro-tinta);
+html.theme-light .brand-logo-text tspan,
+html.theme-light .brand-version-text tspan {
+  stroke: var(--light-ink);
 }
 
 /* --- Texto secundario ----------------------------------------------------- */
-html.tema-claro .sidebar-status,
-html.tema-claro .empty-state p,
-html.tema-claro .download-form input::placeholder {
-  color: var(--claro-tinta-suave);
+html.theme-light .sidebar-status,
+html.theme-light .empty-state p,
+html.theme-light .download-form input::placeholder {
+  color: var(--light-ink-soft);
 }
 
 /* --- Verde de "todo bien" ------------------------------------------------- */
-html.tema-claro .save-state,
-html.tema-claro .badge,
-html.tema-claro .sidebar-user-badge .user-icon,
-html.tema-claro .success-icon,
-html.tema-claro .auth-alert.success,
-html.tema-claro .media-song,
-html.tema-claro .row-side .resume-action {
-  color: var(--claro-ok);
+html.theme-light .save-state,
+html.theme-light .badge,
+html.theme-light .sidebar-user-badge .user-icon,
+html.theme-light .success-icon,
+html.theme-light .auth-alert.success,
+html.theme-light .media-song,
+html.theme-light .row-side .resume-action {
+  color: var(--light-ok);
 }
 
-html.tema-claro .badge,
-html.tema-claro .save-state {
-  background: var(--claro-ok-fondo);
-  border-color: var(--claro-ok-borde);
+html.theme-light .badge,
+html.theme-light .save-state {
+  background: var(--light-ok-bg);
+  border-color: var(--light-ok-border);
 }
 
 /* --- Rojo de alerta ------------------------------------------------------- */
-html.tema-claro .sidebar-status.is-disconnected,
-html.tema-claro .row-side button,
-html.tema-claro .row-side button:hover,
-html.tema-claro .delete-button,
-html.tema-claro .delete-button:hover,
-html.tema-claro .toast.danger,
-html.tema-claro .sidebar-user-badge .logout-btn,
-html.tema-claro .sidebar-user-badge .logout-btn:hover,
-html.tema-claro .clear-history-button,
-html.tema-claro .action-btn-mini.danger:hover,
-html.tema-claro .header-icon.danger,
-html.tema-claro .folder-error,
-html.tema-claro .auth-alert.danger,
-html.tema-claro .logs-error,
-html.tema-claro .tool-button.danger:hover,
-html.tema-claro .bulk-delete:hover,
-html.tema-claro .delete-small,
-html.tema-claro .delete-small:hover,
-html.tema-claro .level-chip.active.error {
-  color: var(--claro-alerta);
+html.theme-light .sidebar-status.is-disconnected,
+html.theme-light .row-side button,
+html.theme-light .row-side button:hover,
+html.theme-light .delete-button,
+html.theme-light .delete-button:hover,
+html.theme-light .toast.danger,
+html.theme-light .sidebar-user-badge .logout-btn,
+html.theme-light .sidebar-user-badge .logout-btn:hover,
+html.theme-light .clear-history-button,
+html.theme-light .action-btn-mini.danger:hover,
+html.theme-light .header-icon.danger,
+html.theme-light .folder-error,
+html.theme-light .auth-alert.danger,
+html.theme-light .logs-error,
+html.theme-light .tool-button.danger:hover,
+html.theme-light .bulk-delete:hover,
+html.theme-light .delete-small,
+html.theme-light .delete-small:hover,
+html.theme-light .level-chip.active.error {
+  color: var(--light-alert);
 }
 
 /* Las cajas oscuras de aviso pasan al relleno claro del tema. */
-html.tema-claro .toast.danger,
-html.tema-claro .delete-button:hover,
-html.tema-claro .sidebar-user-badge .logout-btn:hover,
-html.tema-claro .header-icon.danger,
-html.tema-claro .folder-error,
-html.tema-claro .auth-alert.danger,
-html.tema-claro .logs-error,
-html.tema-claro .tool-button.danger:hover,
-html.tema-claro .bulk-delete:hover,
-html.tema-claro .delete-small,
-html.tema-claro .delete-small:hover,
-html.tema-claro .level-chip.active.error,
-html.tema-claro .clear-history-button {
-  background: var(--claro-alerta-fondo);
-  border-color: color-mix(in srgb, var(--claro-alerta), transparent 78%);
+html.theme-light .toast.danger,
+html.theme-light .delete-button:hover,
+html.theme-light .sidebar-user-badge .logout-btn:hover,
+html.theme-light .header-icon.danger,
+html.theme-light .folder-error,
+html.theme-light .auth-alert.danger,
+html.theme-light .logs-error,
+html.theme-light .tool-button.danger:hover,
+html.theme-light .bulk-delete:hover,
+html.theme-light .delete-small,
+html.theme-light .delete-small:hover,
+html.theme-light .level-chip.active.error,
+html.theme-light .clear-history-button {
+  background: var(--light-alert-bg);
+  border-color: color-mix(in srgb, var(--light-alert), transparent 78%);
 }
 
 /* --- Ámbar de "atención" -------------------------------------------------- */
-html.tema-claro .row-side .pause-action,
-html.tema-claro .icon-amber,
-html.tema-claro .counter.warn strong,
-html.tema-claro .log-level.warn,
-html.tema-claro .level-chip.active.warn {
-  color: var(--claro-ambar);
+html.theme-light .row-side .pause-action,
+html.theme-light .icon-amber,
+html.theme-light .counter.warn strong,
+html.theme-light .log-level.warn,
+html.theme-light .level-chip.active.warn {
+  color: var(--light-amber);
 }
 
-html.tema-claro .level-chip.active.warn {
-  background: var(--claro-ambar-fondo);
+html.theme-light .level-chip.active.warn {
+  background: var(--light-amber-bg);
 }
-html.tema-claro .level-chip.active.success {
-  background: var(--claro-ok-fondo);
+html.theme-light .level-chip.active.success {
+  background: var(--light-ok-bg);
 }
-html.tema-claro .level-chip.active.info {
-  background: var(--claro-info-fondo);
+html.theme-light .level-chip.active.info {
+  background: var(--light-info-bg);
 }
-html.tema-claro .level-chip.active.debug {
-  background: var(--claro-debug-fondo);
+html.theme-light .level-chip.active.debug {
+  background: var(--light-debug-bg);
 }
-html.tema-claro .auth-button.secondary:hover:not(:disabled) {
-  background: var(--claro-info-fondo);
+html.theme-light .auth-button.secondary:hover:not(:disabled) {
+  background: var(--light-info-bg);
 }
 
 /* Barritas de nivel del registro: son de 2px sobre fila clara, así que el
    contraste mejora en vez de empeorar; se repintan solo por coherencia. */
-html.tema-claro .log-row.error::before {
-  background: var(--claro-alerta);
+html.theme-light .log-row.error::before {
+  background: var(--light-alert);
 }
-html.tema-claro .log-row.debug::before {
-  background: var(--claro-tinta-suave);
+html.theme-light .log-row.debug::before {
+  background: var(--light-ink-soft);
 }
 
 /* --- Botones de acción ---------------------------------------------------- */
 /* Encima del relleno del tema el blanco fijo puede perderse (pastel) o ser lo
    correcto (azul saturado), así que el color lo decide cada tema. */
-html.tema-claro .primary-button,
-html.tema-claro .save-button,
-html.tema-claro .auth-button.primary,
-html.tema-claro .update-btn,
-html.tema-claro .pager-btn.active {
-  color: var(--claro-boton-texto) !important;
+html.theme-light .primary-button,
+html.theme-light .save-button,
+html.theme-light .auth-button.primary,
+html.theme-light .update-btn,
+html.theme-light .pager-btn.active {
+  color: var(--light-button-text) !important;
   font-weight: 700;
   text-shadow: none;
 }
@@ -1785,10 +1784,10 @@ html.tema-claro .pager-btn.active {
    Los estilos del componente van con scope (.auth-button.primary[data-v-…]),
    de ahí el !important: sin él ganaría el del componente. El color va por
    variable para que cada tema ponga su propio negro. */
-html.tema-edge-runner .auth-button.primary,
-html.tema-rainy-garden .auth-button.primary,
-html.tema-herbal-apothecary .auth-button.primary,
-html.tema-darling-red .auth-button.primary {
+html.theme-edge-runner .auth-button.primary,
+html.theme-rainy-garden .auth-button.primary,
+html.theme-herbal-apothecary .auth-button.primary,
+html.theme-darling-red .auth-button.primary {
   color: var(--user-bg-base) !important;
 }
 
@@ -1796,7 +1795,7 @@ html.tema-darling-red .auth-button.primary {
 
 /* El interruptor: botón blanco con sombra, que sobre una pista clara es lo que
    lo hace visible. */
-html.tema-claro .switch span:after {
+html.theme-light .switch span:after {
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(60, 60, 70, 0.3);
 }
@@ -1808,18 +1807,18 @@ html.tema-claro .switch span:after {
    relleno de color hasta el tirador (Chromium no tiene un pseudo-elemento para
    esa parte; Firefox sí, y por eso lleva su regla aparte). No se pierde
    información: el valor sale en cifras al lado de la etiqueta. */
-html.tema-claro .range-input {
+html.theme-light .range-input {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   height: 18px;
 }
-html.tema-claro .range-input::-webkit-slider-runnable-track {
+html.theme-light .range-input::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 6px;
-  background: var(--claro-pista);
+  background: var(--light-track);
 }
-html.tema-claro .range-input::-webkit-slider-thumb {
+html.theme-light .range-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
@@ -1830,17 +1829,17 @@ html.tema-claro .range-input::-webkit-slider-thumb {
   box-shadow: 0 1px 4px rgba(60, 60, 70, 0.35);
   cursor: pointer;
 }
-html.tema-claro .range-input::-moz-range-track {
+html.theme-light .range-input::-moz-range-track {
   height: 6px;
   border-radius: 6px;
-  background: var(--claro-pista);
+  background: var(--light-track);
 }
-html.tema-claro .range-input::-moz-range-progress {
+html.theme-light .range-input::-moz-range-progress {
   height: 6px;
   border-radius: 6px;
   background: var(--user-primary);
 }
-html.tema-claro .range-input::-moz-range-thumb {
+html.theme-light .range-input::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -1851,86 +1850,86 @@ html.tema-claro .range-input::-moz-range-thumb {
 }
 
 /* La flecha de los desplegables sobre fondo claro debe usar la tinta suave del tema. */
-html.tema-claro select,
-html.tema-claro .speed-row select,
-html.tema-claro .compact-select,
-html.tema-claro .topic-select,
-html.tema-claro .cat-select,
-html.tema-claro .pager-select {
+html.theme-light select,
+html.theme-light .speed-row select,
+html.theme-light .compact-select,
+html.theme-light .topic-select,
+html.theme-light .cat-select,
+html.theme-light .pager-select {
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--claro-tinta-suave) 50%),
-    linear-gradient(135deg, var(--claro-tinta-suave) 50%, transparent 50%) !important;
+    linear-gradient(45deg, transparent 50%, var(--light-ink-soft) 50%),
+    linear-gradient(135deg, var(--light-ink-soft) 50%, transparent 50%) !important;
 }
 
 /* El aro interior de las muestras de color de Ajustes es blanco: sobre un
    relleno claro no se ve y el círculo queda sin borde. */
-html.tema-claro .tema-muestra,
-html.tema-claro .tema-dot {
-  box-shadow: inset 0 0 0 1px var(--claro-aro);
+html.theme-light .theme-swatch,
+html.theme-light .theme-dot {
+  box-shadow: inset 0 0 0 1px var(--light-ring);
 }
 /* Repetido con el resalte porque este selector le gana en especificidad al
-   .tema-dot.active del panel y si no lo incluye borraría el aro del elegido. */
-html.tema-claro .tema-dot.active {
+   .theme-dot.active del panel y si no lo incluye borraría el aro del elegido. */
+html.theme-light .theme-dot.active {
   box-shadow:
-    inset 0 0 0 1px var(--claro-aro),
+    inset 0 0 0 1px var(--light-ring),
     0 0 0 3px var(--user-bg-base),
     0 0 0 5px var(--user-primary),
     0 0 15px var(--user-glow);
 }
 
 /* --- Enlaces -------------------------------------------------------------- */
-html.tema-claro .inline-link,
-html.tema-claro .inline-link:visited {
-  color: var(--claro-enlace);
+html.theme-light .inline-link,
+html.theme-light .inline-link:visited {
+  color: var(--light-link);
 }
-html.tema-claro .inline-link:hover {
-  color: var(--claro-enlace-hover);
+html.theme-light .inline-link:hover {
+  color: var(--light-link-hover);
 }
-html.tema-claro .inline-link:focus-visible {
-  outline-color: var(--claro-enlace);
+html.theme-light .inline-link:focus-visible {
+  outline-color: var(--light-link);
 }
 
 /* --- FLOOD_WAIT Banner y Badges en Temas Claros -------------------------- */
-html.tema-claro .topbar-flood-pill {
+html.theme-light .topbar-flood-pill {
   background: #fff3e0;
   border-color: #ffe0b2;
   color: #e65100;
 }
 
-html.tema-claro .flood-alert-banner {
+html.theme-light .flood-alert-banner {
   background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
   border-color: #ffe0b2;
   box-shadow: 0 4px 14px rgba(230, 81, 0, 0.06);
 }
 
-html.tema-claro .flood-alert-icon {
+html.theme-light .flood-alert-icon {
   background: #ffe0b2;
   color: #e65100;
 }
 
-html.tema-claro .flood-alert-body h3 {
+html.theme-light .flood-alert-body h3 {
   color: #bf360c;
 }
 
-html.tema-claro .flood-alert-body p {
+html.theme-light .flood-alert-body p {
   color: #4e342e;
 }
 
-html.tema-claro .flood-alert-timer {
+html.theme-light .flood-alert-timer {
   background: #ffffff;
   border-color: #ffcc80;
   box-shadow: 0 2px 8px rgba(230, 81, 0, 0.08);
 }
 
-html.tema-claro .flood-alert-timer span {
+html.theme-light .flood-alert-timer span {
   color: #e65100;
 }
 
-html.tema-claro .flood-alert-timer strong {
+html.theme-light .flood-alert-timer strong {
   color: #bf360c;
 }
 
-html.tema-claro .flood-status-pill {
+html.theme-light .flood-status-pill {
   background: #fff3e0;
   border-color: #ffe0b2;
   color: #e65100;
@@ -1942,41 +1941,41 @@ html.tema-claro .flood-status-pill {
    cayendo despacio. Las correcciones de fondo claro están en el bloque común
    de arriba; aquí solo va lo que hace a este tema ser este tema.
    -------------------------------------------------------------------------- */
-html.tema-silent-cherry {
+html.theme-silent-cherry {
   --sc-sakura: #ffb7c5;
-  --sc-sakura-honda: #f48fb1;
-  --sc-agua: #a0e7e5;
-  --sc-menta: #80cbc4;
+  --sc-sakura-deep: #f48fb1;
+  --sc-water: #a0e7e5;
+  --sc-mint: #80cbc4;
   /* La tinta no es negra sino un ciruela agrisado, que es lo que deja la
      pantalla suave en vez de dura. */
-  --sc-tinta: #463a57;
-  --sc-sombra: rgba(176, 138, 160, 0.16);
+  --sc-ink: #463a57;
+  --sc-shadow: rgba(176, 138, 160, 0.16);
 
   /* Los estados necesitan versiones oscurecidas: los pasteles de la paleta
      valen para rellenos, pero como texto sobre marfil no llegan al contraste
      mínimo para leerse. */
-  --claro-tinta: #463a57;
-  --claro-tinta-suave: #6b6270;
-  --claro-ok: #25756a;
-  --claro-ok-fondo: color-mix(in srgb, var(--sc-agua), transparent 72%);
-  --claro-ok-borde: color-mix(in srgb, var(--sc-menta), transparent 60%);
-  --claro-alerta: #b03a56;
-  --claro-alerta-fondo: #fbe0e8;
-  --claro-ambar: #8f6414;
-  --claro-ambar-fondo: #f9ecd8;
-  --claro-info-fondo: color-mix(in srgb, var(--sc-sakura), transparent 80%);
-  --claro-debug-fondo: #ddd5e6;
-  --claro-pista: color-mix(in srgb, var(--sc-sakura), transparent 62%);
-  --claro-aro: rgba(70, 58, 87, 0.14);
-  --claro-enlace: #b03a56;
-  --claro-enlace-hover: #8e2a44;
+  --light-ink: #463a57;
+  --light-ink-soft: #6b6270;
+  --light-ok: #25756a;
+  --light-ok-bg: color-mix(in srgb, var(--sc-water), transparent 72%);
+  --light-ok-border: color-mix(in srgb, var(--sc-mint), transparent 60%);
+  --light-alert: #b03a56;
+  --light-alert-bg: #fbe0e8;
+  --light-amber: #8f6414;
+  --light-amber-bg: #f9ecd8;
+  --light-info-bg: color-mix(in srgb, var(--sc-sakura), transparent 80%);
+  --light-debug-bg: #ddd5e6;
+  --light-track: color-mix(in srgb, var(--sc-sakura), transparent 62%);
+  --light-ring: rgba(70, 58, 87, 0.14);
+  --light-link: #b03a56;
+  --light-link-hover: #8e2a44;
   /* Los botones llevan el degradado pastel: encima, el blanco se pierde. */
-  --claro-boton-texto: #463a57;
+  --light-button-text: #463a57;
 }
 
 /* --- El jardín en flor ---------------------------------------------------- */
 
-html.tema-silent-cherry body {
+html.theme-silent-cherry body {
   background-image:
     /* Rama de cerezo en la esquina de arriba. Es un SVG dibujado a mano dentro
        del propio CSS (codificado como URL, no en base64, para que se pueda
@@ -1992,7 +1991,7 @@ html.tema-silent-cherry body {
       ),
     radial-gradient(
       44% 34% at 6% 88%,
-      color-mix(in srgb, var(--sc-agua), transparent 62%) 0%,
+      color-mix(in srgb, var(--sc-water), transparent 62%) 0%,
       transparent 70%
     ),
     radial-gradient(
@@ -2028,20 +2027,20 @@ html.tema-silent-cherry body {
    transform un recorrido igual al alto del mosaico, así que el bucle no salta.
    Dos capas: la lejana por detrás de los paneles y la cercana por delante, muy
    pocas y muy tenues, porque aquí lo que se busca es calma. */
-html.tema-silent-cherry body::before,
-html.tema-silent-cherry::before {
+html.theme-silent-cherry body::before,
+html.theme-silent-cherry::before {
   content: '';
   position: fixed;
   inset: -20%;
   pointer-events: none;
 }
 
-html.tema-silent-cherry body::before {
+html.theme-silent-cherry body::before {
   z-index: -1;
   background-image:
     radial-gradient(
       4px 6px at 14% 12%,
-      color-mix(in srgb, var(--sc-sakura-honda), transparent 42%),
+      color-mix(in srgb, var(--sc-sakura-deep), transparent 42%),
       transparent 70%
     ),
     radial-gradient(
@@ -2051,7 +2050,7 @@ html.tema-silent-cherry body::before {
     ),
     radial-gradient(
       5px 7px at 71% 20%,
-      color-mix(in srgb, var(--sc-sakura-honda), transparent 50%),
+      color-mix(in srgb, var(--sc-sakura-deep), transparent 50%),
       transparent 70%
     ),
     radial-gradient(
@@ -2061,7 +2060,7 @@ html.tema-silent-cherry body::before {
     ),
     radial-gradient(
       4px 6px at 28% 72%,
-      color-mix(in srgb, var(--sc-sakura-honda), transparent 52%),
+      color-mix(in srgb, var(--sc-sakura-deep), transparent 52%),
       transparent 70%
     ),
     radial-gradient(
@@ -2070,16 +2069,16 @@ html.tema-silent-cherry body::before {
       transparent 70%
     );
   background-size: 300px 380px;
-  animation: scPetalosLejos 11s linear infinite;
+  animation: scPetalsFar 11s linear infinite;
 }
 
-html.tema-silent-cherry::before {
+html.theme-silent-cherry::before {
   z-index: 400;
   opacity: 0.5;
   background-image:
     radial-gradient(
       6px 9px at 26% 24%,
-      color-mix(in srgb, var(--sc-sakura-honda), transparent 55%),
+      color-mix(in srgb, var(--sc-sakura-deep), transparent 55%),
       transparent 70%
     ),
     radial-gradient(
@@ -2089,17 +2088,17 @@ html.tema-silent-cherry::before {
     ),
     radial-gradient(
       5px 7px at 90% 16%,
-      color-mix(in srgb, var(--sc-sakura-honda), transparent 62%),
+      color-mix(in srgb, var(--sc-sakura-deep), transparent 62%),
       transparent 70%
     );
   background-size: 520px 560px;
-  animation: scPetalosCerca 8s linear infinite;
+  animation: scPetalsNear 8s linear infinite;
 }
 
 /* El giro va dentro del transform y la caída después, para que los pétalos
    bajen en diagonal por su propio eje; por eso las capas sobresalen un 20% de
    la pantalla, para que al girar no asomen los bordes. */
-@keyframes scPetalosLejos {
+@keyframes scPetalsFar {
   from {
     transform: rotate(14deg) translateY(0);
   }
@@ -2108,7 +2107,7 @@ html.tema-silent-cherry::before {
   }
 }
 
-@keyframes scPetalosCerca {
+@keyframes scPetalsNear {
   from {
     transform: rotate(14deg) translateY(0);
   }
@@ -2119,7 +2118,7 @@ html.tema-silent-cherry::before {
 
 /* Agua tranquila al pie: ondas concéntricas quietas, que es lo que hace el
    agua en calma, con un brillo que respira muy despacio. */
-html.tema-silent-cherry body::after {
+html.theme-silent-cherry body::after {
   content: '';
   position: fixed;
   left: 0;
@@ -2132,17 +2131,17 @@ html.tema-silent-cherry body::after {
     repeating-radial-gradient(
       circle at 16% 150%,
       transparent 0 46px,
-      color-mix(in srgb, var(--sc-menta), transparent 86%) 46px 48px
+      color-mix(in srgb, var(--sc-mint), transparent 86%) 46px 48px
     ),
     linear-gradient(
       to top,
-      color-mix(in srgb, var(--sc-agua), transparent 86%) 0%,
+      color-mix(in srgb, var(--sc-water), transparent 86%) 0%,
       transparent 100%
     );
-  animation: scAgua 10s ease-in-out infinite;
+  animation: scWater 10s ease-in-out infinite;
 }
 
-@keyframes scAgua {
+@keyframes scWater {
   0%,
   100% {
     opacity: 0.55;
@@ -2152,23 +2151,23 @@ html.tema-silent-cherry body::after {
   }
 }
 
-html.tema-silent-cherry .app-shell {
+html.theme-silent-cherry .app-shell {
   position: relative;
   z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.tema-silent-cherry body::before {
+  html.theme-silent-cherry body::before {
     animation: none;
   }
-  html.tema-silent-cherry::before {
+  html.theme-silent-cherry::before {
     display: none;
   }
-  html.tema-silent-cherry body::after {
+  html.theme-silent-cherry body::after {
     animation: none;
   }
-  html.tema-silent-cherry .progress-fill::before,
-  html.tema-silent-cherry .disk-bar .fill::before {
+  html.theme-silent-cherry .progress-fill::before,
+  html.theme-silent-cherry .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -2178,109 +2177,109 @@ html.tema-silent-cherry .app-shell {
    desenfoque, borde rosa muy pálido y sombra rosada en vez de negra, que sobre
    fondo claro es lo que evita el efecto "recorte sucio". */
 
-html.tema-silent-cherry .sidebar {
+html.theme-silent-cherry .sidebar {
   background: color-mix(in srgb, var(--user-surface), transparent 20%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--user-border);
 }
 
-html.tema-silent-cherry .panel,
-html.tema-silent-cherry .stat-card,
-html.tema-silent-cherry .hero-card,
-html.tema-silent-cherry .logs-hero,
-html.tema-silent-cherry .listener-hero {
+html.theme-silent-cherry .panel,
+html.theme-silent-cherry .stat-card,
+html.theme-silent-cherry .hero-card,
+html.theme-silent-cherry .logs-hero,
+html.theme-silent-cherry .listener-hero {
   background-color: color-mix(in srgb, var(--user-surface), transparent 12%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-color: var(--user-border);
-  box-shadow: 0 10px 30px var(--sc-sombra);
+  box-shadow: 0 10px 30px var(--sc-shadow);
 }
 
-html.tema-silent-cherry .stat-card:hover {
+html.theme-silent-cherry .stat-card:hover {
   box-shadow: 0 14px 30px
-    color-mix(in srgb, var(--sc-sakura-honda), transparent 78%);
+    color-mix(in srgb, var(--sc-sakura-deep), transparent 78%);
 }
 
-html.tema-silent-cherry .hero-card {
+html.theme-silent-cherry .hero-card {
   background-image: linear-gradient(
     118deg,
     color-mix(in srgb, var(--user-surface-light), transparent 10%) 0%,
     color-mix(in srgb, var(--user-surface), transparent 10%) 55%,
-    color-mix(in srgb, var(--sc-agua), var(--user-surface) 80%) 100%
+    color-mix(in srgb, var(--sc-water), var(--user-surface) 80%) 100%
   );
-  box-shadow: 0 16px 40px var(--sc-sombra);
+  box-shadow: 0 16px 40px var(--sc-shadow);
 }
 
-html.tema-silent-cherry .hero-card:after {
+html.theme-silent-cherry .hero-card:after {
   background: radial-gradient(circle, var(--sc-sakura) 0%, transparent 66%);
   opacity: 0.28;
   filter: blur(22px);
 }
 
-html.tema-silent-cherry .toast {
-  box-shadow: 0 12px 34px var(--sc-sombra);
+html.theme-silent-cherry .toast {
+  box-shadow: 0 12px 34px var(--sc-shadow);
 }
 
 /* --- Acentos -------------------------------------------------------------- */
 
 /* Los cuatro iconos de cifras, en pastel: cerezo, lavanda, agua y gris suave. */
-html.tema-silent-cherry .stat-icon.blue {
+html.theme-silent-cherry .stat-icon.blue {
   background: color-mix(in srgb, var(--sc-sakura), transparent 55%);
   color: #a94a67;
 }
-html.tema-silent-cherry .stat-icon.amber {
+html.theme-silent-cherry .stat-icon.amber {
   background: #ded4f0;
   color: #5f4f8f;
 }
-html.tema-silent-cherry .stat-icon.green {
-  background: color-mix(in srgb, var(--sc-agua), transparent 58%);
-  color: var(--claro-ok);
+html.theme-silent-cherry .stat-icon.green {
+  background: color-mix(in srgb, var(--sc-water), transparent 58%);
+  color: var(--light-ok);
 }
-html.tema-silent-cherry .stat-icon.gray {
+html.theme-silent-cherry .stat-icon.gray {
   background: #ded7e2;
-  color: var(--claro-tinta-suave);
+  color: var(--light-ink-soft);
 }
 
 /* La pestaña activa, en verde agua: es el único sitio donde el menta manda, y
    deja el rosa para los botones de acción. */
-html.tema-silent-cherry .sidebar-nav button.selected {
-  background: color-mix(in srgb, var(--sc-agua), transparent 66%) !important;
+html.theme-silent-cherry .sidebar-nav button.selected {
+  background: color-mix(in srgb, var(--sc-water), transparent 66%) !important;
   box-shadow:
-    inset 3px 0 var(--sc-menta),
-    0 6px 18px var(--sc-sombra);
+    inset 3px 0 var(--sc-mint),
+    0 6px 18px var(--sc-shadow);
 }
-html.tema-silent-cherry .sidebar-nav button.selected span {
-  color: var(--claro-ok);
+html.theme-silent-cherry .sidebar-nav button.selected span {
+  color: var(--light-ok);
 }
-html.tema-silent-cherry .sidebar-nav button:hover {
+html.theme-silent-cherry .sidebar-nav button:hover {
   background: color-mix(in srgb, var(--sc-sakura), transparent 78%);
 }
 
 @media (max-width: 900px) {
-  html.tema-silent-cherry .sidebar-nav button.selected {
+  html.theme-silent-cherry .sidebar-nav button.selected {
     box-shadow:
-      inset 0 -3px var(--sc-menta),
-      0 6px 18px var(--sc-sombra);
+      inset 0 -3px var(--sc-mint),
+      0 6px 18px var(--sc-shadow);
   }
 }
 
-html.tema-silent-cherry .status-dot,
-html.tema-silent-cherry .live-dot {
-  background: var(--claro-ok);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--sc-menta), transparent 40%);
+html.theme-silent-cherry .status-dot,
+html.theme-silent-cherry .live-dot {
+  background: var(--light-ok);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--sc-mint), transparent 40%);
 }
-html.tema-silent-cherry .status-dot.disconnected {
-  background: var(--claro-alerta);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--claro-alerta), transparent 55%);
+html.theme-silent-cherry .status-dot.disconnected {
+  background: var(--light-alert);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--light-alert), transparent 55%);
 }
 
 /* El interruptor «Apagar al terminar» armado hereda el rosa pastel del acento,
    que sobre el papel claro del sidebar no llega a leerse: el icono y el texto
    van en rosa oscuro, el mismo que los enlaces del tema. La etiqueta de estado
    sigue en gris tinta porque ya tiene su propio color. */
-html.tema-silent-cherry .sidebar-shutdown.armed .shutdown-info {
-  color: var(--claro-alerta);
+html.theme-silent-cherry .sidebar-shutdown.armed .shutdown-info {
+  color: var(--light-alert);
 }
 
 /* --- Barras de progreso --------------------------------------------------- */
@@ -2290,26 +2289,26 @@ html.tema-silent-cherry .sidebar-shutdown.armed .shutdown-info {
    de 12px sobre su eje: en horizontal repite cada 12 / sen(100°) = 12,19px, y
    el recorrido, 24,37px, son dos periodos justos. */
 
-html.tema-silent-cherry .progress-fill,
-html.tema-silent-cherry .disk-bar .fill,
-html.tema-silent-cherry .update-progress-fill {
+html.theme-silent-cherry .progress-fill,
+html.theme-silent-cherry .disk-bar .fill,
+html.theme-silent-cherry .update-progress-fill {
   background-image: var(--user-gradient);
   box-shadow: 0 0 10px
-    color-mix(in srgb, var(--sc-sakura-honda), transparent 70%);
+    color-mix(in srgb, var(--sc-sakura-deep), transparent 70%);
 }
 
-html.tema-silent-cherry .progress-track {
+html.theme-silent-cherry .progress-track {
   background: color-mix(in srgb, var(--sc-sakura), transparent 76%);
 }
 
-html.tema-silent-cherry .progress-fill,
-html.tema-silent-cherry .disk-bar .fill {
+html.theme-silent-cherry .progress-fill,
+html.theme-silent-cherry .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-html.tema-silent-cherry .progress-fill::before,
-html.tema-silent-cherry .disk-bar .fill::before {
+html.theme-silent-cherry .progress-fill::before,
+html.theme-silent-cherry .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -2321,10 +2320,10 @@ html.tema-silent-cherry .disk-bar .fill::before {
     rgba(255, 255, 255, 0.55) 0 3px,
     rgba(255, 255, 255, 0) 3px 12px
   );
-  animation: scCorriente 1.8s linear infinite;
+  animation: scCurrent 1.8s linear infinite;
 }
 
-@keyframes scCorriente {
+@keyframes scCurrent {
   from {
     transform: translateX(0);
   }
@@ -2333,7 +2332,7 @@ html.tema-silent-cherry .disk-bar .fill::before {
   }
 }
 
-html.tema-silent-cherry .update-progress-fill {
+html.theme-silent-cherry .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       100deg,
@@ -2343,26 +2342,26 @@ html.tema-silent-cherry .update-progress-fill {
     var(--user-gradient);
 }
 
-html.tema-silent-cherry ::-webkit-scrollbar {
+html.theme-silent-cherry ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-html.tema-silent-cherry ::-webkit-scrollbar-track {
+html.theme-silent-cherry ::-webkit-scrollbar-track {
   background: transparent;
 }
-html.tema-silent-cherry ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--sc-sakura-honda), transparent 55%);
+html.theme-silent-cherry ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sc-sakura-deep), transparent 55%);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-html.tema-silent-cherry ::-webkit-scrollbar-thumb:hover {
-  background: var(--sc-sakura-honda);
+html.theme-silent-cherry ::-webkit-scrollbar-thumb:hover {
+  background: var(--sc-sakura-deep);
   background-clip: content-box;
 }
 
-html.tema-silent-cherry .boot-screen,
-html.tema-silent-cherry .update-required-overlay {
+html.theme-silent-cherry .boot-screen,
+html.theme-silent-cherry .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -2375,22 +2374,22 @@ html.tema-silent-cherry .update-required-overlay {
    claro apenas se lee: pasa al rosa oscuro del tema, el mismo de los enlaces
    y del apagado armado. El texto de la cabecera (blanco azulado fijo) lo
    corrige el bloque común de fondo claro. */
-html.tema-silent-cherry .accordion-icon {
-  color: var(--claro-alerta);
+html.theme-silent-cherry .accordion-icon {
+  color: var(--light-alert);
 }
 
 /* Campana y bot del sidebar encendidos: el rosa pastel del acento no se lee
    sobre el papel claro del sidebar, así que el icono activo va en el rosa
    oscuro, igual que la tarjeta de apagado armada. */
-html.tema-silent-cherry .sidebar-toggle.armed {
-  color: var(--claro-alerta);
+html.theme-silent-cherry .sidebar-toggle.armed {
+  color: var(--light-alert);
 }
 /* Y el hover: el icono pasa al rosa oscuro (el pastel del acento no se ve) y
    el fondo toma el mismo tinte rosa que las entradas del menú. */
-html.tema-silent-cherry .sidebar-toggle:hover {
-  border-color: var(--claro-alerta);
+html.theme-silent-cherry .sidebar-toggle:hover {
+  border-color: var(--light-alert);
   background: color-mix(in srgb, var(--sc-sakura), transparent 78%);
-  color: var(--claro-alerta);
+  color: var(--light-alert);
 }
 
 /* -----------------------------------------------------------------------------
@@ -2430,7 +2429,7 @@ html.tema-silent-cherry .sidebar-toggle:hover {
    el vidrio del todo: es lo que hace iOS con esos mismos ajustes, y de paso es
    la salida para una máquina que vaya justa.
    -------------------------------------------------------------------------- */
-html.tema-osx {
+html.theme-osx {
   /* La contraparte oscura de lo que hacen los temas claros: sin esto el
      navegador pinta los controles nativos en modo claro y, por ejemplo, la
      parte no rellena del deslizante sale blanca sobre el casi negro. Con esto
@@ -2441,19 +2440,19 @@ html.tema-osx {
 
   /* Colores de sistema de iOS en su variante oscura, que son más luminosos que
      los de claro: el mismo azul de día se apaga sobre negro. */
-  --osx-azul: #0a84ff;
-  --osx-cian: #64d2ff;
-  --osx-verde: #30d158;
-  --osx-rojo: #ff453a;
-  --osx-naranja: #ff9f0a;
-  --osx-vidrio: rgba(28, 28, 30, 0.62);
-  --osx-filo: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  --osx-sombra: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --osx-blue: #0a84ff;
+  --osx-cyan: #64d2ff;
+  --osx-green: #30d158;
+  --osx-red: #ff453a;
+  --osx-orange: #ff9f0a;
+  --osx-glass: rgba(28, 28, 30, 0.62);
+  --osx-edge: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --osx-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
 /* --- Fondo ---------------------------------------------------------------- */
 /* Estático y de una sola pasada, sin pseudo-elementos y sin animación. */
-html.tema-osx body {
+html.theme-osx body {
   background-image:
     radial-gradient(
       58% 42% at 84% -8%,
@@ -2480,26 +2479,26 @@ html.tema-osx body {
 
 /* --- Liquid Glass --------------------------------------------------------- */
 
-html.tema-osx .sidebar {
+html.theme-osx .sidebar {
   background: rgba(22, 22, 24, 0.6);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-html.tema-osx .panel,
-html.tema-osx .hero-card,
-html.tema-osx .logs-hero,
-html.tema-osx .listener-hero {
-  background-color: var(--osx-vidrio);
+html.theme-osx .panel,
+html.theme-osx .hero-card,
+html.theme-osx .logs-hero,
+html.theme-osx .listener-hero {
+  background-color: var(--osx-glass);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-color: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  box-shadow: var(--osx-filo), var(--osx-sombra);
+  box-shadow: var(--osx-edge), var(--osx-shadow);
 }
 
-html.tema-osx .hero-card {
+html.theme-osx .hero-card {
   border-radius: 24px;
   background-image: linear-gradient(
     180deg,
@@ -2509,51 +2508,51 @@ html.tema-osx .hero-card {
 }
 
 /* El halo de la esquina, como un reflejo en el vidrio. Sin animación. */
-html.tema-osx .hero-card:after {
-  background: radial-gradient(circle, var(--osx-azul) 0%, transparent 66%);
+html.theme-osx .hero-card:after {
+  background: radial-gradient(circle, var(--osx-blue) 0%, transparent 66%);
   opacity: 0.22;
   filter: blur(24px);
 }
 
 /* Las tarjetas de cifras van opacas a propósito: son cuatro, son pequeñas y el
    desenfoque ahí no se nota, pero sí se paga. */
-html.tema-osx .stat-card {
+html.theme-osx .stat-card {
   background-color: #1c1c1e;
   border-color: rgba(255, 255, 255, 0.07);
   border-radius: 18px;
   box-shadow:
-    var(--osx-filo),
+    var(--osx-edge),
     0 4px 16px rgba(0, 0, 0, 0.3);
 }
-html.tema-osx .stat-card:hover {
+html.theme-osx .stat-card:hover {
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow:
-    var(--osx-filo),
+    var(--osx-edge),
     0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
-html.tema-osx .toast {
+html.theme-osx .toast {
   background: rgba(36, 36, 38, 0.92);
   border-radius: 16px;
   box-shadow:
-    var(--osx-filo),
+    var(--osx-edge),
     0 12px 34px rgba(0, 0, 0, 0.55);
 }
 
 /* Cuando el sistema pide menos transparencia o más contraste, el vidrio se va
    entero: superficies opacas y fondo plano. */
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  html.tema-osx .sidebar,
-  html.tema-osx .panel,
-  html.tema-osx .hero-card,
-  html.tema-osx .logs-hero,
-  html.tema-osx .listener-hero {
+  html.theme-osx .sidebar,
+  html.theme-osx .panel,
+  html.theme-osx .hero-card,
+  html.theme-osx .logs-hero,
+  html.theme-osx .listener-hero {
     background-color: #1c1c1e;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-color: rgba(255, 255, 255, 0.24);
   }
-  html.tema-osx body {
+  html.theme-osx body {
     background-image: none;
   }
 }
@@ -2561,40 +2560,40 @@ html.tema-osx .toast {
 /* --- Formas --------------------------------------------------------------- */
 /* Cápsulas y esquinas grandes, que es lo que más delata a iOS. */
 
-html.tema-osx .primary-button,
-html.tema-osx .save-button,
-html.tema-osx .auth-button,
-html.tema-osx .clear-history-button {
+html.theme-osx .primary-button,
+html.theme-osx .save-button,
+html.theme-osx .auth-button,
+html.theme-osx .clear-history-button {
   border-radius: 999px;
 }
 
 /* El botón relleno de iOS lleva el texto en blanco. Aquí hay que decirlo
    expresamente: el panel lo pinta con `var(--user-bg-base)`, que en un tema
    oscuro es casi negro y sobre el azul no se leería. */
-html.tema-osx .primary-button,
-html.tema-osx .save-button,
-html.tema-osx .auth-button.primary,
-html.tema-osx .update-btn {
+html.theme-osx .primary-button,
+html.theme-osx .save-button,
+html.theme-osx .auth-button.primary,
+html.theme-osx .update-btn {
   color: #ffffff !important;
   font-weight: 600;
   text-shadow: none;
 }
 
-html.tema-osx .primary-button,
-html.tema-osx .save-button {
+html.theme-osx .primary-button,
+html.theme-osx .save-button {
   box-shadow: 0 2px 12px rgba(10, 132, 255, 0.4);
 }
-html.tema-osx .primary-button:hover:not(:disabled),
-html.tema-osx .save-button:hover:not(:disabled) {
+html.theme-osx .primary-button:hover:not(:disabled),
+html.theme-osx .save-button:hover:not(:disabled) {
   box-shadow: 0 6px 20px rgba(10, 132, 255, 0.5);
 }
 
 /* Los campos de iOS en oscuro no son cajas negras con borde, sino un gris
    translúcido sin contorno. */
-html.tema-osx .download-form input,
-html.tema-osx .speed-row input,
-html.tema-osx .speed-row select,
-html.tema-osx .token-row input {
+html.theme-osx .download-form input,
+html.theme-osx .speed-row input,
+html.theme-osx .speed-row select,
+html.theme-osx .token-row input {
   border-radius: 12px;
   background: rgba(118, 118, 128, 0.24);
   border-color: transparent;
@@ -2602,154 +2601,154 @@ html.tema-osx .token-row input {
 
 /* La pestaña activa: relleno azul diluido y etiqueta azul, sin la barra
    lateral de los otros temas. */
-html.tema-osx .sidebar-nav button {
+html.theme-osx .sidebar-nav button {
   border-radius: 10px;
 }
-html.tema-osx .sidebar-nav button:hover {
+html.theme-osx .sidebar-nav button:hover {
   background: rgba(255, 255, 255, 0.06);
 }
-html.tema-osx .sidebar-nav button.selected {
+html.theme-osx .sidebar-nav button.selected {
   background: rgba(10, 132, 255, 0.22) !important;
   box-shadow: none;
   color: #ffffff;
 }
-html.tema-osx .sidebar-nav button.selected span {
-  color: var(--osx-cian);
+html.theme-osx .sidebar-nav button.selected span {
+  color: var(--osx-cyan);
 }
 
 @media (max-width: 900px) {
-  html.tema-osx .sidebar-nav button.selected {
+  html.theme-osx .sidebar-nav button.selected {
     box-shadow: none;
   }
 }
 
 /* --- Acentos de sistema --------------------------------------------------- */
 
-html.tema-osx .stat-icon.blue {
+html.theme-osx .stat-icon.blue {
   background: rgba(10, 132, 255, 0.18);
-  color: var(--osx-azul);
+  color: var(--osx-blue);
 }
-html.tema-osx .stat-icon.amber {
+html.theme-osx .stat-icon.amber {
   background: rgba(255, 159, 10, 0.18);
-  color: var(--osx-naranja);
+  color: var(--osx-orange);
 }
-html.tema-osx .stat-icon.green {
+html.theme-osx .stat-icon.green {
   background: rgba(48, 209, 88, 0.18);
-  color: var(--osx-verde);
+  color: var(--osx-green);
 }
-html.tema-osx .stat-icon.gray {
+html.theme-osx .stat-icon.gray {
   background: rgba(142, 142, 147, 0.18);
   color: #aeaeb2;
 }
 
 /* El interruptor de iOS es verde, no del color de acento. */
-html.tema-osx .switch span {
+html.theme-osx .switch span {
   background: rgba(120, 120, 128, 0.32);
 }
-html.tema-osx .switch input:checked + span {
-  background: var(--osx-azul);
+html.theme-osx .switch input:checked + span {
+  background: var(--osx-blue);
 }
-html.tema-osx .switch span:after {
+html.theme-osx .switch span:after {
   background: #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
 }
-html.tema-osx .switch input:checked + span:after,
-html.tema-osx .chat-name-mode-btn.active .chat-switch-thumb {
+html.theme-osx .switch input:checked + span:after,
+html.theme-osx .chat-name-mode-btn.active .chat-switch-thumb {
   background: var(--user-bg-base);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
-html.tema-osx .status-dot,
-html.tema-osx .live-dot {
-  background: var(--osx-verde);
+html.theme-osx .status-dot,
+html.theme-osx .live-dot {
+  background: var(--osx-green);
   box-shadow: 0 0 8px rgba(48, 209, 88, 0.55);
 }
-html.tema-osx .status-dot.disconnected {
-  background: var(--osx-rojo);
+html.theme-osx .status-dot.disconnected {
+  background: var(--osx-red);
   box-shadow: 0 0 8px rgba(255, 69, 58, 0.55);
 }
 
-html.tema-osx .badge,
-html.tema-osx .save-state {
+html.theme-osx .badge,
+html.theme-osx .save-state {
   background: rgba(48, 209, 88, 0.16);
-  color: var(--osx-verde);
+  color: var(--osx-green);
   border-color: rgba(48, 209, 88, 0.3);
 }
 
-html.tema-osx .count-pill {
+html.theme-osx .count-pill {
   background: rgba(10, 132, 255, 0.18);
-  color: var(--osx-cian);
+  color: var(--osx-cyan);
 }
 
-html.tema-osx .row-side button,
-html.tema-osx .delete-button,
-html.tema-osx .sidebar-user-badge .logout-btn {
-  color: var(--osx-rojo);
+html.theme-osx .row-side button,
+html.theme-osx .delete-button,
+html.theme-osx .sidebar-user-badge .logout-btn {
+  color: var(--osx-red);
 }
-html.tema-osx .row-side .pause-action {
-  color: var(--osx-naranja);
+html.theme-osx .row-side .pause-action {
+  color: var(--osx-orange);
 }
-html.tema-osx .row-side .resume-action {
-  color: var(--osx-verde);
+html.theme-osx .row-side .resume-action {
+  color: var(--osx-green);
 }
-html.tema-osx .sidebar-user-badge .user-icon {
-  color: var(--osx-verde);
+html.theme-osx .sidebar-user-badge .user-icon {
+  color: var(--osx-green);
 }
 
-html.tema-osx .inline-link,
-html.tema-osx .inline-link:visited {
-  color: var(--osx-azul);
+html.theme-osx .inline-link,
+html.theme-osx .inline-link:visited {
+  color: var(--osx-blue);
 }
-html.tema-osx .inline-link:hover {
-  color: var(--osx-cian);
+html.theme-osx .inline-link:hover {
+  color: var(--osx-cyan);
 }
-html.tema-osx .inline-link:focus-visible {
-  outline-color: var(--osx-azul);
+html.theme-osx .inline-link:focus-visible {
+  outline-color: var(--osx-blue);
 }
 
 /* --- Barras de progreso --------------------------------------------------- */
 /* Cápsula lisa, sin capa animada encima. Las de iOS no llevan textura, y de
    paso es el único tema que no paga nada por su barra. */
 
-html.tema-osx .progress-track {
+html.theme-osx .progress-track {
   background: rgba(120, 120, 128, 0.28);
   border-radius: 999px;
 }
 
-html.tema-osx .progress-fill,
-html.tema-osx .disk-bar .fill,
-html.tema-osx .update-progress-fill {
+html.theme-osx .progress-fill,
+html.theme-osx .disk-bar .fill,
+html.theme-osx .update-progress-fill {
   background-image: var(--user-gradient);
   border-radius: 999px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
-html.tema-osx .disk-bar {
+html.theme-osx .disk-bar {
   background: rgba(120, 120, 128, 0.28);
   border-color: transparent;
   border-radius: 999px;
 }
 
-html.tema-osx ::-webkit-scrollbar {
+html.theme-osx ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-html.tema-osx ::-webkit-scrollbar-track {
+html.theme-osx ::-webkit-scrollbar-track {
   background: transparent;
 }
-html.tema-osx ::-webkit-scrollbar-thumb {
+html.theme-osx ::-webkit-scrollbar-thumb {
   background: rgba(235, 235, 245, 0.22);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-html.tema-osx ::-webkit-scrollbar-thumb:hover {
+html.theme-osx ::-webkit-scrollbar-thumb:hover {
   background: rgba(235, 235, 245, 0.4);
   background-clip: content-box;
 }
 
-html.tema-osx .boot-screen,
-html.tema-osx .update-required-overlay {
+html.theme-osx .boot-screen,
+html.theme-osx .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -2767,25 +2766,25 @@ html.tema-osx .update-required-overlay {
    Una sola capa animada —las motas de polvo en la luz del candil—, que es lo
    que pide un tema de botica: quieto, de anaquel.
    -------------------------------------------------------------------------- */
-html.tema-herbal-apothecary {
+html.theme-herbal-apothecary {
   --ha-jade: #4a7c59;
-  --ha-ceruleo: #2b586c;
-  --ha-ceruleo-claro: #8fc0d4;
-  --ha-brote: #7fb069;
-  --ha-brote-suave: #99c2a2;
+  --ha-cerulean: #2b586c;
+  --ha-cerulean-light: #8fc0d4;
+  --ha-sprout: #7fb069;
+  --ha-sprout-soft: #99c2a2;
   /* El bermellón no está en el themeMap porque no es un color de interfaz sino
      de aviso: sale en errores, en lo destructivo y en poco más. Como texto
      sobre el verde noche el #c0392b de la paleta se queda en 2,6:1, así que
      hay una versión aclarada para las letras y la original para los rellenos. */
-  --ha-veneno: #c0392b;
-  --ha-veneno-claro: #e57b6b;
-  --ha-candil: #d9a441;
-  --ha-sombra: 0 12px 32px rgba(0, 0, 0, 0.42);
+  --ha-venom: #c0392b;
+  --ha-venom-light: #e57b6b;
+  --ha-lamp: #d9a441;
+  --ha-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
 }
 
 /* --- La botica ------------------------------------------------------------ */
 
-html.tema-herbal-apothecary body {
+html.theme-herbal-apothecary body {
   background-image:
     /* Hierbas colgadas a secar, atadas con cordel. SVG dibujado dentro del
        propio CSS (codificado como URL, no en base64, para poder retocarlo
@@ -2796,12 +2795,12 @@ html.tema-herbal-apothecary body {
     /* La luz del candil, abajo a la izquierda; la luna entrando por arriba. */
     radial-gradient(
         48% 38% at 4% 100%,
-        color-mix(in srgb, var(--ha-candil), transparent 88%) 0%,
+        color-mix(in srgb, var(--ha-lamp), transparent 88%) 0%,
         transparent 66%
       ),
     radial-gradient(
       52% 40% at 88% -6%,
-      color-mix(in srgb, var(--ha-ceruleo), transparent 72%) 0%,
+      color-mix(in srgb, var(--ha-cerulean), transparent 72%) 0%,
       transparent 64%
     ),
     radial-gradient(
@@ -2826,7 +2825,7 @@ html.tema-herbal-apothecary body {
 /* Papel de arroz: dos tramas cruzadas a muy baja opacidad. Es lo que le quita
    al fondo el aspecto de color plano sin costar nada: son dos degradados
    repetidos, estáticos, por detrás de todo. */
-html.tema-herbal-apothecary body::before {
+html.theme-herbal-apothecary body::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -2850,7 +2849,7 @@ html.tema-herbal-apothecary body::before {
    con transform un recorrido igual a su alto, así que el bucle no salta. Suben
    en vez de caer, que es lo que hace el polvo en una habitación cerrada con
    una llama encendida. */
-html.tema-herbal-apothecary body::after {
+html.theme-herbal-apothecary body::after {
   content: '';
   position: fixed;
   inset: -15%;
@@ -2859,35 +2858,35 @@ html.tema-herbal-apothecary body::after {
   background-image:
     radial-gradient(
       1.6px 1.6px at 16% 18%,
-      color-mix(in srgb, var(--ha-candil), transparent 45%),
+      color-mix(in srgb, var(--ha-lamp), transparent 45%),
       transparent 70%
     ),
     radial-gradient(
       1.2px 1.2px at 44% 62%,
-      color-mix(in srgb, var(--ha-brote-suave), transparent 55%),
+      color-mix(in srgb, var(--ha-sprout-soft), transparent 55%),
       transparent 70%
     ),
     radial-gradient(
       1.8px 1.8px at 72% 30%,
-      color-mix(in srgb, var(--ha-candil), transparent 55%),
+      color-mix(in srgb, var(--ha-lamp), transparent 55%),
       transparent 70%
     ),
     radial-gradient(
       1.3px 1.3px at 88% 78%,
-      color-mix(in srgb, var(--ha-brote-suave), transparent 60%),
+      color-mix(in srgb, var(--ha-sprout-soft), transparent 60%),
       transparent 70%
     ),
     radial-gradient(
       1.4px 1.4px at 28% 88%,
-      color-mix(in srgb, var(--ha-candil), transparent 62%),
+      color-mix(in srgb, var(--ha-lamp), transparent 62%),
       transparent 70%
     );
   background-size: 340px 420px;
   opacity: 0.5;
-  animation: haMotas 26s linear infinite;
+  animation: haMotes 26s linear infinite;
 }
 
-@keyframes haMotas {
+@keyframes haMotes {
   from {
     transform: translateY(0);
   }
@@ -2896,17 +2895,17 @@ html.tema-herbal-apothecary body::after {
   }
 }
 
-html.tema-herbal-apothecary .app-shell {
+html.theme-herbal-apothecary .app-shell {
   position: relative;
   z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.tema-herbal-apothecary body::after {
+  html.theme-herbal-apothecary body::after {
     animation: none;
   }
-  html.tema-herbal-apothecary .progress-fill::before,
-  html.tema-herbal-apothecary .disk-bar .fill::before {
+  html.theme-herbal-apothecary .progress-fill::before,
+  html.theme-herbal-apothecary .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -2915,71 +2914,75 @@ html.tema-herbal-apothecary .app-shell {
 /* Los paneles son los cajones del boticario: madera verde en penumbra, borde
    cerúleo y un filo de jade arriba, que es donde da la luz. */
 
-html.tema-herbal-apothecary .sidebar {
+html.theme-herbal-apothecary .sidebar {
   background: color-mix(in srgb, var(--user-bg-base), transparent 14%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-right: 1px solid color-mix(in srgb, var(--ha-jade), transparent 68%);
 }
 
-html.tema-herbal-apothecary .panel,
-html.tema-herbal-apothecary .stat-card,
-html.tema-herbal-apothecary .hero-card,
-html.tema-herbal-apothecary .logs-hero,
-html.tema-herbal-apothecary .listener-hero {
+html.theme-herbal-apothecary .panel,
+html.theme-herbal-apothecary .stat-card,
+html.theme-herbal-apothecary .hero-card,
+html.theme-herbal-apothecary .logs-hero,
+html.theme-herbal-apothecary .listener-hero {
   background-color: color-mix(in srgb, var(--user-surface), transparent 10%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-color: color-mix(in srgb, var(--ha-ceruleo), transparent 42%);
+  border-color: color-mix(in srgb, var(--ha-cerulean), transparent 42%);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--ha-jade), transparent 62%),
-    var(--ha-sombra);
+    var(--ha-shadow);
 }
 
 /* La tarjeta grande es la mesa de trabajo bajo el candil. */
-html.tema-herbal-apothecary .hero-card {
+html.theme-herbal-apothecary .hero-card {
   background-image: linear-gradient(
     118deg,
     color-mix(in srgb, var(--user-surface-light), transparent 6%) 0%,
     color-mix(in srgb, var(--user-surface), transparent 8%) 58%,
-    color-mix(in srgb, var(--ha-candil), var(--user-surface) 88%) 100%
+    color-mix(in srgb, var(--ha-lamp), var(--user-surface) 88%) 100%
   );
 }
 
-html.tema-herbal-apothecary .hero-card:after {
-  background: radial-gradient(circle, var(--ha-candil) 0%, transparent 66%);
+html.theme-herbal-apothecary .hero-card:after {
+  background: radial-gradient(circle, var(--ha-lamp) 0%, transparent 66%);
   opacity: 0.16;
   filter: blur(22px);
 }
 
-html.tema-herbal-apothecary .toast {
-  box-shadow: var(--ha-sombra);
+html.theme-herbal-apothecary .toast {
+  box-shadow: var(--ha-shadow);
 }
 
 /* --- Navegación ----------------------------------------------------------- */
 /* La pestaña activa va en cerúleo, que es el color del manto: el verde queda
    para lo que está vivo (botones, estado, progreso). */
 
-html.tema-herbal-apothecary .sidebar-nav button:hover {
+html.theme-herbal-apothecary .sidebar-nav button:hover {
   background: color-mix(in srgb, var(--ha-jade), transparent 88%);
-  color: var(--ha-brote-suave);
+  color: var(--ha-sprout-soft);
 }
 
-html.tema-herbal-apothecary .sidebar-nav button.selected {
-  background: color-mix(in srgb, var(--ha-ceruleo), transparent 55%) !important;
+html.theme-herbal-apothecary .sidebar-nav button.selected {
+  background: color-mix(
+    in srgb,
+    var(--ha-cerulean),
+    transparent 55%
+  ) !important;
   color: #e8efe9;
   box-shadow:
-    inset 3px 0 var(--ha-brote),
+    inset 3px 0 var(--ha-sprout),
     0 6px 18px rgba(0, 0, 0, 0.3);
 }
-html.tema-herbal-apothecary .sidebar-nav button.selected span {
-  color: var(--ha-brote);
+html.theme-herbal-apothecary .sidebar-nav button.selected span {
+  color: var(--ha-sprout);
 }
 
 @media (max-width: 900px) {
-  html.tema-herbal-apothecary .sidebar-nav button.selected {
+  html.theme-herbal-apothecary .sidebar-nav button.selected {
     box-shadow:
-      inset 0 -3px var(--ha-brote),
+      inset 0 -3px var(--ha-sprout),
       0 6px 18px rgba(0, 0, 0, 0.3);
   }
 }
@@ -2992,29 +2995,29 @@ html.tema-herbal-apothecary .sidebar-nav button.selected span {
    de 13px sobre su eje: en horizontal repite cada 13 / sen(110°) = 13,83px, y
    el recorrido, 27,67px, son dos periodos justos. */
 
-html.tema-herbal-apothecary .progress-fill,
-html.tema-herbal-apothecary .disk-bar .fill,
-html.tema-herbal-apothecary .update-progress-fill {
+html.theme-herbal-apothecary .progress-fill,
+html.theme-herbal-apothecary .disk-bar .fill,
+html.theme-herbal-apothecary .update-progress-fill {
   background-image: var(--user-gradient);
   box-shadow:
     inset 0 1px 0 rgba(232, 239, 233, 0.3),
     0 0 12px var(--user-glow);
 }
 
-html.tema-herbal-apothecary .progress-track {
+html.theme-herbal-apothecary .progress-track {
   background: color-mix(in srgb, var(--user-bg-base), transparent 25%);
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--ha-ceruleo), transparent 62%);
+    color-mix(in srgb, var(--ha-cerulean), transparent 62%);
 }
 
-html.tema-herbal-apothecary .progress-fill,
-html.tema-herbal-apothecary .disk-bar .fill {
+html.theme-herbal-apothecary .progress-fill,
+html.theme-herbal-apothecary .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-html.tema-herbal-apothecary .progress-fill::before,
-html.tema-herbal-apothecary .disk-bar .fill::before {
+html.theme-herbal-apothecary .progress-fill::before,
+html.theme-herbal-apothecary .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -3026,10 +3029,10 @@ html.tema-herbal-apothecary .disk-bar .fill::before {
     rgba(232, 239, 233, 0.22) 0 4px,
     rgba(20, 31, 24, 0.12) 4px 13px
   );
-  animation: haLicor 2s linear infinite;
+  animation: haLiquor 2s linear infinite;
 }
 
-@keyframes haLicor {
+@keyframes haLiquor {
   from {
     transform: translateX(0);
   }
@@ -3038,7 +3041,7 @@ html.tema-herbal-apothecary .disk-bar .fill::before {
   }
 }
 
-html.tema-herbal-apothecary .update-progress-fill {
+html.theme-herbal-apothecary .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       110deg,
@@ -3050,88 +3053,88 @@ html.tema-herbal-apothecary .update-progress-fill {
 
 /* --- Estados -------------------------------------------------------------- */
 
-html.tema-herbal-apothecary .status-dot,
-html.tema-herbal-apothecary .live-dot {
-  background: var(--ha-brote);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--ha-brote), transparent 45%);
+html.theme-herbal-apothecary .status-dot,
+html.theme-herbal-apothecary .live-dot {
+  background: var(--ha-sprout);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ha-sprout), transparent 45%);
 }
-html.tema-herbal-apothecary .status-dot.disconnected {
-  background: var(--ha-veneno);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--ha-veneno), transparent 45%);
+html.theme-herbal-apothecary .status-dot.disconnected {
+  background: var(--ha-venom);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ha-venom), transparent 45%);
 }
-html.tema-herbal-apothecary .sidebar-status.is-disconnected {
-  color: var(--ha-veneno-claro);
-  background: color-mix(in srgb, var(--ha-veneno), transparent 92%);
-  border-color: color-mix(in srgb, var(--ha-veneno), transparent 82%);
-}
-
-html.tema-herbal-apothecary .badge,
-html.tema-herbal-apothecary .save-state {
-  background: color-mix(in srgb, var(--ha-brote), transparent 88%);
-  color: var(--ha-brote-suave);
-  border-color: color-mix(in srgb, var(--ha-brote), transparent 74%);
+html.theme-herbal-apothecary .sidebar-status.is-disconnected {
+  color: var(--ha-venom-light);
+  background: color-mix(in srgb, var(--ha-venom), transparent 92%);
+  border-color: color-mix(in srgb, var(--ha-venom), transparent 82%);
 }
 
-html.tema-herbal-apothecary .count-pill {
-  background: color-mix(in srgb, var(--ha-ceruleo), transparent 58%);
-  color: var(--ha-ceruleo-claro);
+html.theme-herbal-apothecary .badge,
+html.theme-herbal-apothecary .save-state {
+  background: color-mix(in srgb, var(--ha-sprout), transparent 88%);
+  color: var(--ha-sprout-soft);
+  border-color: color-mix(in srgb, var(--ha-sprout), transparent 74%);
 }
 
-html.tema-herbal-apothecary .sidebar-user-badge .user-icon {
-  color: var(--ha-brote);
+html.theme-herbal-apothecary .count-pill {
+  background: color-mix(in srgb, var(--ha-cerulean), transparent 58%);
+  color: var(--ha-cerulean-light);
+}
+
+html.theme-herbal-apothecary .sidebar-user-badge .user-icon {
+  color: var(--ha-sprout);
 }
 
 /* Lo destructivo y lo roto, en bermellón. */
-html.tema-herbal-apothecary .row-side button,
-html.tema-herbal-apothecary .delete-button,
-html.tema-herbal-apothecary .sidebar-user-badge .logout-btn {
-  color: var(--ha-veneno-claro);
+html.theme-herbal-apothecary .row-side button,
+html.theme-herbal-apothecary .delete-button,
+html.theme-herbal-apothecary .sidebar-user-badge .logout-btn {
+  color: var(--ha-venom-light);
 }
-html.tema-herbal-apothecary .row-side button:hover,
-html.tema-herbal-apothecary .delete-button:hover,
-html.tema-herbal-apothecary .sidebar-user-badge .logout-btn:hover {
+html.theme-herbal-apothecary .row-side button:hover,
+html.theme-herbal-apothecary .delete-button:hover,
+html.theme-herbal-apothecary .sidebar-user-badge .logout-btn:hover {
   color: #ffd5cc;
-  background: color-mix(in srgb, var(--ha-veneno), transparent 80%);
+  background: color-mix(in srgb, var(--ha-venom), transparent 80%);
 }
-html.tema-herbal-apothecary .row-side .pause-action {
-  color: var(--ha-candil);
+html.theme-herbal-apothecary .row-side .pause-action {
+  color: var(--ha-lamp);
 }
-html.tema-herbal-apothecary .row-side .resume-action {
-  color: var(--ha-brote);
+html.theme-herbal-apothecary .row-side .resume-action {
+  color: var(--ha-sprout);
 }
 
-html.tema-herbal-apothecary .toast.danger {
-  background: color-mix(in srgb, var(--ha-veneno), var(--user-surface) 82%);
+html.theme-herbal-apothecary .toast.danger {
+  background: color-mix(in srgb, var(--ha-venom), var(--user-surface) 82%);
   color: #ffd5cc;
-  border: 1px solid color-mix(in srgb, var(--ha-veneno), transparent 58%);
+  border: 1px solid color-mix(in srgb, var(--ha-venom), transparent 58%);
 }
 
-html.tema-herbal-apothecary .inline-link,
-html.tema-herbal-apothecary .inline-link:visited {
-  color: var(--ha-ceruleo-claro);
+html.theme-herbal-apothecary .inline-link,
+html.theme-herbal-apothecary .inline-link:visited {
+  color: var(--ha-cerulean-light);
 }
-html.tema-herbal-apothecary .inline-link:hover {
-  color: var(--ha-brote-suave);
+html.theme-herbal-apothecary .inline-link:hover {
+  color: var(--ha-sprout-soft);
 }
-html.tema-herbal-apothecary .inline-link:focus-visible {
-  outline-color: var(--ha-ceruleo-claro);
+html.theme-herbal-apothecary .inline-link:focus-visible {
+  outline-color: var(--ha-cerulean-light);
 }
 
 /* --- Detalles ------------------------------------------------------------- */
 
-html.tema-herbal-apothecary .stat-icon.blue {
+html.theme-herbal-apothecary .stat-icon.blue {
   background: color-mix(in srgb, var(--ha-jade), transparent 72%);
-  color: var(--ha-brote);
+  color: var(--ha-sprout);
 }
-html.tema-herbal-apothecary .stat-icon.amber {
-  background: color-mix(in srgb, var(--ha-candil), transparent 84%);
-  color: var(--ha-candil);
+html.theme-herbal-apothecary .stat-icon.amber {
+  background: color-mix(in srgb, var(--ha-lamp), transparent 84%);
+  color: var(--ha-lamp);
 }
-html.tema-herbal-apothecary .stat-icon.green {
-  background: color-mix(in srgb, var(--ha-ceruleo), transparent 62%);
-  color: var(--ha-ceruleo-claro);
+html.theme-herbal-apothecary .stat-icon.green {
+  background: color-mix(in srgb, var(--ha-cerulean), transparent 62%);
+  color: var(--ha-cerulean-light);
 }
-html.tema-herbal-apothecary .stat-icon.gray {
+html.theme-herbal-apothecary .stat-icon.gray {
   background: color-mix(in srgb, var(--user-text-dim), transparent 88%);
   color: var(--user-text-dim);
 }
@@ -3139,32 +3142,32 @@ html.tema-herbal-apothecary .stat-icon.gray {
 /* El botón del interruptor, otra vez el mismo caso: el relleno encendido es un
    verde claro y el blanco fijo del panel encima no destaca. Va al verde noche
    del fondo, que es además el color del texto de los botones de este tema. */
-html.tema-herbal-apothecary .switch input:checked + span:after,
-html.tema-herbal-apothecary .chat-name-mode-btn.active .chat-switch-thumb {
+html.theme-herbal-apothecary .switch input:checked + span:after,
+html.theme-herbal-apothecary .chat-name-mode-btn.active .chat-switch-thumb {
   background: var(--user-bg-base);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
-html.tema-herbal-apothecary ::-webkit-scrollbar {
+html.theme-herbal-apothecary ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-html.tema-herbal-apothecary ::-webkit-scrollbar-track {
+html.theme-herbal-apothecary ::-webkit-scrollbar-track {
   background: transparent;
 }
-html.tema-herbal-apothecary ::-webkit-scrollbar-thumb {
+html.theme-herbal-apothecary ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--ha-jade), transparent 35%);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-html.tema-herbal-apothecary ::-webkit-scrollbar-thumb:hover {
-  background: var(--ha-brote);
+html.theme-herbal-apothecary ::-webkit-scrollbar-thumb:hover {
+  background: var(--ha-sprout);
   background-clip: content-box;
 }
 
-html.tema-herbal-apothecary .boot-screen,
-html.tema-herbal-apothecary .update-required-overlay {
+html.theme-herbal-apothecary .boot-screen,
+html.theme-herbal-apothecary .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,
@@ -3186,47 +3189,47 @@ html.tema-herbal-apothecary .update-required-overlay {
    Nada de tramas de lineas en el fondo (Frank las quito expresamente de la
    referencia). Queda una sola capa animada: las chispas del HUD.
    -------------------------------------------------------------------------- */
-html.tema-darling-red {
-  --dr-carmesi: #d32f2f;
-  --dr-carmesi-hondo: #c62828;
+html.theme-darling-red {
+  --dr-crimson: #d32f2f;
+  --dr-crimson-deep: #c62828;
   /* El carmesi sobre el gris noche se queda en 3,8:1, asi que como TEXTO va
      esta version aclarada (8,3:1) y el original solo para rellenos y bordes.
      Mismo criterio que el bermellon de Herbal Apothecary. */
-  --dr-carmesi-claro: #ff8a80;
-  --dr-rosa: #f48fb1;
-  --dr-rosa-suave: #f8bbd0;
-  --dr-cian: #00e5ff;
-  --dr-cian-vivo: #18ffff;
+  --dr-crimson-light: #ff8a80;
+  --dr-pink: #f48fb1;
+  --dr-pink-suave: #f8bbd0;
+  --dr-cyan: #00e5ff;
+  --dr-cyan-vivid: #18ffff;
   /* El cian puro en un titulo de 30px deslumbra; el de la referencia es mas
      apagado. */
-  --dr-cian-suave: #45c5d6;
+  --dr-cyan-soft: #45c5d6;
   /* El celeste palido de los remates del HUD: en la referencia las lineas no
      son cian puro, tiran a azul acero. */
   --dr-hud: #9fd9e6;
-  --dr-hueso: #f5f5f5;
+  --dr-bone: #f5f5f5;
   /* Las tarjetas: carmesi que se apaga hacia la derecha. Apagado a proposito
      respecto a la referencia, que a pantalla completa cansaba. */
-  --dr-placa: linear-gradient(100deg, #5f1523 0%, #481019 52%, #3a0c15 100%);
+  --dr-plate: linear-gradient(100deg, #5f1523 0%, #481019 52%, #3a0c15 100%);
   /* La barra lateral es el MISMO carmesi, un par de pasos mas oscuro: se
      distingue por valor, no por tono. Antes iba en vino morado y se veia como
      otro tema pegado al lado. */
-  --dr-vino-alto: #4a1119;
-  --dr-vino-bajo: #330c13;
-  --dr-sombra: 0 14px 34px rgba(0, 0, 0, 0.5);
+  --dr-wine-high: #4a1119;
+  --dr-wine-low: #330c13;
+  --dr-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
 }
 
 /* --- La cabina ------------------------------------------------------------ */
 
-html.tema-darling-red body {
+html.theme-darling-red body {
   background-image:
     radial-gradient(
       44% 34% at 2% 98%,
-      color-mix(in srgb, var(--dr-cian), transparent 90%) 0%,
+      color-mix(in srgb, var(--dr-cyan), transparent 90%) 0%,
       transparent 64%
     ),
     radial-gradient(
       64% 46% at 78% -10%,
-      color-mix(in srgb, var(--dr-carmesi), transparent 74%) 0%,
+      color-mix(in srgb, var(--dr-crimson), transparent 74%) 0%,
       transparent 66%
     ),
     radial-gradient(
@@ -3242,7 +3245,7 @@ html.tema-darling-red body {
    motas de los otros temas: un mosaico que se repite y se mueve entero con
    transform un recorrido igual a su alto, asi que el bucle no salta. Es la
    unica capa animada del fondo. */
-html.tema-darling-red body::after {
+html.theme-darling-red body::after {
   content: '';
   position: fixed;
   inset: -15%;
@@ -3251,35 +3254,35 @@ html.tema-darling-red body::after {
   background-image:
     radial-gradient(
       1.7px 1.7px at 14% 22%,
-      color-mix(in srgb, var(--dr-cian), transparent 40%),
+      color-mix(in srgb, var(--dr-cyan), transparent 40%),
       transparent 70%
     ),
     radial-gradient(
       1.2px 1.2px at 42% 66%,
-      color-mix(in srgb, var(--dr-rosa), transparent 50%),
+      color-mix(in srgb, var(--dr-pink), transparent 50%),
       transparent 70%
     ),
     radial-gradient(
       1.9px 1.9px at 70% 34%,
-      color-mix(in srgb, var(--dr-cian), transparent 55%),
+      color-mix(in srgb, var(--dr-cyan), transparent 55%),
       transparent 70%
     ),
     radial-gradient(
       1.3px 1.3px at 86% 74%,
-      color-mix(in srgb, var(--dr-rosa-suave), transparent 58%),
+      color-mix(in srgb, var(--dr-pink-suave), transparent 58%),
       transparent 70%
     ),
     radial-gradient(
       1.5px 1.5px at 26% 90%,
-      color-mix(in srgb, var(--dr-carmesi-claro), transparent 60%),
+      color-mix(in srgb, var(--dr-crimson-light), transparent 60%),
       transparent 70%
     );
   background-size: 360px 440px;
   opacity: 0.5;
-  animation: drChispas 24s linear infinite;
+  animation: drSparks 24s linear infinite;
 }
 
-@keyframes drChispas {
+@keyframes drSparks {
   from {
     transform: translateY(0);
   }
@@ -3288,17 +3291,17 @@ html.tema-darling-red body::after {
   }
 }
 
-html.tema-darling-red .app-shell {
+html.theme-darling-red .app-shell {
   position: relative;
   z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.tema-darling-red body::after {
+  html.theme-darling-red body::after {
     animation: none;
   }
-  html.tema-darling-red .progress-fill::before,
-  html.tema-darling-red .disk-bar .fill::before {
+  html.theme-darling-red .progress-fill::before,
+  html.theme-darling-red .disk-bar .fill::before {
     animation: none;
   }
 }
@@ -3308,53 +3311,53 @@ html.tema-darling-red .app-shell {
    note que es otra zona. El filo carmesi de la derecha es lo que la separa del
    contenido. */
 
-html.tema-darling-red .sidebar {
+html.theme-darling-red .sidebar {
   background-image: linear-gradient(
     180deg,
-    var(--dr-vino-alto) 0%,
-    var(--dr-vino-bajo) 100%
+    var(--dr-wine-high) 0%,
+    var(--dr-wine-low) 100%
   );
-  border-right: 1px solid color-mix(in srgb, var(--dr-carmesi), transparent 42%);
+  border-right: 1px solid color-mix(in srgb, var(--dr-crimson), transparent 42%);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.38);
 }
 
-html.tema-darling-red .sidebar-nav button:hover {
-  background: color-mix(in srgb, var(--dr-carmesi), transparent 76%);
-  color: var(--dr-rosa-suave);
+html.theme-darling-red .sidebar-nav button:hover {
+  background: color-mix(in srgb, var(--dr-crimson), transparent 76%);
+  color: var(--dr-pink-suave);
   transform: translateX(3px);
 }
 
-html.tema-darling-red .sidebar-nav button.selected {
-  background: color-mix(in srgb, var(--dr-carmesi), transparent 42%) !important;
-  color: var(--dr-hueso);
-  box-shadow: inset 3px 0 var(--dr-cian);
+html.theme-darling-red .sidebar-nav button.selected {
+  background: color-mix(in srgb, var(--dr-crimson), transparent 42%) !important;
+  color: var(--dr-bone);
+  box-shadow: inset 3px 0 var(--dr-cyan);
 }
-html.tema-darling-red .sidebar-nav button.selected span {
-  color: var(--dr-cian);
+html.theme-darling-red .sidebar-nav button.selected span {
+  color: var(--dr-cyan);
 }
 
 @media (max-width: 900px) {
-  html.tema-darling-red .sidebar-nav button.selected {
-    box-shadow: inset 0 -3px var(--dr-cian);
+  html.theme-darling-red .sidebar-nav button.selected {
+    box-shadow: inset 0 -3px var(--dr-cyan);
   }
 }
 
 /* Las dos cajas de la barra usan --user-bg-base y --user-surface-light, que
    sobre el vino se ven como parches de otro tema. Van a vino translucido. */
-html.tema-darling-red .sidebar-user-badge {
+html.theme-darling-red .sidebar-user-badge {
   background: rgba(0, 0, 0, 0.26);
-  border-color: color-mix(in srgb, var(--dr-carmesi), transparent 58%);
+  border-color: color-mix(in srgb, var(--dr-crimson), transparent 58%);
 }
-html.tema-darling-red .sidebar-status {
+html.theme-darling-red .sidebar-status {
   background: rgba(0, 0, 0, 0.26);
-  color: var(--dr-rosa-suave);
+  color: var(--dr-pink-suave);
 }
 
 /* --- La barra superior ---------------------------------------------------- */
 /* El titulo en cian: en la referencia es lo que marca de que va el tema. */
 
-html.tema-darling-red .topbar h1 {
-  color: var(--dr-cian-suave);
+html.theme-darling-red .topbar h1 {
+  color: var(--dr-cyan-soft);
 }
 
 /* --- Las placas ----------------------------------------------------------- */
@@ -3363,21 +3366,21 @@ html.tema-darling-red .topbar h1 {
    (0,047, como un gris #3a3a3a), asi que todo el texto claro fijo del panel
    se lee igual y no hace falta el bloque de temas claros. */
 
-html.tema-darling-red .stat-card {
-  background-image: var(--dr-placa);
-  border-color: color-mix(in srgb, var(--dr-rosa), transparent 72%);
+html.theme-darling-red .stat-card {
+  background-image: var(--dr-plate);
+  border-color: color-mix(in srgb, var(--dr-pink), transparent 72%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--dr-rosa-suave), transparent 84%),
-    var(--dr-sombra);
+    inset 0 1px 0 color-mix(in srgb, var(--dr-pink-suave), transparent 84%),
+    var(--dr-shadow);
 }
 
-html.tema-darling-red .panel,
-html.tema-darling-red .logs-hero,
-html.tema-darling-red .listener-hero {
+html.theme-darling-red .panel,
+html.theme-darling-red .logs-hero,
+html.theme-darling-red .listener-hero {
   background-image:
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M1%2024%20V15%20A14%2014%200%200%201%2015%201%20H24'%20fill='none'%20stroke='%2300e5ff'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M0%2023%20H9%20A14%2014%200%200%200%2023%209%20V0'%20fill='none'%20stroke='%23f48fb1'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
-    var(--dr-placa);
+    var(--dr-plate);
   background-repeat: no-repeat, no-repeat, no-repeat;
   background-size:
     22px 22px,
@@ -3387,23 +3390,23 @@ html.tema-darling-red .listener-hero {
     left top,
     right bottom,
     center;
-  border-color: color-mix(in srgb, var(--dr-rosa), transparent 72%);
+  border-color: color-mix(in srgb, var(--dr-pink), transparent 72%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--dr-rosa-suave), transparent 84%),
-    var(--dr-sombra);
+    inset 0 1px 0 color-mix(in srgb, var(--dr-pink-suave), transparent 84%),
+    var(--dr-shadow);
 }
 
-html.tema-darling-red .hero-card {
+html.theme-darling-red .hero-card {
   background-image:
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20320%2060'%3E%3Cpath%20d='M0%2010%20H72%20L86%2024%20H206%20L218%2036%20H320'%20fill='none'%20stroke='%239fd9e6'%20stroke-width='2'%20stroke-linejoin='miter'%20opacity='.8'/%3E%3Cg%20stroke='%2300e5ff'%20stroke-width='2.4'%20stroke-linecap='round'%20opacity='.9'%3E%3Cpath%20d='M238%2034%20l9%20-11'/%3E%3Cpath%20d='M251%2034%20l9%20-11'/%3E%3Cpath%20d='M264%2034%20l9%20-11'/%3E%3C/g%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M1%2024%20V15%20A14%2014%200%200%201%2015%201%20H24'%20fill='none'%20stroke='%2300e5ff'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M0%2023%20H9%20A14%2014%200%200%200%2023%209%20V0'%20fill='none'%20stroke='%23f48fb1'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
     radial-gradient(
       52% 120% at 88% -20%,
-      color-mix(in srgb, var(--dr-carmesi), transparent 70%) 0%,
+      color-mix(in srgb, var(--dr-crimson), transparent 70%) 0%,
       transparent 70%
     ),
-    var(--dr-placa);
+    var(--dr-plate);
   background-repeat: no-repeat;
   background-size:
     320px 60px,
@@ -3417,14 +3420,14 @@ html.tema-darling-red .hero-card {
     right bottom,
     center,
     center;
-  border-color: color-mix(in srgb, var(--dr-rosa), transparent 66%);
+  border-color: color-mix(in srgb, var(--dr-pink), transparent 66%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--dr-rosa-suave), transparent 78%),
-    var(--dr-sombra);
+    inset 0 1px 0 color-mix(in srgb, var(--dr-pink-suave), transparent 78%),
+    var(--dr-shadow);
 }
 
-html.tema-darling-red .toast {
-  box-shadow: var(--dr-sombra);
+html.theme-darling-red .toast {
+  box-shadow: var(--dr-shadow);
 }
 
 /* --- Los remates del HUD -------------------------------------------------- */
@@ -3444,14 +3447,14 @@ html.tema-darling-red .toast {
      tarjeta grande. Mide 320px fijos, asi que se retira en movil: en una
      tarjeta estrecha se veria cortado por la mitad. */
 
-html.tema-darling-red .panel {
+html.theme-darling-red .panel {
   position: relative;
 }
 
-html.tema-darling-red .hero-card::before,
-html.tema-darling-red .hero-card:after,
-html.tema-darling-red .panel::before,
-html.tema-darling-red .panel::after {
+html.theme-darling-red .hero-card::before,
+html.theme-darling-red .hero-card:after,
+html.theme-darling-red .panel::before,
+html.theme-darling-red .panel::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -3473,8 +3476,8 @@ html.tema-darling-red .panel::after {
   opacity: 0.9;
 }
 
-html.tema-darling-red .hero-card::before,
-html.tema-darling-red .panel::before {
+html.theme-darling-red .hero-card::before,
+html.theme-darling-red .panel::before {
   left: 0;
   right: auto;
   background-image:
@@ -3503,8 +3506,8 @@ html.tema-darling-red .panel::before {
     left bottom;
 }
 
-html.tema-darling-red .hero-card:after,
-html.tema-darling-red .panel::after {
+html.theme-darling-red .hero-card:after,
+html.theme-darling-red .panel::after {
   right: 0;
   left: auto;
   background-image:
@@ -3534,16 +3537,16 @@ html.tema-darling-red .panel::after {
 }
 
 @media (max-width: 900px) {
-  html.tema-darling-red .hero-card {
+  html.theme-darling-red .hero-card {
     background-image:
       url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M1%2024%20V15%20A14%2014%200%200%201%2015%201%20H24'%20fill='none'%20stroke='%2300e5ff'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
       url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M0%2023%20H9%20A14%2014%200%200%200%2023%209%20V0'%20fill='none'%20stroke='%23f48fb1'%20stroke-width='2'%20stroke-linecap='square'/%3E%3C/svg%3E"),
       radial-gradient(
         52% 120% at 88% -20%,
-        color-mix(in srgb, var(--dr-carmesi), transparent 70%) 0%,
+        color-mix(in srgb, var(--dr-crimson), transparent 70%) 0%,
         transparent 70%
       ),
-      var(--dr-placa);
+      var(--dr-plate);
     background-size:
       22px 22px,
       22px 22px,
@@ -3555,10 +3558,10 @@ html.tema-darling-red .panel::after {
       center,
       center;
   }
-  html.tema-darling-red .hero-card::before,
-  html.tema-darling-red .hero-card:after,
-  html.tema-darling-red .panel::before,
-  html.tema-darling-red .panel::after {
+  html.theme-darling-red .hero-card::before,
+  html.theme-darling-red .hero-card:after,
+  html.theme-darling-red .panel::before,
+  html.theme-darling-red .panel::after {
     display: none;
   }
 }
@@ -3568,29 +3571,29 @@ html.tema-darling-red .panel::after {
    ("blanco: fondos de boton activo") y lo que hace la referencia; ademas
    resuelve solo el problema de siempre, porque sobre el hueso la letra oscura
    que ya traia el panel (`var(--user-bg-base)`) se lee de sobra. */
-html.tema-darling-red .primary-button,
-html.tema-darling-red .save-button,
-html.tema-darling-red .auth-button.primary,
-html.tema-darling-red .update-btn,
-html.tema-darling-red .pager-btn.active {
+html.theme-darling-red .primary-button,
+html.theme-darling-red .save-button,
+html.theme-darling-red .auth-button.primary,
+html.theme-darling-red .update-btn,
+html.theme-darling-red .pager-btn.active {
   background: linear-gradient(135deg, #ffffff 0%, #f2d9dc 100%);
   color: #3a0710 !important;
   border-color: transparent;
 }
-html.tema-darling-red .primary-button:hover:not(:disabled),
-html.tema-darling-red .save-button:hover:not(:disabled) {
-  box-shadow: 0 9px 24px color-mix(in srgb, var(--dr-carmesi), transparent 55%);
+html.theme-darling-red .primary-button:hover:not(:disabled),
+html.theme-darling-red .save-button:hover:not(:disabled) {
+  box-shadow: 0 9px 24px color-mix(in srgb, var(--dr-crimson), transparent 55%);
 }
 
 /* --- Campos --------------------------------------------------------------- */
 /* Usan --user-bg-base, que aqui es casi negro y al lado del carmesi de la
    tarjeta parece un agujero. Van a un carmesi mas hondo que la placa. */
-html.tema-darling-red .download-form input,
-html.tema-darling-red .speed-row input,
-html.tema-darling-red .speed-row select,
-html.tema-darling-red .token-row input {
+html.theme-darling-red .download-form input,
+html.theme-darling-red .speed-row input,
+html.theme-darling-red .speed-row select,
+html.theme-darling-red .token-row input {
   background: rgba(30, 3, 12, 0.62);
-  border-color: color-mix(in srgb, var(--dr-carmesi), transparent 52%);
+  border-color: color-mix(in srgb, var(--dr-crimson), transparent 52%);
 }
 
 /* --- Indicadores del HUD -------------------------------------------------- */
@@ -3602,35 +3605,35 @@ html.tema-darling-red .token-row input {
    con periodo de 12px sobre su eje: en horizontal repite cada
    12 / sen(105) = 12,42px, y el recorrido, 24,85px, son dos periodos justos. */
 
-html.tema-darling-red .progress-fill,
-html.tema-darling-red .disk-bar .fill,
-html.tema-darling-red .update-progress-fill {
+html.theme-darling-red .progress-fill,
+html.theme-darling-red .disk-bar .fill,
+html.theme-darling-red .update-progress-fill {
   background-image: linear-gradient(
     120deg,
     #0097a7 0%,
-    var(--dr-cian) 52%,
-    var(--dr-cian-vivo) 100%
+    var(--dr-cyan) 52%,
+    var(--dr-cyan-vivid) 100%
   );
   box-shadow:
     inset 0 1px 0 rgba(245, 245, 245, 0.32),
-    0 0 12px color-mix(in srgb, var(--dr-cian), transparent 55%);
+    0 0 12px color-mix(in srgb, var(--dr-cyan), transparent 55%);
 }
 
-html.tema-darling-red .progress-track,
-html.tema-darling-red .disk-bar {
+html.theme-darling-red .progress-track,
+html.theme-darling-red .disk-bar {
   background: rgba(0, 0, 0, 0.38);
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--dr-cian), transparent 78%);
+    color-mix(in srgb, var(--dr-cyan), transparent 78%);
 }
 
-html.tema-darling-red .progress-fill,
-html.tema-darling-red .disk-bar .fill {
+html.theme-darling-red .progress-fill,
+html.theme-darling-red .disk-bar .fill {
   position: relative;
   overflow: hidden;
 }
 
-html.tema-darling-red .progress-fill::before,
-html.tema-darling-red .disk-bar .fill::before {
+html.theme-darling-red .progress-fill::before,
+html.theme-darling-red .disk-bar .fill::before {
   content: '';
   position: absolute;
   top: 0;
@@ -3642,10 +3645,10 @@ html.tema-darling-red .disk-bar .fill::before {
     rgba(245, 245, 245, 0.26) 0 3px,
     rgba(18, 18, 22, 0.16) 3px 12px
   );
-  animation: drBarrido 1.8s linear infinite;
+  animation: drSweep 1.8s linear infinite;
 }
 
-@keyframes drBarrido {
+@keyframes drSweep {
   from {
     transform: translateX(0);
   }
@@ -3654,7 +3657,7 @@ html.tema-darling-red .disk-bar .fill::before {
   }
 }
 
-html.tema-darling-red .update-progress-fill {
+html.theme-darling-red .update-progress-fill {
   background-image:
     repeating-linear-gradient(
       105deg,
@@ -3664,8 +3667,8 @@ html.tema-darling-red .update-progress-fill {
     linear-gradient(
       120deg,
       #0097a7 0%,
-      var(--dr-cian) 52%,
-      var(--dr-cian-vivo) 100%
+      var(--dr-cyan) 52%,
+      var(--dr-cyan-vivid) 100%
     );
 }
 
@@ -3674,103 +3677,103 @@ html.tema-darling-red .update-progress-fill {
    que el aro despegue del carmesi de la placa; el simbolo cambia de color
    segun el estado, que es lo unico que queda de la codificacion original. */
 
-html.tema-darling-red .stat-icon {
+html.theme-darling-red .stat-icon {
   background: rgba(20, 2, 9, 0.72);
-  border: 1.5px solid color-mix(in srgb, var(--dr-cian), transparent 30%);
+  border: 1.5px solid color-mix(in srgb, var(--dr-cyan), transparent 30%);
   box-shadow:
-    0 0 10px color-mix(in srgb, var(--dr-cian), transparent 72%),
-    inset 0 0 8px color-mix(in srgb, var(--dr-cian), transparent 88%);
+    0 0 10px color-mix(in srgb, var(--dr-cyan), transparent 72%),
+    inset 0 0 8px color-mix(in srgb, var(--dr-cyan), transparent 88%);
 }
-html.tema-darling-red .stat-icon.blue {
-  color: var(--dr-cian);
+html.theme-darling-red .stat-icon.blue {
+  color: var(--dr-cyan);
 }
-html.tema-darling-red .stat-icon.amber {
-  color: var(--dr-rosa);
+html.theme-darling-red .stat-icon.amber {
+  color: var(--dr-pink);
 }
-html.tema-darling-red .stat-icon.green {
-  color: var(--dr-cian-vivo);
+html.theme-darling-red .stat-icon.green {
+  color: var(--dr-cyan-vivid);
 }
-html.tema-darling-red .stat-icon.gray {
-  color: var(--dr-hueso);
+html.theme-darling-red .stat-icon.gray {
+  color: var(--dr-bone);
 }
 
 /* Los iconos de fichero traen el carmesi del tema sobre un fondo tambien
    carmesi: 2,9:1. Van al rosa. */
-html.tema-darling-red .file-symbol,
-html.tema-darling-red .recent-icon {
+html.theme-darling-red .file-symbol,
+html.theme-darling-red .recent-icon {
   background: rgba(20, 2, 9, 0.6);
-  color: var(--dr-rosa);
+  color: var(--dr-pink);
 }
 
-html.tema-darling-red .sidebar-user-badge .user-icon {
-  color: var(--dr-rosa);
+html.theme-darling-red .sidebar-user-badge .user-icon {
+  color: var(--dr-pink);
 }
 
 /* --- Estados -------------------------------------------------------------- */
 
-html.tema-darling-red .status-dot,
-html.tema-darling-red .live-dot {
-  background: var(--dr-cian);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--dr-cian), transparent 40%);
+html.theme-darling-red .status-dot,
+html.theme-darling-red .live-dot {
+  background: var(--dr-cyan);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--dr-cyan), transparent 40%);
 }
-html.tema-darling-red .status-dot.disconnected {
-  background: var(--dr-carmesi-claro);
+html.theme-darling-red .status-dot.disconnected {
+  background: var(--dr-crimson-light);
   box-shadow: 0 0 10px
-    color-mix(in srgb, var(--dr-carmesi-claro), transparent 40%);
+    color-mix(in srgb, var(--dr-crimson-light), transparent 40%);
 }
-html.tema-darling-red .sidebar-status.is-disconnected {
-  color: var(--dr-carmesi-claro);
+html.theme-darling-red .sidebar-status.is-disconnected {
+  color: var(--dr-crimson-light);
   background: rgba(0, 0, 0, 0.3);
-  border-color: color-mix(in srgb, var(--dr-carmesi-claro), transparent 70%);
+  border-color: color-mix(in srgb, var(--dr-crimson-light), transparent 70%);
 }
 
-html.tema-darling-red .badge,
-html.tema-darling-red .save-state {
+html.theme-darling-red .badge,
+html.theme-darling-red .save-state {
   background: rgba(20, 2, 9, 0.5);
-  color: var(--dr-rosa-suave);
-  border-color: color-mix(in srgb, var(--dr-rosa), transparent 66%);
+  color: var(--dr-pink-suave);
+  border-color: color-mix(in srgb, var(--dr-pink), transparent 66%);
 }
 
-html.tema-darling-red .count-pill {
+html.theme-darling-red .count-pill {
   background: rgba(20, 2, 9, 0.5);
-  color: var(--dr-cian);
+  color: var(--dr-cyan);
 }
 
 /* Lo destructivo y lo roto: sobre el carmesi de la placa el rojo ya no
    distingue nada, asi que va en rosa claro y se enciende al hueso. */
-html.tema-darling-red .row-side button,
-html.tema-darling-red .delete-button,
-html.tema-darling-red .sidebar-user-badge .logout-btn {
-  color: var(--dr-rosa-suave);
+html.theme-darling-red .row-side button,
+html.theme-darling-red .delete-button,
+html.theme-darling-red .sidebar-user-badge .logout-btn {
+  color: var(--dr-pink-suave);
 }
-html.tema-darling-red .row-side button:hover,
-html.tema-darling-red .delete-button:hover,
-html.tema-darling-red .sidebar-user-badge .logout-btn:hover {
+html.theme-darling-red .row-side button:hover,
+html.theme-darling-red .delete-button:hover,
+html.theme-darling-red .sidebar-user-badge .logout-btn:hover {
   color: #ffffff;
   background: rgba(0, 0, 0, 0.3);
 }
-html.tema-darling-red .row-side .pause-action {
-  color: var(--dr-rosa);
+html.theme-darling-red .row-side .pause-action {
+  color: var(--dr-pink);
 }
-html.tema-darling-red .row-side .resume-action {
-  color: var(--dr-cian);
+html.theme-darling-red .row-side .resume-action {
+  color: var(--dr-cyan);
 }
 
-html.tema-darling-red .toast.danger {
+html.theme-darling-red .toast.danger {
   background: linear-gradient(100deg, #6e141f 0%, #4c101a 100%);
   color: #ffe6e3;
-  border: 1px solid color-mix(in srgb, var(--dr-carmesi-claro), transparent 60%);
+  border: 1px solid color-mix(in srgb, var(--dr-crimson-light), transparent 60%);
 }
 
-html.tema-darling-red .inline-link,
-html.tema-darling-red .inline-link:visited {
-  color: var(--dr-cian);
+html.theme-darling-red .inline-link,
+html.theme-darling-red .inline-link:visited {
+  color: var(--dr-cyan);
 }
-html.tema-darling-red .inline-link:hover {
-  color: var(--dr-rosa-suave);
+html.theme-darling-red .inline-link:hover {
+  color: var(--dr-pink-suave);
 }
-html.tema-darling-red .inline-link:focus-visible {
-  outline-color: var(--dr-cian);
+html.theme-darling-red .inline-link:focus-visible {
+  outline-color: var(--dr-cyan);
 }
 
 /* --- Controles ------------------------------------------------------------ */
@@ -3781,43 +3784,43 @@ html.tema-darling-red .inline-link:focus-visible {
    no pasa). En vez de repintar la pista a mano, que obliga a renunciar al
    relleno de color en Chromium, el deslizante pasa al cian, que es justo lo
    que la paleta pide para progreso e indicadores. */
-html.tema-darling-red .range-input {
-  accent-color: var(--dr-cian);
+html.theme-darling-red .range-input {
+  accent-color: var(--dr-cyan);
 }
 
 /* El interruptor encendido se pinta sobre el carmesi, que es oscuro: aqui el
    boton blanco fijo del panel si se ve. Solo se le sube la sombra y la pista
    apagada baja a negro, que sobre la placa carmesi no se distinguia. */
-html.tema-darling-red .switch span {
+html.theme-darling-red .switch span {
   background: rgba(0, 0, 0, 0.45);
 }
-html.tema-darling-red .switch input:checked + span {
-  background: var(--dr-carmesi);
+html.theme-darling-red .switch input:checked + span {
+  background: var(--dr-crimson);
 }
-html.tema-darling-red .switch input:checked + span:after {
+html.theme-darling-red .switch input:checked + span:after {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
-html.tema-darling-red ::-webkit-scrollbar {
+html.theme-darling-red ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
-html.tema-darling-red ::-webkit-scrollbar-track {
+html.theme-darling-red ::-webkit-scrollbar-track {
   background: transparent;
 }
-html.tema-darling-red ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--dr-carmesi), transparent 30%);
+html.theme-darling-red ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--dr-crimson), transparent 30%);
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-html.tema-darling-red ::-webkit-scrollbar-thumb:hover {
-  background: var(--dr-rosa);
+html.theme-darling-red ::-webkit-scrollbar-thumb:hover {
+  background: var(--dr-pink);
   background-clip: content-box;
 }
 
-html.tema-darling-red .boot-screen,
-html.tema-darling-red .update-required-overlay {
+html.theme-darling-red .boot-screen,
+html.theme-darling-red .update-required-overlay {
   background-image: radial-gradient(
     circle at 70% -12%,
     var(--user-bg-top) 0,

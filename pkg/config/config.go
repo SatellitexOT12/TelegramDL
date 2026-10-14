@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"tgdown/pkg/i18n"
 )
 
 const (
@@ -79,8 +81,8 @@ func (c ListenerChat) RelativeFolder() string {
 	if base == "" {
 		return ""
 	}
-	if tema := strings.TrimSpace(c.TopicFolder); c.HasTopic() && tema != "" {
-		return filepath.Join(base, tema)
+	if topic := strings.TrimSpace(c.TopicFolder); c.HasTopic() && topic != "" {
+		return filepath.Join(base, topic)
 	}
 	return base
 }
@@ -129,7 +131,7 @@ func (c ListenerChat) TopicLabel() string {
 	if topic := strings.TrimSpace(c.TopicName); topic != "" {
 		return topic
 	}
-	return fmt.Sprintf("Tema %d", c.Topic())
+	return i18n.T("config.topicFallbackName", c.Topic())
 }
 
 // DisplayName es lo que ve el usuario: primero el nombre del tema y después el
@@ -356,20 +358,20 @@ func ValidateDownloadFolder(folder string) error {
 
 	folder = strings.TrimSpace(folder)
 	if folder == "" {
-		return fmt.Errorf("la carpeta de descargas no puede estar vacía")
+		return fmt.Errorf("%s", i18n.T("config.folderEmptyErr"))
 	}
 	if !filepath.IsAbs(folder) {
-		return fmt.Errorf("la carpeta de descargas debe ser una ruta absoluta")
+		return fmt.Errorf("%s", i18n.T("config.folderNotAbsErr"))
 	}
 
-	limpia := filepath.Clean(folder)
+	cleanedPath := filepath.Clean(folder)
 
-	for _, prohibida := range forbiddenFolders() {
-		if prohibida == "" {
+	for _, forbidden := range forbiddenFolders() {
+		if forbidden == "" {
 			continue
 		}
-		if isPathInside(prohibida, limpia) {
-			return fmt.Errorf("esa carpeta está reservada por el sistema o por la propia aplicación; elige otra")
+		if isPathInside(forbidden, cleanedPath) {
+			return fmt.Errorf("%s", i18n.T("config.folderForbiddenErr"))
 		}
 	}
 
@@ -400,11 +402,11 @@ func forbiddenFolders() []string {
 	forbidden := []string{DataDir}
 
 	home, _ := os.UserHomeDir()
-	join := func(base string, partes ...string) string {
+	join := func(base string, parts ...string) string {
 		if base == "" {
 			return ""
 		}
-		return filepath.Join(append([]string{base}, partes...)...)
+		return filepath.Join(append([]string{base}, parts...)...)
 	}
 
 	switch runtime.GOOS {
@@ -442,7 +444,7 @@ func GetDefaultDownloadFolder() string {
 			return filepath.Join(downloadsDir, "TelegramDL")
 		}
 	}
-	return filepath.Join(BaseDir, "descargas")
+	return filepath.Join(BaseDir, "downloads")
 }
 
 func DefaultConfig() Config {
@@ -651,24 +653,24 @@ func PreserveFolders(previous, current []ListenerChat) []ListenerChat {
 		return current
 	}
 
-	porClave := make(map[string]ListenerChat, len(previous))
-	for _, vieja := range previous {
-		porClave[vieja.Key()] = vieja
+	byKey := make(map[string]ListenerChat, len(previous))
+	for _, oldChat := range previous {
+		byKey[oldChat.Key()] = oldChat
 	}
 
 	for i := range current {
-		vieja, ok := porClave[current[i].Key()]
+		oldChat, ok := byKey[current[i].Key()]
 		if !ok {
 			continue
 		}
 		if strings.TrimSpace(current[i].Folder) == "" {
-			current[i].Folder = vieja.Folder
+			current[i].Folder = oldChat.Folder
 		}
 		if strings.TrimSpace(current[i].TopicFolder) == "" {
-			current[i].TopicFolder = vieja.TopicFolder
+			current[i].TopicFolder = oldChat.TopicFolder
 		}
 		if strings.TrimSpace(current[i].NameMode) == "" {
-			current[i].NameMode = vieja.NameMode
+			current[i].NameMode = oldChat.NameMode
 		}
 	}
 

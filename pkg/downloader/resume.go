@@ -33,28 +33,28 @@ func floodWaitDuration(err error) (time.Duration, bool) {
 		return 0, false
 	}
 	const prefix = "FLOOD_WAIT_"
-	texto := err.Error()
-	pos := strings.Index(texto, prefix)
+	text := err.Error()
+	pos := strings.Index(text, prefix)
 	if pos < 0 {
 		return 0, false
 	}
-	resto := texto[pos+len(prefix):]
-	fin := 0
-	for fin < len(resto) && resto[fin] >= '0' && resto[fin] <= '9' {
-		fin++
+	rest := text[pos+len(prefix):]
+	end := 0
+	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
+		end++
 	}
-	if fin == 0 {
+	if end == 0 {
 		return 0, false
 	}
-	segundos, convErr := strconv.Atoi(resto[:fin])
-	if convErr != nil || segundos <= 0 {
+	seconds, convErr := strconv.Atoi(rest[:end])
+	if convErr != nil || seconds <= 0 {
 		return 0, false
 	}
-	espera := time.Duration(segundos) * time.Second
-	if espera > maxFloodWait {
+	wait := time.Duration(seconds) * time.Second
+	if wait > maxFloodWait {
 		return 0, false
 	}
-	return espera, true
+	return wait, true
 }
 
 // downloadMissingParts descarga únicamente las partes que no aparecen en
@@ -72,7 +72,7 @@ func downloadMissingParts(
 	completed map[int64]struct{},
 ) error {
 	if totalBytes <= 0 {
-		return fmt.Errorf("tamaño de archivo inválido para reanudación")
+		return fmt.Errorf("invalid file size for resume")
 	}
 	if workers < 1 {
 		workers = 1
@@ -119,11 +119,11 @@ func downloadMissingParts(
 				if requestErr == nil {
 					file, ok := response.(*tg.UploadFile)
 					if !ok {
-						requestErr = fmt.Errorf("respuesta inesperada de Telegram: %T", response)
+						requestErr = fmt.Errorf("unexpected Telegram response: %T", response)
 					} else {
 						data = file.Bytes
 						if len(data) == 0 || len(data) > limit {
-							requestErr = fmt.Errorf("Telegram devolvió %d bytes para un bloque de %d", len(data), limit)
+							requestErr = fmt.Errorf("Telegram returned %d bytes for a block of %d", len(data), limit)
 						}
 					}
 				}
@@ -145,19 +145,19 @@ func downloadMissingParts(
 				// envoltorio de blockclient.go, que además para a todos los
 				// workers a la vez. Lo que queda es el reintento corto de los
 				// errores normales de red.
-				espera := time.Duration(attempt+1) * 300 * time.Millisecond
+				wait := time.Duration(attempt+1) * 300 * time.Millisecond
 				select {
 				case <-workCtx.Done():
 					return
-				case <-time.After(espera):
+				case <-time.After(wait):
 				}
 			}
 			if err != nil {
-				setErr(fmt.Errorf("error descargando offset %d: %w", offset, err))
+				setErr(fmt.Errorf("error downloading offset %d: %w", offset, err))
 				return
 			}
 			if _, err = output.WriteAt(data, offset); err != nil {
-				setErr(fmt.Errorf("error escribiendo offset %d: %w", offset, err))
+				setErr(fmt.Errorf("error writing offset %d: %w", offset, err))
 				return
 			}
 		}

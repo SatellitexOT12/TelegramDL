@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"tgdown/pkg/i18n"
 )
 
 type ParsedURL struct {
@@ -43,10 +45,10 @@ func parseMsgRange(startStr, endStr string) (startID, endID int, err error) {
 		endID, _ = strconv.Atoi(endStr)
 	}
 	if endID < startID {
-		return 0, 0, errors.New("el mensaje final no puede ser menor que el inicial")
+		return 0, 0, errors.New(i18n.T("parser.endLessThanStart"))
 	}
 	if endID-startID+1 > MaxMessagesPerJob {
-		return 0, 0, fmt.Errorf("el rango máximo es de %d mensajes", MaxMessagesPerJob)
+		return 0, 0, fmt.Errorf(i18n.T("parser.rangeExceedsMax"), MaxMessagesPerJob)
 	}
 	return startID, endID, nil
 }
@@ -61,7 +63,7 @@ func submatchOrEmpty(match []string, idx int) string {
 func ParseURL(url string) (*ParsedURL, error) {
 	clean := strings.TrimSpace(url)
 	if clean == "" {
-		return nil, errors.New("URL vacía")
+		return nil, errors.New(i18n.T("parser.emptyURL"))
 	}
 
 	clean = strings.Replace(clean, "http://telegram.me/", "https://t.me/", 1)
@@ -127,5 +129,5 @@ func ParseURL(url string) (*ParsedURL, error) {
 		}, nil
 	}
 
-	return nil, errors.New("URL no válida. Formatos soportados: https://t.me/c/CHAT/MENSAJE, https://t.me/c/CHAT/TEMA/MENSAJE o https://t.me/usuario/MENSAJE")
+	return nil, errors.New(i18n.T("parser.invalidURLFormat"))
 }

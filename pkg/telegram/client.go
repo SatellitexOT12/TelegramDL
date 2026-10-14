@@ -57,10 +57,10 @@ type ClientManager struct {
 	apiHash   string
 	client    *telegram.Client
 	rawClient *tg.Client
-	// Grupo de conexiones dedicado a bajar archivos. Ver ConexionesDescarga.
+	// Grupo de conexiones dedicado a bajar archivos. Ver DownloadConnections.
 	downloadPool         telegram.CloseInvoker
 	downloadClient       *tg.Client
-	downloadPoolAviso    bool
+	downloadPoolNotice   bool
 	primaryDC            int
 	dcPools              map[int]telegram.CloseInvoker
 	dcClients            map[int]*tg.Client
@@ -122,8 +122,8 @@ func (cm *ClientManager) openDownloadPool() {
 		// El aviso sale una sola vez: DownloadClient reintenta abrirlo en cada
 		// descarga y no tiene sentido llenar el registro con lo mismo.
 		cm.mu.Lock()
-		shouldWarn := !cm.downloadPoolAviso
-		cm.downloadPoolAviso = true
+		shouldWarn := !cm.downloadPoolNotice
+		cm.downloadPoolNotice = true
 		cm.mu.Unlock()
 		if shouldWarn {
 			log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolError", err))
@@ -134,7 +134,7 @@ func (cm *ClientManager) openDownloadPool() {
 	cm.mu.Lock()
 	cm.downloadPool = pool
 	cm.downloadClient = tg.NewClient(pool)
-	cm.downloadPoolAviso = false
+	cm.downloadPoolNotice = false
 	cm.mu.Unlock()
 
 	log.Printf("[TG CLIENT] %s", i18n.T("telegram.poolOpened", DownloadConnections))
@@ -239,7 +239,7 @@ func (cm *ClientManager) DownloadClientForDC(ctx context.Context, dc int) (*tg.C
 	}
 
 	if client == nil {
-		return nil, errors.New("cliente de Telegram no conectado")
+		return nil, errors.New(i18n.T("telegram.notConnected"))
 	}
 
 	cm.mu.Lock()
@@ -494,7 +494,7 @@ func (cm *ClientManager) FetchDialogs(ctx context.Context) error {
 	raw := cm.rawClient
 	cm.mu.RUnlock()
 	if raw == nil {
-		return errors.New("cliente no conectado")
+		return errors.New(i18n.T("telegram.notConnectedShort"))
 	}
 
 	var offsetPeer tg.InputPeerClass = &tg.InputPeerEmpty{}
@@ -596,7 +596,7 @@ func (cm *ClientManager) ResolveUsername(ctx context.Context, username string) (
 	raw := cm.rawClient
 	cm.mu.RUnlock()
 	if raw == nil {
-		return 0, errors.New("cliente no conectado")
+		return 0, errors.New(i18n.T("telegram.notConnectedShort"))
 	}
 
 	username = strings.TrimPrefix(username, "@")
@@ -636,7 +636,7 @@ func (cm *ClientManager) ResolveUsername(ctx context.Context, username string) (
 		return p.UserID, nil
 	}
 
-	return 0, errors.New("tipo de chat desconocido")
+	return 0, errors.New(i18n.T("telegram.unknownChatType"))
 }
 
 func (cm *ClientManager) WaitReady(ctx context.Context) error {
@@ -646,7 +646,7 @@ func (cm *ClientManager) WaitReady(ctx context.Context) error {
 	cm.mu.RUnlock()
 
 	if client == nil {
-		return errors.New("cliente no configurado")
+		return errors.New(i18n.T("telegram.notConfigured"))
 	}
 	if ready == nil {
 		return nil
@@ -658,7 +658,7 @@ func (cm *ClientManager) WaitReady(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-time.After(15 * time.Second):
-		return errors.New("tiempo de espera agotado conectando a Telegram")
+		return errors.New(i18n.T("telegram.timeoutConnecting"))
 	}
 }
 
@@ -862,7 +862,7 @@ func (cm *ClientManager) stopRunning() {
 	cm.rawClient = nil
 	cm.downloadPool = nil
 	cm.downloadClient = nil
-	cm.downloadPoolAviso = false
+	cm.downloadPoolNotice = false
 	cm.readyChan = nil
 	cm.dcPools = make(map[int]telegram.CloseInvoker)
 	cm.dcClients = make(map[int]*tg.Client)
@@ -961,7 +961,7 @@ func (cm *ClientManager) SendCode(ctx context.Context, phone string) (string, er
 	cm.mu.Unlock()
 
 	if client == nil {
-		return "", errors.New("cliente no configurado")
+		return "", errors.New(i18n.T("telegram.notConfigured"))
 	}
 
 	if err := cm.WaitReady(ctx); err != nil {
@@ -976,7 +976,7 @@ func (cm *ClientManager) SendCode(ctx context.Context, phone string) (string, er
 
 	sc, ok := sentCode.(*tg.AuthSentCode)
 	if !ok {
-		return "", errors.New("respuesta inesperada de Telegram")
+		return "", errors.New(i18n.T("telegram.unexpectedResponse"))
 	}
 
 	cm.mu.Lock()
@@ -999,7 +999,7 @@ func (cm *ClientManager) VerifyCode(ctx context.Context, phone, code, phoneCodeH
 	cm.mu.Unlock()
 
 	if client == nil {
-		return "", errors.New("cliente no configurado")
+		return "", errors.New(i18n.T("telegram.notConfigured"))
 	}
 
 	if err := cm.WaitReady(ctx); err != nil {
@@ -1023,7 +1023,7 @@ func (cm *ClientManager) Verify2FA(ctx context.Context, password string) error {
 	cm.mu.Unlock()
 
 	if client == nil {
-		return errors.New("cliente no configurado")
+		return errors.New(i18n.T("telegram.notConfigured"))
 	}
 
 	if err := cm.WaitReady(ctx); err != nil {
@@ -1086,7 +1086,7 @@ func codeEntities(text string, fragments []string) []tg.MessageEntityClass {
 // para poder copiarlos con un toque desde el móvil.
 func (cm *ClientManager) SendToSavedMessages(ctx context.Context, text string, codeFragments ...string) error {
 	if strings.TrimSpace(text) == "" {
-		return errors.New("no hay nada que enviar")
+		return errors.New(i18n.T("telegram.nothingToSend"))
 	}
 
 	cm.mu.RLock()
@@ -1094,7 +1094,7 @@ func (cm *ClientManager) SendToSavedMessages(ctx context.Context, text string, c
 	cm.mu.RUnlock()
 
 	if client == nil {
-		return errors.New("Telegram no está configurado")
+		return errors.New(i18n.T("telegram.notConfigured"))
 	}
 	if err := cm.WaitReady(ctx); err != nil {
 		return fmt.Errorf(i18n.T("telegram.connectError"), err)
@@ -1103,7 +1103,7 @@ func (cm *ClientManager) SendToSavedMessages(ctx context.Context, text string, c
 	// Sin sesión iniciada la llamada fallaría con un error críptico de MTProto;
 	// es mejor decir exactamente qué falta.
 	if status, err := client.Auth().Status(ctx); err != nil || status == nil || !status.Authorized {
-		return errors.New("no hay ninguna sesión de Telegram iniciada")
+		return errors.New(i18n.T("telegram.noSessionStarted"))
 	}
 
 	cm.mu.RLock()

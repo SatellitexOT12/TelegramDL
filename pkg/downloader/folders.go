@@ -23,16 +23,16 @@ import (
 // enseñe el nombre al revés.
 
 const (
-	// maxCarpetaRunas es más corto que el de los archivos (200 bytes) porque
+	// maxFolderRunes es más corto que el de los archivos (200 bytes) porque
 	// delante va la carpeta de descargas y detrás el nombre del archivo, y
 	// Windows sigue teniendo el tope de 260 caracteres en muchas de sus APIs.
-	maxCarpetaRunas = 60
+	maxFolderRunes = 60
 
-	// minAlfanumericos es lo mínimo que tiene que quedar tras la limpieza para
+	// minAlphanumerics es lo mínimo que tiene que quedar tras la limpieza para
 	// considerar que el título dice algo. Un título de una sola letra no
 	// identifica nada, y casi siempre es el resto de un nombre hecho de
 	// símbolos.
-	minAlfanumericos = 2
+	minAlphanumerics = 2
 )
 
 // ChatFolderName devuelve el nombre de carpeta de un chat: su título si se
@@ -42,11 +42,6 @@ func ChatFolderName(title string, id int64) string {
 		return name
 	}
 	return FolderByID(id)
-}
-
-// NombreCarpetaChat es un alias para ChatFolderName.
-func NombreCarpetaChat(title string, id int64) string {
-	return ChatFolderName(title, id)
 }
 
 // FolderByID es el nombre de respaldo. El ID va en positivo: los canales lo
@@ -59,11 +54,6 @@ func FolderByID(id int64) string {
 	return "chat_" + strconv.FormatInt(id, 10)
 }
 
-// CarpetaPorID es un alias para FolderByID.
-func CarpetaPorID(id int64) string {
-	return FolderByID(id)
-}
-
 // TopicFolderName es lo mismo para el tema de un grupo, con «tema_<id>» de
 // respaldo mientras Telegram no nos haya dado su título.
 func TopicFolderName(title string, topicID int64) string {
@@ -74,11 +64,6 @@ func TopicFolderName(title string, topicID int64) string {
 		topicID = -topicID
 	}
 	return "tema_" + strconv.FormatInt(topicID, 10)
-}
-
-// NombreCarpetaTema es un alias para TopicFolderName.
-func NombreCarpetaTema(title string, topicID int64) string {
-	return TopicFolderName(title, topicID)
 }
 
 // FolderNameWithID añade el ID al nombre. Se usa cuando dos chats distintos
@@ -95,17 +80,12 @@ func FolderNameWithID(name string, id int64) string {
 	}
 	// El recorte va antes de pegar el sufijo: si no, un nombre ya en el límite
 	// dejaría el ID fuera, que es justo lo que distingue a las dos carpetas.
-	base = truncateRunes(base, maxCarpetaRunas-len([]rune(suffix)))
+	base = truncateRunes(base, maxFolderRunes-len([]rune(suffix)))
 	base = strings.TrimSpace(base)
 	if base == "" {
 		return FolderByID(id)
 	}
 	return SanitizeFileName(base + suffix)
-}
-
-// NombreCarpetaConID es un alias para FolderNameWithID.
-func NombreCarpetaConID(name string, id int64) string {
-	return FolderNameWithID(name, id)
 }
 
 // SafeRelativePath valida la ruta relativa que viaja con una descarga antes
@@ -160,20 +140,15 @@ func SafeRelativePath(sub string) string {
 	return filepath.Join(parts...)
 }
 
-// RutaRelativaSegura es un alias para SafeRelativePath.
-func RutaRelativaSegura(sub string) string {
-	return SafeRelativePath(sub)
-}
-
 // readableName devuelve el título ya limpio y apto para el disco, o cadena
 // vacía si de ese título no queda nada que sirva.
 func readableName(title string) string {
 	clean := collapseSpaces(removeDecoration(title))
-	if countAlphanumerics(clean) < minAlfanumericos {
+	if countAlphanumerics(clean) < minAlphanumerics {
 		return ""
 	}
 
-	clean = strings.TrimSpace(truncateRunes(clean, maxCarpetaRunas))
+	clean = strings.TrimSpace(truncateRunes(clean, maxFolderRunes))
 	if clean == "" {
 		return ""
 	}
@@ -188,7 +163,7 @@ func readableName(title string) string {
 	if safe == "file" && !strings.EqualFold(clean, "file") {
 		return ""
 	}
-	if countAlphanumerics(safe) < minAlfanumericos {
+	if countAlphanumerics(safe) < minAlphanumerics {
 		return ""
 	}
 	return safe
@@ -335,9 +310,4 @@ func ChatFolderText(title string, id int64, topic string) string {
 		b.WriteString(fmt.Sprintf("Tema: %s\r\n", topic))
 	}
 	return b.String()
-}
-
-// TextoCarpetaChat es un alias para ChatFolderText.
-func TextoCarpetaChat(title string, id int64, topic string) string {
-	return ChatFolderText(title, id, topic)
 }

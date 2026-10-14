@@ -139,18 +139,18 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	allowDuplicate := e.forceDuplicate[itemID]
 	e.mu.RUnlock()
 	if !exists {
-		return errors.New("descarga no encontrada")
+		return errors.New("download not found")
 	}
 
 	if err := e.clientMgr.WaitReady(ctx); err != nil {
 		log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.clientNotReadyErr", itemID, err))
-		return fmt.Errorf("cliente de Telegram no listo: %w", err)
+		return fmt.Errorf("Telegram client not ready: %w", err)
 	}
 
 	rawClient := e.clientMgr.RawClient()
 	if rawClient == nil {
 		log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.clientNotReady", itemID))
-		return errors.New("cliente de Telegram no listo")
+		return errors.New("Telegram client not ready")
 	}
 
 	// Destino final: la carpeta de descargas y, si el archivo viene de un chat
@@ -179,14 +179,14 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 		msg, err = e.fetchMessage(ctx, itemData.ChatID, int(itemData.MessageID))
 		if err != nil {
 			log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.fetchMsgError", itemData.MessageID, err))
-			return fmt.Errorf("error al obtener mensaje: %w", err)
+			return fmt.Errorf("error fetching message: %w", err)
 		}
 	}
 
 	mediaInfo := ExtractMediaInfo(msg)
 	if mediaInfo == nil {
 		log.Printf("[DOWNLOAD ERROR] %s", i18n.T("downloads.noMedia", itemData.MessageID))
-		return errors.New("el mensaje no contiene multimedia descargable")
+		return errors.New("message contains no downloadable media")
 	}
 
 	logbus.Debug(logbus.CatDownloads,
@@ -235,14 +235,14 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	actual, ok := e.downloads[itemID]
 	if !ok {
 		e.mu.Unlock()
-		return errors.New("descarga no encontrada")
+		return errors.New("download not found")
 	}
 	// El tamaño que teníamos antes de pisarlo con el del mensaje: es lo que más
 	// abajo permite darse cuenta de que el archivo cambió y de que los
 	// fragmentos ya descargados no valen. Antes se comparaba item.TotalBytes
 	// después de haberlo sobrescrito aquí mismo, así que la comprobación no
 	// saltaba nunca.
-	totalAnterior := actual.TotalBytes
+	previousTotal := actual.TotalBytes
 
 	actual.FilePath = finalPath
 	actual.FileName = finalName
@@ -264,7 +264,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	tempPath := finalPath + ".temp"
 	tempFile, err := os.OpenFile(tempPath, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
-		return fmt.Errorf("error al abrir archivo temporal: %w", err)
+		return fmt.Errorf("error opening temporary file: %w", err)
 	}
 	defer tempFile.Close()
 
@@ -276,7 +276,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 			}
 		}
 	}
-	if totalAnterior > 0 && mediaInfo.FileSize > 0 && totalAnterior != mediaInfo.FileSize {
+	if previousTotal > 0 && mediaInfo.FileSize > 0 && previousTotal != mediaInfo.FileSize {
 		// El mensaje puede haber sido editado o sustituido desde la última
 		// ejecución; los offsets anteriores ya no son confiables.
 		resumeChunks = make(map[int64]struct{})
@@ -299,7 +299,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 
 	if mediaInfo.FileSize > 0 {
 		if err := tempFile.Truncate(mediaInfo.FileSize); err != nil {
-			return fmt.Errorf("error al preparar archivo temporal: %w", err)
+			return fmt.Errorf("error preparing temporary file: %w", err)
 		}
 	}
 
@@ -335,7 +335,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	}
 	// Más workers que bloques en vuelo no aporta: las peticiones de sobra se
 	// quedan haciendo cola esperando ranura. Con el límite actual de bloques
-	// (ConexionesDescarga * 8 = 64), permitimos hasta la mitad del límite global
+	// (DownloadConnections * 8 = 64), permitimos hasta la mitad del límite global
 	// por descarga para que con pocas descargas trabajen a pleno rendimiento.
 	maxThreads := telegram.DownloadConnections * 4
 	if threads > maxThreads {
@@ -352,10 +352,10 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 		downloadClient, dcErr = e.clientMgr.DownloadClientForDC(ctx, mediaInfo.DCID)
 		if dcErr != nil {
 			logbus.Warn(logbus.CatDownloads,
-				fmt.Sprintf("No se pudo conectar a DC %d por adelantado: %v. Usando cliente por defecto.", mediaInfo.DCID, dcErr), "")
+				i18n.T("downloads.dcConnectWarn", mediaInfo.DCID, dcErr), "")
 		} else {
 			logbus.Debug(logbus.CatDownloads,
-				fmt.Sprintf("Descarga usando conexión dedicada a DC %d", mediaInfo.DCID), "")
+				i18n.T("downloads.usingDedicatedDC", mediaInfo.DCID), "")
 		}
 	}
 	if downloadClient == nil {
@@ -402,7 +402,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	}
 
 	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("error al cerrar archivo temporal: %w", err)
+		return fmt.Errorf("error closing temporary file: %w", err)
 	}
 
 	// Renombrar con reintentos: en Windows el antivirus o un reproductor pueden
@@ -421,7 +421,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 	if renameErr != nil {
 		// Fallback por si el sistema mantiene bloqueado el temporal (copia manual)
 		if copyErr := copyFile(tempPath, finalPath); copyErr != nil {
-			return fmt.Errorf("error al finalizar archivo: rename: %v; copia: %w", renameErr, copyErr)
+			return fmt.Errorf("error finalizing file: rename: %v; copy: %w", renameErr, copyErr)
 		}
 		// Si la copia funcionó, intentamos limpiar el temporal sin fallar si no se puede.
 		_ = os.Remove(tempPath)
@@ -438,7 +438,7 @@ func (e *Engine) executeDownload(ctx context.Context, itemID string) error {
 func (e *Engine) fetchMessage(ctx context.Context, chatID int64, msgID int) (*tg.Message, error) {
 	raw := e.clientMgr.RawClient()
 	if raw == nil {
-		return nil, errors.New("cliente no conectado")
+		return nil, errors.New("client not connected")
 	}
 
 	var messages []tg.MessageClass
@@ -559,7 +559,7 @@ func (e *Engine) fetchMessage(ctx context.Context, chatID int64, msgID int) (*tg
 	// para un mensaje borrado manda un MessageEmpty, y para un aviso del chat un
 	// MessageService. En los dos casos no hay nada que descargar y nunca lo
 	// habrá, así que va por el mismo camino que un ID inexistente.
-	return nil, fmt.Errorf("el mensaje fue eliminado en Telegram o no contiene datos válidos: %w", errMissingMessage)
+	return nil, fmt.Errorf("message was deleted on Telegram or contains no valid data: %w", errMissingMessage)
 }
 
 func copyFile(src, dst string) error {

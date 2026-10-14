@@ -95,7 +95,7 @@ func shellExecute(verb, file, directory string) error {
 		return err
 	}
 
-	ret, _, errLlamada := procShellExecute.Call(
+	ret, _, callErr := procShellExecute.Call(
 		0, // sin ventana padre
 		uintptr(unsafe.Pointer(verbPtr)),
 		uintptr(unsafe.Pointer(filePtr)),
@@ -105,7 +105,7 @@ func shellExecute(verb, file, directory string) error {
 	)
 
 	if ret <= 32 {
-		return fmt.Errorf(i18n.T("server.openErrorCode"), ret, errLlamada)
+		return fmt.Errorf(i18n.T("server.openErrorCode"), ret, callErr)
 	}
 	return nil
 }

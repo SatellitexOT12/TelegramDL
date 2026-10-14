@@ -164,7 +164,10 @@ export default {
     errChatExists: 'That chat is already configured',
     errInvalidInput: 'Enter the numeric chat ID or a {link} link',
     autoLabel: 'Auto',
+    autoDownloadLine1: 'Auto',
+    autoDownloadLine2: 'download',
     nameLabel: 'Name',
+    nameLabelLine: 'Name:',
     nameModeManual: 'Manual',
     nameModeOriginal: 'Original',
     nameModeCaption: 'Caption',
@@ -280,13 +283,13 @@ export default {
     // Visible labels for the category names emitted by the backend (stable
     // keys that travel with each entry).
     categories: {
-      Sistema: 'System',
-      Descargas: 'Downloads',
-      Escucha: 'Listener',
-      Ajustes: 'Settings',
+      System: 'System',
+      Downloads: 'Downloads',
+      Listener: 'Listener',
+      Settings: 'Settings',
       Telegram: 'Telegram',
-      Servidor: 'Server',
-      Actualizador: 'Updater'
+      Server: 'Server',
+      Updater: 'Updater'
     }
   },
 
@@ -540,5 +543,23 @@ export default {
       'Could not reach TelegramDL. Check that the computer is on and accessible.',
     invalidToken:
       'Invalid token. Make sure you copied it in full from Settings → Remote access.'
+  },
+
+  console: {
+    sessionStatusError: 'Error verifying session status:',
+    startupUrlProcessError: 'Error processing startup URL:',
+    startupError: 'Error during startup:',
+    startupUrlFetchError: 'Error fetching startup URL:',
+    wailsDirectoryFallback: 'Wails SelectDirectory fallback error:',
+    nativePickerUnavailable:
+      'Native picker not available, using internal browser:',
+    wailsTokenError: 'Could not get local Wails token:',
+    localStorageUnavailable:
+      'localStorage not available: keeping in memory only',
+    updateCheckError: 'Error checking for updates:',
+    saveOrderError: 'Error saving order:',
+    downloadItemError: 'Error downloading {id}:',
+    updateNameError: 'Error updating name for {id}:',
+    audioBlocked: 'Audio blocked by browser:'
   }
 }

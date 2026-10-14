@@ -47,12 +47,19 @@ func isRetryableDownloadError(err error) bool {
 	}
 	message := strings.ToLower(err.Error())
 	for _, permanent := range []string{
+		"message not found",
 		"mensaje no encontrado",
+		"no downloadable media",
 		"no contiene multimedia",
+		"no space",
 		"espacio",
+		"file already exists",
 		"archivo ya existe",
+		"error opening file",
 		"error al abrir archivo",
+		"error preparing file",
 		"error al preparar archivo",
+		"error finalizing file",
 		"error al finalizar archivo",
 	} {
 		if strings.Contains(message, permanent) {

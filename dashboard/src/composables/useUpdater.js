@@ -77,7 +77,7 @@ export function useUpdater({ api, showMessage, openConfirm }) {
         }
       }
     } catch (err) {
-      console.error('Error al buscar actualizaciones:', err)
+      console.error(t('console.updateCheckError'), err)
     }
   }
 

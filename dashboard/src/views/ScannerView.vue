@@ -378,7 +378,7 @@ const getKindIcon = (kind) => {
 
         <button
           type="button"
-          class="clear-history-button boton-historial clear-btn"
+          class="clear-history-button history-button clear-btn"
           :title="t('scanner.clearFilters')"
           @click="onResetFilters"
         >
@@ -872,35 +872,28 @@ const getKindIcon = (kind) => {
   opacity: 0.95 !important;
 }
 
-/* Reglas específicas para Temas Claros (Silent Cherry, OSX Light, etc. - html.tema-claro) */
-html.tema-claro .scanner-input {
+/* Reglas específicas para Temas Claros (Silent Cherry, OSX Light, etc. - html.theme-light) */
+html.theme-light .scanner-input {
   color: #0f172a !important;
-  background: var(--claro-superficie, #ffffff) !important;
-  border-color: var(--claro-borde, rgba(0, 0, 0, 0.15)) !important;
+  background: var(--light-surface, #ffffff) !important;
+  border-color: var(--light-border, rgba(0, 0, 0, 0.15)) !important;
 }
 
-html.tema-claro .compact-select {
+html.theme-light .compact-select {
   color: #0f172a !important;
-  background-color: var(--claro-superficie, #ffffff) !important;
-  border-color: var(--claro-borde, rgba(0, 0, 0, 0.15)) !important;
+  background-color: var(--light-surface, #ffffff) !important;
+  border-color: var(--light-border, rgba(0, 0, 0, 0.15)) !important;
   background-image:
-    linear-gradient(
-      45deg,
-      transparent 50%,
-      var(--claro-tinta-suave, #64748b) 50%
-    ),
-    linear-gradient(
-      135deg,
-      var(--claro-tinta-suave, #64748b) 50%,
-      transparent 50%
-    ) !important;
+    linear-gradient(45deg, transparent 50%, var(--light-ink-soft, #64748b) 50%),
+    linear-gradient(135deg, var(--light-ink-soft, #64748b) 50%, transparent 50%) !important;
 }
 
-html.tema-claro .compact-label {
-  color: var(--claro-texto-atenuado, #64748b) !important;
+html.theme-light .compact-label {
+  color: var(--light-text-dim, #64748b) !important;
 }
 
-html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
+html.theme-light
+  .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   filter: none !important;
   -webkit-filter: none !important;
   opacity: 0.8 !important;
@@ -1099,8 +1092,8 @@ html.tema-claro .scanner-input[type='date']::-webkit-calendar-picker-indicator {
   color: var(--user-text-main, #dbe7f5);
 }
 
-html.tema-claro .compact-select option {
-  background-color: var(--claro-superficie, #ffffff) !important;
+html.theme-light .compact-select option {
+  background-color: var(--light-surface, #ffffff) !important;
   color: #0f172a !important;
 }
 

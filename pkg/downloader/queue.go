@@ -207,7 +207,7 @@ func (e *Engine) startDownloadJob(itemID string) (relaunch bool) {
 		// que hubo un error no controlado o pánico. Lo marcamos como fallido.
 		if it, ok := e.downloads[itemID]; ok && it.Status == "downloading" {
 			it.Status = "failed"
-			it.Error = "descarga interrumpida inesperadamente"
+			it.Error = i18n.T("downloads.interruptedUnexpectedly")
 			e.sessionFailed++
 			e.sessionFailedIDs = append(e.sessionFailedIDs, itemID)
 		}

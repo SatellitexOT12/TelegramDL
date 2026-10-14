@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"tgdown/pkg/config"
+	"tgdown/pkg/i18n"
 )
 
 // formatETA pasa los segundos que faltan a algo que se lee de un vistazo.
@@ -21,24 +22,24 @@ func formatETA(seconds float64) string {
 		return ""
 	}
 	if seconds < 1 {
-		return "menos de 1 s"
+		return i18n.T("downloads.etaLessThanSec")
 	}
 	if seconds >= 24*3600 {
-		return "más de 1 día"
+		return i18n.T("downloads.etaMoreThanDay")
 	}
 
 	total := int(seconds + 0.5)
-	horas := total / 3600
-	minutos := (total % 3600) / 60
-	segs := total % 60
+	hours := total / 3600
+	minutes := (total % 3600) / 60
+	secs := total % 60
 
 	switch {
-	case horas > 0:
-		return fmt.Sprintf("%d h %d min", horas, minutos)
-	case minutos > 0:
-		return fmt.Sprintf("%d min %d s", minutos, segs)
+	case hours > 0:
+		return fmt.Sprintf("%d h %d min", hours, minutes)
+	case minutes > 0:
+		return fmt.Sprintf("%d min %d s", minutes, secs)
 	default:
-		return fmt.Sprintf("%d s", segs)
+		return fmt.Sprintf("%d s", secs)
 	}
 }
 

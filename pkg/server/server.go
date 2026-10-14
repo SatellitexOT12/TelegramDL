@@ -194,11 +194,11 @@ const (
 	// separado, por encima del límite global.
 	tokenSendCooldownByIP = 15 * time.Minute
 
-	// cabeceraPeticionPropia la pone el panel en los endpoints que responden sin
+	// ownRequestHeader la pone el panel en los endpoints que responden sin
 	// token. No es un secreto: su única función es que el navegador tenga que
 	// hacer el preflight de CORS, que es lo que corta una petición lanzada
 	// desde otra página web.
-	cabeceraPeticionPropia = "X-TGDL-Request"
+	ownRequestHeader = "X-TGDL-Request"
 
 	// shutdownDelay es la espera entre que la cola de descargas queda vacía y
 	// el apagado del equipo, con el interruptor «Apagar al terminar» armado.
@@ -378,9 +378,9 @@ func isOriginAllowed(origin string, r *http.Request) bool {
 }
 
 // isLocalHost indica si el host de una URL apunta a esta misma máquina.
-func isLocalHost(hostPuerto string) bool {
-	host := hostPuerto
-	if h, _, err := net.SplitHostPort(hostPuerto); err == nil {
+func isLocalHost(hostPort string) bool {
+	host := hostPort
+	if h, _, err := net.SplitHostPort(hostPort); err == nil {
 		host = h
 	}
 	host = strings.ToLower(strings.Trim(host, "[]"))
@@ -401,7 +401,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+cabeceraPeticionPropia)
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+ownRequestHeader)
 		}
 
 		if r.Method == http.MethodOptions {
@@ -433,11 +433,11 @@ const wsSubprotocol = "tgdl-v1"
 
 // subprotocolToken saca el token de la cabecera Sec-WebSocket-Protocol.
 func subprotocolToken(r *http.Request) string {
-	for _, cabecera := range r.Header.Values("Sec-WebSocket-Protocol") {
-		for _, parte := range strings.Split(cabecera, ",") {
-			parte = strings.TrimSpace(parte)
-			if parte != "" && parte != wsSubprotocol {
-				return parte
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, part := range strings.Split(header, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" && part != wsSubprotocol {
+				return part
 			}
 		}
 	}
@@ -897,9 +897,20 @@ func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	if st.User != nil && s.config.ColorID != nil {
 		st.User.ColorID = s.config.ColorID
 	}
+	configuredLang := s.config.Language
 	s.mu.RUnlock()
 
-	s.jsonResponse(w, http.StatusOK, st)
+	res := map[string]any{
+		"configured":      st.Configured,
+		"has_credentials": st.HasCredentials,
+		"authorized":      st.Authorized,
+		"authenticated":   st.Authenticated,
+		"state":           st.State,
+		"phone":           st.Phone,
+		"user":            st.User,
+		"language":        configuredLang,
+	}
+	s.jsonResponse(w, http.StatusOK, res)
 }
 
 // handleHasCredentials indica si hay credenciales de Telegram configuradas Y
@@ -917,11 +928,16 @@ func (s *Server) handleHasCredentials(w http.ResponseWriter, r *http.Request) {
 		hasActiveSession = st.Authenticated || st.State == "LOGGED_IN"
 	}
 
+	s.mu.RLock()
+	configuredLang := s.config.Language
+	s.mu.RUnlock()
+
 	// Devolvemos si la app está completamente configurada (credenciales + sesión)
-	s.jsonResponse(w, http.StatusOK, map[string]bool{
+	s.jsonResponse(w, http.StatusOK, map[string]any{
 		"has_credentials":    hasCreds,
 		"has_active_session": hasActiveSession,
 		"is_configured":      hasCreds && hasActiveSession,
+		"language":           configuredLang,
 	})
 }
 
@@ -1094,19 +1110,19 @@ func (s *Server) recordTokenSendByIP(origin string, until time.Time) {
 // token va en su propia línea para que el formato de código lo abarque entero
 // y baste un toque para copiarlo.
 func buildTokenMessage(token string) string {
-	equipo, err := os.Hostname()
-	if err != nil || strings.TrimSpace(equipo) == "" {
-		equipo = "este equipo"
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		host = i18n.T("server.thisComputer")
 	}
 
 	return strings.Join([]string{
-		"🔐 TelegramDL · token de acceso remoto",
+		i18n.T("server.tokenMsgTitle"),
 		"",
 		token,
 		"",
-		"Toca el token para copiarlo y pégalo en la pantalla de acceso remoto.",
-		fmt.Sprintf("Equipo: %s · v%s", equipo, config.AppVersion),
-		fmt.Sprintf("Enviado: %s", time.Now().Format("02/01/2006 15:04")),
+		i18n.T("server.tokenMsgBody"),
+		fmt.Sprintf(i18n.T("server.tokenMsgComputer"), host, config.AppVersion),
+		fmt.Sprintf(i18n.T("server.tokenMsgSentAt"), time.Now().Format("02/01/2006 15:04")),
 	}, "\n")
 }
 
@@ -1130,7 +1146,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 	// ni Content-Type, y eso la convierte en una «simple request» que el
 	// navegador manda sin consultar antes con CORS. Exigir una cabecera propia
 	// obliga al navegador a hacer el preflight, que CORS rechaza.
-	if r.Header.Get(cabeceraPeticionPropia) == "" {
+	if r.Header.Get(ownRequestHeader) == "" {
 		s.errorResponse(w, http.StatusForbidden, i18n.T("server.invalidRequest"))
 		return
 	}
@@ -1145,7 +1161,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 		w.Header().Set("Retry-After", strconv.Itoa(seconds))
 		s.jsonResponse(w, http.StatusTooManyRequests, map[string]any{
 			"status":      "rate_limited",
-			"detail":      fmt.Sprintf("Espera %d segundos antes de volver a pedirlo.", seconds),
+			"detail":      fmt.Sprintf(i18n.T("server.waitXSeconds"), seconds),
 			"retry_after": seconds,
 		})
 		return
@@ -1161,7 +1177,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 		w.Header().Set("Retry-After", strconv.Itoa(seconds))
 		s.jsonResponse(w, http.StatusTooManyRequests, map[string]any{
 			"status":      "rate_limited",
-			"detail":      fmt.Sprintf("Espera %d segundos antes de volver a pedirlo.", seconds),
+			"detail":      fmt.Sprintf(i18n.T("server.waitXSeconds"), seconds),
 			"retry_after": seconds,
 		})
 		return
@@ -1201,7 +1217,7 @@ func (s *Server) handleSendTokenToTelegram(w http.ResponseWriter, r *http.Reques
 
 	s.jsonResponse(w, http.StatusOK, map[string]any{
 		"status":      "ok",
-		"detail":      "Token enviado a tus Mensajes guardados de Telegram.",
+		"detail":      i18n.T("server.tokenSentDetailText"),
 		"retry_after": int(tokenSendCooldown.Seconds()),
 	})
 }
@@ -1233,22 +1249,22 @@ func (s *Server) handleGetDownloads(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) EnqueueURL(ctx context.Context, rawURL string) error {
 	clean := strings.TrimSpace(rawURL)
 	if clean == "" {
-		return errors.New("URL vacía")
+		return errors.New("empty URL")
 	}
 
 	parsed, err := downloader.ParseURL(clean)
 	if err != nil {
-		return fmt.Errorf("error parseando URL: %w", err)
+		return fmt.Errorf("error parsing URL: %w", err)
 	}
 
 	chatID := parsed.ChatID
 	if chatID == 0 && parsed.ChatUsername != "" {
 		if err := s.clientMgr.WaitReady(ctx); err != nil {
-			return fmt.Errorf("cliente de Telegram no listo: %w", err)
+			return fmt.Errorf("Telegram client not ready: %w", err)
 		}
 		resolvedID, err := s.clientMgr.ResolveUsername(ctx, parsed.ChatUsername)
 		if err != nil {
-			return fmt.Errorf("no se pudo encontrar el canal o usuario: %w", err)
+			return fmt.Errorf("channel or user could not be found: %w", err)
 		}
 		chatID = resolvedID
 	}
@@ -1288,7 +1304,7 @@ func (s *Server) handleStartDownload(w http.ResponseWriter, r *http.Request) {
 
 	s.jsonResponse(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"message": "Analizando mensajes e iniciando descarga...",
+		"message": i18n.T("server.analyzingMsg"),
 	})
 }
 
@@ -1692,7 +1708,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 // handleNotificationTest envía un mensaje de prueba mediante el bot de notificaciones.
 func (s *Server) handleNotificationTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1702,7 +1718,7 @@ func (s *Server) handleNotificationTest(w http.ResponseWriter, r *http.Request) 
 		TopicID *int64  `json:"topic_id,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -1742,7 +1758,7 @@ func (s *Server) handleNotificationTest(w http.ResponseWriter, r *http.Request) 
 // handleNotificationDetect detecta el chatID usando getUpdates del Bot API.
 func (s *Server) handleNotificationDetect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed")
+		s.errorResponse(w, http.StatusMethodNotAllowed, i18n.T("server.methodNotAllowed"))
 		return
 	}
 
@@ -1750,7 +1766,7 @@ func (s *Server) handleNotificationDetect(w http.ResponseWriter, r *http.Request
 		Token string `json:"token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -1789,7 +1805,7 @@ func (s *Server) handleSpeedLimit(w http.ResponseWriter, r *http.Request) {
 		Unit       *string            `json:"unit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -1800,17 +1816,17 @@ func (s *Server) handleSpeedLimit(w http.ResponseWriter, r *http.Request) {
 	// La condición anterior («unidad != "" o valor >= 0») era cierta siempre,
 	// porque cualquier número no negativo la cumple: un cuerpo con solo la
 	// unidad ponía el valor a cero y borraba el límite sin querer.
-	limite := s.config.SpeedLimit
+	speedLim := s.config.SpeedLimit
 	if body.SpeedLimit != nil {
-		limite = *body.SpeedLimit
+		speedLim = *body.SpeedLimit
 	}
 	if body.Value != nil {
-		limite.Value = *body.Value
+		speedLim.Value = *body.Value
 	}
 	if body.Unit != nil {
-		limite.Unit = *body.Unit
+		speedLim.Unit = *body.Unit
 	}
-	s.config.SpeedLimit = limite
+	s.config.SpeedLimit = speedLim
 
 	s.config = config.NormalizeConfig(s.config)
 	cfg := s.config
@@ -1847,7 +1863,7 @@ func (s *Server) handleListenerSettings(w http.ResponseWriter, r *http.Request) 
 
 	var raw map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
-		s.errorResponse(w, http.StatusUnprocessableEntity, "Datos inválidos")
+		s.errorResponse(w, http.StatusUnprocessableEntity, i18n.T("server.invalidData"))
 		return
 	}
 
@@ -2502,7 +2518,7 @@ func (s *Server) handleInstallUpdate(w http.ResponseWriter, r *http.Request) {
 
 	s.jsonResponse(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"message": "Iniciando descarga e instalación",
+		"message": i18n.T("server.startingInstall"),
 	})
 }
 
@@ -2555,7 +2571,7 @@ func (s *Server) handleIPCDownload(w http.ResponseWriter, r *http.Request) {
 
 	s.jsonResponse(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"message": "Descarga añadida desde línea de comandos",
+		"message": i18n.T("server.ipcDownloadAdded"),
 	})
 }
 

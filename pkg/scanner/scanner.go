@@ -80,15 +80,15 @@ func NewScannerService(cm *telegram.ClientManager, st *storage.Storage, eng *dow
 // ResolveTarget identifica un chat, bot o canal ingresado por el usuario.
 func (s *ScannerService) ResolveTarget(ctx context.Context, target string) (ResolvedTargetInfo, error) {
 	if s.clientMgr == nil {
-		return ResolvedTargetInfo{}, errors.New("cliente de Telegram no disponible")
+		return ResolvedTargetInfo{}, errors.New(i18n.T("scanner.tgClientUnavailable"))
 	}
 	if err := s.clientMgr.WaitReady(ctx); err != nil {
-		return ResolvedTargetInfo{}, fmt.Errorf("cliente de Telegram no listo: %w", err)
+		return ResolvedTargetInfo{}, fmt.Errorf("%s: %w", i18n.T("scanner.tgClientNotReady"), err)
 	}
 
 	clean := strings.TrimSpace(target)
 	if clean == "" {
-		return ResolvedTargetInfo{}, errors.New("objetivo vacío")
+		return ResolvedTargetInfo{}, errors.New(i18n.T("scanner.emptyTarget"))
 	}
 
 	var chatID int64
@@ -150,7 +150,7 @@ func (s *ScannerService) determineType(chatID int64) string {
 func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg.InputPeerClass, string, error) {
 	raw := s.clientMgr.RawClient()
 	if raw == nil {
-		return nil, "", errors.New("cliente no conectado")
+		return nil, "", errors.New(i18n.T("scanner.clientNotConnected"))
 	}
 
 	chatName := s.clientMgr.GetChatName(chatID)
@@ -164,7 +164,7 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 		}
 		if found {
 			if chatName == "" {
-				chatName = fmt.Sprintf("Usuario %d", chatID)
+				chatName = fmt.Sprintf(i18n.T("scanner.userPrefix"), chatID)
 			}
 			return &tg.InputPeerUser{UserID: chatID, AccessHash: accessHash}, chatName, nil
 		}
@@ -177,12 +177,12 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 		}
 		if foundCh {
 			if chatName == "" {
-				chatName = fmt.Sprintf("Canal %d", chatID)
+				chatName = fmt.Sprintf(i18n.T("scanner.channelPrefix"), chatID)
 			}
 			return &tg.InputPeerChannel{ChannelID: chatID, AccessHash: accessHashCh}, chatName, nil
 		}
 
-		return nil, "", fmt.Errorf("sin información de acceso para ID %d", chatID)
+		return nil, "", fmt.Errorf(i18n.T("scanner.noAccessInfo"), chatID)
 	}
 
 	// Canal / Supergrupo / Grupo
@@ -190,7 +190,7 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 	if strings.HasPrefix(sID, "-100") && len(sID) > 4 {
 		channelID, err := strconv.ParseInt(sID[4:], 10, 64)
 		if err != nil {
-			return nil, "", fmt.Errorf("ID de canal inválido: %s", sID)
+			return nil, "", fmt.Errorf(i18n.T("scanner.invalidChannelID"), sID)
 		}
 		accessHash, found := s.clientMgr.GetChannelAccessHash(channelID)
 		if !found {
@@ -198,10 +198,10 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 			accessHash, found = s.clientMgr.GetChannelAccessHash(channelID)
 		}
 		if !found {
-			return nil, "", fmt.Errorf("sin acceso al canal %d", channelID)
+			return nil, "", fmt.Errorf(i18n.T("scanner.noChannelAccess"), channelID)
 		}
 		if chatName == "" {
-			chatName = fmt.Sprintf("Canal %d", channelID)
+			chatName = fmt.Sprintf(i18n.T("scanner.channelPrefix"), channelID)
 		}
 		return &tg.InputPeerChannel{ChannelID: channelID, AccessHash: accessHash}, chatName, nil
 	}
@@ -209,7 +209,7 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 	// Grupo básico
 	groupChatID := -chatID
 	if chatName == "" {
-		chatName = fmt.Sprintf("Grupo %d", groupChatID)
+		chatName = fmt.Sprintf(i18n.T("scanner.groupPrefix"), groupChatID)
 	}
 	return &tg.InputPeerChat{ChatID: groupChatID}, chatName, nil
 }
@@ -217,15 +217,15 @@ func (s *ScannerService) resolveInputPeer(ctx context.Context, chatID int64) (tg
 // Scan busca en el historial de Telegram filtrando por fechas, tipo de medio y tamaño.
 func (s *ScannerService) Scan(ctx context.Context, req ScanRequest) (*ScanResponse, error) {
 	if s.clientMgr == nil {
-		return nil, errors.New("cliente de Telegram no disponible")
+		return nil, errors.New(i18n.T("scanner.tgClientUnavailable"))
 	}
 	if err := s.clientMgr.WaitReady(ctx); err != nil {
-		return nil, fmt.Errorf("cliente de Telegram no listo: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.T("scanner.tgClientNotReady"), err)
 	}
 
 	raw := s.clientMgr.RawClient()
 	if raw == nil {
-		return nil, errors.New("cliente de Telegram no conectado")
+		return nil, errors.New(i18n.T("scanner.clientNotConnected"))
 	}
 
 	// Resolver target a ChatID si hace falta
@@ -297,13 +297,13 @@ func (s *ScannerService) Scan(ctx context.Context, req ScanRequest) (*ScanRespon
 				downloader.SetFloodWait(floodDur)
 				waitSeconds := int(floodDur.Seconds())
 				if waitSeconds > 10 {
-					floodMsg = fmt.Sprintf("Telegram solicitó una pausa de %d segundos (FLOOD_WAIT). Se devuelven los resultados obtenidos hasta el momento.", waitSeconds)
+					floodMsg = i18n.T("scanner.floodWaitNotice", waitSeconds)
 					break
 				}
 				time.Sleep(floodDur)
 				continue
 			}
-			return nil, fmt.Errorf("error al consultar el historial de Telegram: %w", err)
+			return nil, fmt.Errorf(i18n.T("scanner.historyFetchErr"), err)
 		}
 
 		var msgClasses []tg.MessageClass

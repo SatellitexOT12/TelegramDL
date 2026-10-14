@@ -1,5 +1,5 @@
 <script setup>
-import { onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import {
   KeyRound,
   Loader2,
@@ -12,7 +12,7 @@ import {
 } from '../icons'
 import { useI18n } from '../i18n'
 
-const { t } = useI18n()
+const { t, has } = useI18n()
 
 defineProps({
   error: { type: String, default: '' }
@@ -28,7 +28,11 @@ const submitting = ref(false)
 // aquí) y el servidor solo admite un envío por minuto.
 const sending = ref(false)
 const sendState = ref('')
-const sendMessage = ref('')
+const sendMsgKey = ref('')
+const sendMessage = computed(() => {
+  if (!sendMsgKey.value) return ''
+  return has(sendMsgKey.value) ? t(sendMsgKey.value) : sendMsgKey.value
+})
 const cooldown = ref(0)
 let cooldownTimer = null
 
@@ -48,7 +52,7 @@ const sendTokenToTelegram = async () => {
   if (sending.value || cooldown.value > 0) return
   sending.value = true
   sendState.value = ''
-  sendMessage.value = ''
+  sendMsgKey.value = ''
   try {
     // La cabecera propia no es un secreto: obliga al navegador a hacer el
     // preflight de CORS, que es lo que impide que otra página web dispare este
@@ -60,16 +64,16 @@ const sendTokenToTelegram = async () => {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       sendState.value = 'error'
-      sendMessage.value = data.detail || data.error || t('remote.sendFail')
+      sendMsgKey.value = data.detail || data.error || 'remote.sendFail'
       startCooldown(data.retry_after)
       return
     }
     sendState.value = 'ok'
-    sendMessage.value = t('remote.sentOk')
+    sendMsgKey.value = 'remote.sentOk'
     startCooldown(data.retry_after || 60)
   } catch {
     sendState.value = 'error'
-    sendMessage.value = t('remote.unreachable')
+    sendMsgKey.value = 'remote.unreachable'
   } finally {
     sending.value = false
   }

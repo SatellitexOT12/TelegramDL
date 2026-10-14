@@ -7,6 +7,7 @@
 //   ese binding, así que se pide una vez y se guarda en localStorage de ese
 //   navegador.
 import { ref } from 'vue'
+import { t } from '../i18n'
 
 const token = ref('')
 const ready = ref(false)
@@ -34,7 +35,7 @@ export function useAuthToken() {
       try {
         token.value = await window.go.main.App.GetLocalToken()
       } catch (e) {
-        console.error('No se pudo obtener el token local de Wails:', e)
+        console.error(t('console.wailsTokenError'), e)
         token.value = ''
       }
     } else {
@@ -58,7 +59,7 @@ export function useAuthToken() {
           localStorage.removeItem(STORAGE_KEY)
         }
       } catch {
-        console.error('localStorage no disponible: seguimos solo en memoria')
+        console.error(t('console.localStorageUnavailable'))
       }
     }
   }

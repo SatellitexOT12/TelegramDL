@@ -38,13 +38,13 @@ const (
 
 // Categorías (el "origen" de cada línea).
 const (
-	CatSystem    = "Sistema"
-	CatDownloads = "Descargas"
-	CatListener  = "Escucha"
-	CatSettings  = "Ajustes"
+	CatSystem    = "System"
+	CatDownloads = "Downloads"
+	CatListener  = "Listener"
+	CatSettings  = "Settings"
 	CatTelegram  = "Telegram"
-	CatServer    = "Servidor"
-	CatUpdater   = "Actualizador"
+	CatServer    = "Server"
+	CatUpdater   = "Updater"
 )
 
 const (
@@ -117,7 +117,7 @@ func Default() *Bus { return std }
 // abrir el archivo no es fatal: el registro en memoria sigue funcionando.
 func (b *Bus) OpenFile(dir string) error {
 	if strings.TrimSpace(dir) == "" {
-		return fmt.Errorf("directorio de logs vacío")
+		return fmt.Errorf("%s", i18n.T("logbus.emptyLogDir"))
 	}
 	logDir := filepath.Join(dir, logDirName)
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
