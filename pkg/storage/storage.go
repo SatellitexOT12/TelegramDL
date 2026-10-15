@@ -536,6 +536,9 @@ func (s *Storage) LoadConfig(defaults config.Config, legacyPath string) (config.
 	if val, ok := kv["organize_by_chat"]; ok {
 		cfg.OrganizeByChat = val == "1" || val == "true"
 	}
+	if val, ok := kv["minimize_to_tray"]; ok {
+		cfg.MinimizeToTray = val == "1" || val == "true"
+	}
 	if val, ok := kv["sound_notification"]; ok {
 		cfg.SoundNotification = val == "1" || val == "true"
 	}
@@ -697,6 +700,7 @@ func (s *Storage) SaveConfig(cfg config.Config) error {
 		"download_folder":          cfg.DownloadFolder,
 		"listener_enabled":         strconv.FormatBool(cfg.ListenerEnabled),
 		"organize_by_chat":         strconv.FormatBool(cfg.OrganizeByChat),
+		"minimize_to_tray":         strconv.FormatBool(cfg.MinimizeToTray),
 		"sound_notification":       strconv.FormatBool(cfg.SoundNotification),
 		"speed_value":              fmt.Sprintf("%f", cfg.SpeedLimit.Value),
 		"speed_unit":               cfg.SpeedLimit.Unit,

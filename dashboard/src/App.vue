@@ -126,6 +126,7 @@ const settings = reactive({
   loader_color_id: 5,
   download_folder: '',
   organize_by_chat: true,
+  minimize_to_tray: false,
   sound_notification: true,
   bot_notifications: false,
   shutdown_when_done: false,
@@ -1021,7 +1022,76 @@ const handleRemoteLogin = async (value) => {
   }
 }
 
+// Notificación del Webview e intercepción al minimizar al system tray
+let notifiedOnMinimize = false
+
+const handleMinimizeToTray = () => {
+  if (!isWailsRuntime() || !settings.minimize_to_tray) return
+
+  const title = t('tray.notificationTitle')
+  const body = t('tray.notificationBody')
+
+  // Emitir notificación del Webview con autocierre a los 5 segundos
+  if (!notifiedOnMinimize) {
+    notifiedOnMinimize = true
+
+    if ('Notification' in window) {
+      const showAndAutoClose = () => {
+        try {
+          const notif = new Notification(title, {
+            body,
+            icon: '/telegramdl-android-icon.svg'
+          })
+          setTimeout(() => {
+            try {
+              notif.close()
+            } catch {
+              // Ignorar si ya se cerró
+            }
+          }, 5000)
+        } catch {
+          // Ignorar si falla la notificación
+        }
+      }
+
+      if (Notification.permission === 'granted') {
+        showAndAutoClose()
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            showAndAutoClose()
+          }
+        })
+      }
+    }
+
+    setTimeout(() => {
+      notifiedOnMinimize = false
+    }, 5000)
+  }
+
+  // Ocultar la ventana al tray
+  if (window.go?.main?.App?.HideToTray) {
+    window.go.main.App.HideToTray()
+  } else if (window.runtime && window.runtime.WindowHide) {
+    window.runtime.WindowHide()
+  }
+}
+
 onMounted(async () => {
+  if (isWailsRuntime()) {
+    if (window.runtime && window.runtime.EventsOn) {
+      window.runtime.EventsOn('wails:window:minimise', () => {
+        handleMinimizeToTray()
+      })
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && settings.minimize_to_tray) {
+        handleMinimizeToTray()
+      }
+    })
+  }
+
   // Pulso que hace avanzar la cuenta atrás del apagado programado aunque no
   // lleguen snapshots nuevos (en la ventana de escritorio son solo por evento).
   countdownPulse = setInterval(() => {

@@ -104,6 +104,10 @@ func logConfigChanges(before, after config.Config) {
 		changes = append(changes, i18n.T("settings.changeOrganize",
 			onOff(before.OrganizeByChat), onOff(after.OrganizeByChat)))
 	}
+	if before.MinimizeToTray != after.MinimizeToTray {
+		changes = append(changes, i18n.T("settings.changeMinimizeToTray",
+			onOff(after.MinimizeToTray)))
+	}
 	if before.SpeedLimit != after.SpeedLimit {
 		changes = append(changes, i18n.T("settings.changeSpeed",
 			describeSpeedLimit(before.SpeedLimit), describeSpeedLimit(after.SpeedLimit)))

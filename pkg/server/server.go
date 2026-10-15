@@ -55,10 +55,12 @@ type Server struct {
 	latestRel    *updater.ReleaseInfo
 	cachedDisk   *downloader.DiskInfo
 	exitCallback func()
-	broadcastCh  chan struct{}
-	onBroadcast  func(snap map[string]any)
-	apiToken     string
-	folderPicker func() (string, error)
+	broadcastCh      chan struct{}
+	onBroadcast      func(snap map[string]any)
+	apiToken         string
+	folderPicker     func() (string, error)
+	onLanguageChange func()
+	onConfigChange   func(config.Config)
 	// tokenSendNextAt es el momento a partir del cual se vuelve a admitir un
 	// envío del token a Telegram (ver tokenSendCooldown).
 	tokenSendNextAt time.Time
@@ -1561,6 +1563,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.OrganizeByChat = b
 		}
 	}
+	if v, ok := raw["minimize_to_tray"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			cfg.MinimizeToTray = b
+		}
+	}
 	if v, ok := raw["sound_notification"]; ok && v != nil {
 		if b, ok := v.(bool); ok {
 			cfg.SoundNotification = b
@@ -1684,6 +1691,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	// elegido, que es en el que el usuario está leyendo.
 	if cfg.Language != previousCfg.Language {
 		i18n.SetLanguage(cfg.Language)
+		if s.onLanguageChange != nil {
+			s.onLanguageChange()
+		}
 	}
 
 	if shutdownCancelled {
@@ -1698,6 +1708,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	s.listener.UpdateConfig(cfg)
 	s.restartBotListener()
 	s.broadcastState()
+	if s.onConfigChange != nil {
+		s.onConfigChange(cfg)
+	}
 
 	s.jsonResponse(w, http.StatusOK, map[string]any{
 		"status":   "ok",
@@ -2226,6 +2239,20 @@ func (s *Server) SetFolderPicker(fn func() (string, error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.folderPicker = fn
+}
+
+// SetLanguageChangeHandler registra la función que se ejecuta cuando el idioma cambia en ajustes.
+func (s *Server) SetLanguageChangeHandler(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onLanguageChange = fn
+}
+
+// SetConfigChangeHandler registra la función que se ejecuta cuando la configuración cambia en ajustes.
+func (s *Server) SetConfigChangeHandler(fn func(config.Config)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onConfigChange = fn
 }
 
 // isLocalRequest indica si la petición viene del propio equipo. Exige las dos

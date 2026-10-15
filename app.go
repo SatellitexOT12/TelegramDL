@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
+	"github.com/energye/systray"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"tgdown/pkg/config"
@@ -22,18 +25,24 @@ import (
 	"tgdown/pkg/updater"
 )
 
+//go:embed build/windows/icon.ico
+var trayIcon []byte
+
 type App struct {
-	ctx        context.Context
-	clientMgr  *telegram.ClientManager
-	storage    *storage.Storage
-	downloader *downloader.Engine
-	listener   *listener.ListenerEngine
-	updater    *updater.AppUpdater
-	server     *server.Server
-	config     config.Config
-	assets     fs.FS
-	mu         sync.Mutex
-	startupURL string // URL pasada desde línea de comandos al iniciar
+	ctx          context.Context
+	clientMgr    *telegram.ClientManager
+	storage      *storage.Storage
+	downloader   *downloader.Engine
+	listener     *listener.ListenerEngine
+	updater      *updater.AppUpdater
+	server       *server.Server
+	config       config.Config
+	assets       fs.FS
+	mu           sync.Mutex
+	startupURL   string // URL pasada desde línea de comandos al iniciar
+	trayOpenItem *systray.MenuItem
+	trayExitItem *systray.MenuItem
+	trayReady    bool
 }
 
 func NewApp(assets fs.FS) *App {
@@ -116,6 +125,13 @@ func NewApp(assets fs.FS) *App {
 	})
 	app.server = srv
 
+	srv.SetLanguageChangeHandler(func() {
+		app.UpdateTrayMenuTitles()
+	})
+	srv.SetConfigChangeHandler(func(newCfg config.Config) {
+		app.SetConfig(newCfg)
+	})
+
 	// Permitir que el panel abra el diálogo nativo de carpetas aunque se esté
 	// viendo en un navegador del propio equipo, y no solo dentro de la ventana
 	// de la aplicación: así el selector es siempre el mismo en local. El
@@ -126,6 +142,9 @@ func NewApp(assets fs.FS) *App {
 		}
 		return app.SelectDirectory()
 	})
+
+	// Iniciar el System Tray en segundo plano
+	go app.initSystemTray()
 
 	// Registrar en el log todo lo que hagan los motores de descarga y escucha.
 	app.attachLogWatchers()
@@ -168,6 +187,9 @@ func (a *App) context() context.Context {
 
 func (a *App) startup(ctx context.Context) {
 	a.setContext(ctx)
+
+	// Monitorear en segundo plano la minimización de la ventana nativa
+	go a.monitorMinimize()
 
 	// Emitir cambios de estado directamente a la interfaz nativa de Wails
 	a.downloader.OnStateChange(func(item storage.DownloadItem) {
@@ -278,3 +300,112 @@ func (a *App) SetStartupURL(url string) {
 	defer a.mu.Unlock()
 	a.startupURL = url
 }
+
+func (a *App) initSystemTray() {
+	systray.Run(a.onTrayReady, a.onTrayExit)
+}
+
+func (a *App) onTrayReady() {
+	if len(trayIcon) > 0 {
+		systray.SetIcon(trayIcon)
+	}
+	systray.SetTitle("Telegram DL")
+	systray.SetTooltip("Telegram DL")
+
+	a.trayOpenItem = systray.AddMenuItem(i18n.T("tray.open"), "")
+	a.trayOpenItem.Click(func() {
+		a.RestoreWindow()
+	})
+
+	a.trayExitItem = systray.AddMenuItem(i18n.T("tray.exit"), "")
+	a.trayExitItem.Click(func() {
+		a.QuitApp()
+	})
+
+	systray.SetOnClick(func(_ systray.IMenu) {
+		a.RestoreWindow()
+	})
+	systray.SetOnDClick(func(_ systray.IMenu) {
+		a.RestoreWindow()
+	})
+
+	a.trayReady = true
+}
+
+func (a *App) onTrayExit() {
+}
+
+func (a *App) RestoreWindow() {
+	if ctx := a.context(); ctx != nil {
+		wailsRuntime.WindowShow(ctx)
+		wailsRuntime.WindowUnminimise(ctx)
+	}
+}
+
+func (a *App) QuitApp() {
+	if ctx := a.context(); ctx != nil {
+		wailsRuntime.Quit(ctx)
+	}
+}
+
+func (a *App) UpdateTrayMenuTitles() {
+	if !a.trayReady {
+		return
+	}
+	if a.trayOpenItem != nil {
+		a.trayOpenItem.SetTitle(i18n.T("tray.open"))
+	}
+	if a.trayExitItem != nil {
+		a.trayExitItem.SetTitle(i18n.T("tray.exit"))
+	}
+}
+
+// HideToTray oculta la ventana al system tray
+func (a *App) HideToTray() {
+	if ctx := a.context(); ctx != nil {
+		wailsRuntime.WindowHide(ctx)
+	}
+}
+
+func (a *App) SetConfig(cfg config.Config) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.config = cfg
+}
+
+func (a *App) monitorMinimize() {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	wasMinimised := false
+
+	for {
+		select {
+		case <-ticker.C:
+			ctx := a.context()
+			if ctx == nil {
+				continue
+			}
+
+			a.mu.Lock()
+			enabled := a.config.MinimizeToTray
+			a.mu.Unlock()
+
+			if !enabled {
+				wasMinimised = false
+				continue
+			}
+
+			isMinimised := wailsRuntime.WindowIsMinimised(ctx)
+			if isMinimised && !wasMinimised {
+				wasMinimised = true
+				a.HideToTray()
+			} else if !isMinimised {
+				wasMinimised = false
+			}
+		}
+	}
+}
+
+
+

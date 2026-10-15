@@ -356,6 +356,8 @@ export default {
     organizeByChat: 'Folder per chat (listener)',
     organizeByChatSub:
       "Whatever comes from a watched chat goes into a subfolder with its name; if the name can't be written to disk, its ID is used.",
+    minimizeToTrayTitle: 'Minimize to System Tray',
+    minimizeToTraySub: 'Hides the window into the system tray when minimized',
     themesTitle: 'Themes and color',
     themesSub: 'Accent color, panel themes and loader color',
     accentTitle: 'Accent Color and Theme',
@@ -561,5 +563,13 @@ export default {
     downloadItemError: 'Error downloading {id}:',
     updateNameError: 'Error updating name for {id}:',
     audioBlocked: 'Audio blocked by browser:'
+  },
+
+  tray: {
+    open: 'Open Telegram DL',
+    exit: 'Exit',
+    notificationTitle: 'Telegram DL',
+    notificationBody:
+      'The application continues running in the background in the system tray.'
   }
 }

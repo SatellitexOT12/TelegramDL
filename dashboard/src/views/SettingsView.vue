@@ -494,6 +494,23 @@ const sendTestNotification = async () => {
                     <span></span>
                   </label>
                 </div>
+
+                <div class="setting-line">
+                  <div>
+                    <strong>{{ t('settings.minimizeToTrayTitle') }}</strong>
+                    <small>{{ t('settings.minimizeToTraySub') }}</small>
+                  </div>
+                  <label class="switch">
+                    <input
+                      :checked="props.settings.minimize_to_tray"
+                      type="checkbox"
+                      @change="
+                        patch({ minimize_to_tray: $event.target.checked })
+                      "
+                    />
+                    <span></span>
+                  </label>
+                </div>
               </div>
             </div>
           </AppAccordion>

@@ -18,18 +18,38 @@ export function Handler() {
   return window['go']['main']['App']['Handler']();
 }
 
+export function HideToTray() {
+  return window['go']['main']['App']['HideToTray']();
+}
+
 export function PostponeUpdate(arg1) {
   return window['go']['main']['App']['PostponeUpdate'](arg1);
+}
+
+export function QuitApp() {
+  return window['go']['main']['App']['QuitApp']();
 }
 
 export function RegenerateLocalToken() {
   return window['go']['main']['App']['RegenerateLocalToken']();
 }
 
+export function RestoreWindow() {
+  return window['go']['main']['App']['RestoreWindow']();
+}
+
 export function SelectDirectory() {
   return window['go']['main']['App']['SelectDirectory']();
 }
 
+export function SetConfig(arg1) {
+  return window['go']['main']['App']['SetConfig'](arg1);
+}
+
 export function SetStartupURL(arg1) {
   return window['go']['main']['App']['SetStartupURL'](arg1);
+}
+
+export function UpdateTrayMenuTitles() {
+  return window['go']['main']['App']['UpdateTrayMenuTitles']();
 }

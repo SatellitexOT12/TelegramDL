@@ -3,6 +3,7 @@ module tgdown
 go 1.27.0
 
 require (
+	github.com/energye/systray v1.0.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/gotd/td v0.161.0
 	github.com/wailsapp/wails/v2 v2.15.0

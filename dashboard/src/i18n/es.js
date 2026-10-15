@@ -363,6 +363,9 @@ export default {
     organizeByChat: 'Carpeta por chat (escucha)',
     organizeByChatSub:
       'Lo que baje de un chat vigilado va a una subcarpeta con su nombre; si el nombre no se puede escribir en disco, se usa su ID.',
+    minimizeToTrayTitle: 'Minimizar al System Tray',
+    minimizeToTraySub:
+      'Esconde la ventana en la bandeja del sistema al minimizar',
     themesTitle: 'Temas y color',
     themesSub: 'Color de acento, temas del panel y color del loader',
     accentTitle: 'Color de Acento y Tema',
@@ -570,5 +573,13 @@ export default {
     downloadItemError: 'Error descargando {id}:',
     updateNameError: 'Error actualizando nombre para {id}:',
     audioBlocked: 'Audio bloqueado por el navegador:'
+  },
+
+  tray: {
+    open: 'Abrir Telegram DL',
+    exit: 'Salir',
+    notificationTitle: 'Telegram DL',
+    notificationBody:
+      'La aplicación sigue ejecutándose en segundo plano en la bandeja del sistema.'
   }
 }

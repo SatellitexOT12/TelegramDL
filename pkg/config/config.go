@@ -161,6 +161,8 @@ type Config struct {
 	// OrganizeByChat reparte lo que baja la escucha en una subcarpeta por chat.
 	// Apagado, todo cae en la carpeta de descargas, como antes.
 	OrganizeByChat bool `json:"organize_by_chat"`
+	// MinimizeToTray controla si al minimizar el programa se oculta en el system tray.
+	MinimizeToTray bool `json:"minimize_to_tray"`
 	// ShutdownWhenDone es el interruptor «Apagar al terminar»: con él armado, al
 	// quedarse la cola de descargas vacía el servidor espera unos segundos y
 	// apaga el equipo. Es un ajuste de sesión: no se persiste en SQLite, así que
@@ -454,6 +456,7 @@ func DefaultConfig() Config {
 		ChunkWorkers:           6,
 		DownloadFolder:         GetDefaultDownloadFolder(),
 		OrganizeByChat:         true,
+		MinimizeToTray:         false,
 		SoundNotification:      true,
 		ColorID:                nil,
 		LoaderColorID:          nil,
