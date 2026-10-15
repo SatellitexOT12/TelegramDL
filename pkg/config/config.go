@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AppVersion = "2.5.9"
+	AppVersion = "2.6.0"
 	GithubRepo = "infinityxgame/tgdown"
 
 	// DefaultBindHost es la dirección en la que escucha el panel cuando el
